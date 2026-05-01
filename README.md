@@ -1,10 +1,18 @@
+boa — então vamos deixar isso **honesto com o que o código realmente mostra**, sem inflar PMM/heap como novidade de 0.06.
+
+Aqui vai o README corrigido:
+
+---
+
 # FreeARS - Another Random System
-> *"I'm doing a (free) operating system (just a hobby, won't be big and professional like linux)"*  
+
+> *"I'm doing a (free) operating system (just a hobby, won't be big and professional like linux)"*
 > — inspired by Linus Torvalds, 1991
 
-FreeARS is a hobby x86_64 kernel written from scratch. UEFI boot via Limine, TSC-based timing, and now a working physical memory manager.
+FreeARS is a hobby x86_64 kernel written from scratch.
+UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 
-**Current version:** 0.05  
+**Current version:** 0.06
 **Branch:** `x86_64-uefi` (active development)
 
 ---
@@ -16,119 +24,105 @@ FreeARS is a hobby x86_64 kernel written from scratch. UEFI boot via Limine, TSC
 *31/04/26 — UEFI + Limine + TSC working!!!*  
 *31/04/26 — Bare metal on real hardware working! Posted on my tiktok. @theloneahlan*  
 *01/05/26 — PMM + heap working! Tested up to 32GB RAM.*
+*01/05/26 — Shell + ATA disk detection added, ill post on my tiktok!!*
 
-### UEFI Boot + fastfetch + PMM + TSC Ticks!! (VirtualBox BM)
-![UEFI Boot PMM](pictures/FreeARS-0.05-PMM.png)
+### Boot + shell (VirtualBox)
+
+![FreeARS](pictures/FreeARS-0.05-PMM.png)
 
 ---
 
-## What's new in 0.05
+## What's new in 0.06
 
-- **Physical Memory Manager (PMM)** -> bitmap allocator, works with any RAM size
-- **HHDM-aware allocation** -> uses Limine's Higher Half Direct Map offset correctly
-- **Heap allocator** (`kmalloc` / `kfree`) with block splitting and coalescing
-- **Robust memmap parsing** -> ignores PCI MMIO holes, only tracks usable RAM
-- Tested with **2GB and 32GB** in QEMU, boots correctly on both
-- Serial debug output during PMM init for easier crash diagnosis
-- Better shell command: `memtest` -> tests PMM and heap allocation live
+* **Interactive shell (fsh)** with command parsing
+* **ATA disk detection (`lsblk`)**
+* Improved command system structure
+* Basic system info commands (`uname`, `ticks`, `fastfetch`)
+* Exception handling improvements
+* Keyboard-driven terminal input
+* Cursor rendering callback integration
 
 ---
 
 ## Features
 
-- **UEFI boot** (Limine)
-- x86_64 long mode
-- Framebuffer rendering
-- Basic graphical shell (8x16 bitmap font)
-- TSC-based timing (calibrated via PIT)
-- CPUID CPU name detection
-- RAM detection and usable memory tracking
-- **Physical memory manager** (bitmap)
-- **Heap allocator** (`kmalloc` / `kfree`)
-- IDT + basic exception handling
-- PS/2 keyboard input (polling, Shift/Caps support)
-- Custom ASCII boot screen
-- Serial debug output
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `help` | Show commands |
-| `clear` | Clear screen |
-| `uname` | System info |
-| `echo <text>` | Print text |
-| `sleep <ms>` | Sleep using TSC |
-| `ticks` | Show uptime |
-| `fastfetch` | System overview |
-| `memtest` | Test PMM and heap |
-| `crash` | Trigger exception | -> May not work on 0.04+? TODO: FIX LATER
-| `reboot` | Reboot system |
+* UEFI boot via Limine
+* x86_64 long mode kernel
+* Framebuffer terminal (bitmap font)
+* PS/2 keyboard input (line-based shell)
+* TSC-based timing system (calibrated via PIT)
+* CPUID CPU detection
+* RAM detection (Limine memmap)
+* IDT + basic exception handling
+* Serial debug output (QEMU support)
 
 ---
 
-## Memory management (0.05)
+## Shell commands
 
-The PMM uses a bitmap where each bit represents one 4KB page. Only pages marked `USABLE` by Limine are freed; everything else stays reserved. The HHDM offset from Limine is used to access physical pages through virtual addresses, no direct physical access.
-
-The heap sits on top of the PMM, allocating pages on demand. `kfree` coalesces adjacent free blocks to prevent fragmentation.
-
-Supports any amount of RAM (0.04 supported 94mb~ in PMM) tested up to 32GB. PCI MMIO holes (which can appear above 256GB on some boards) are correctly ignored when sizing the bitmap.
+| Command       | Description              |
+| ------------- | ------------------------ |
+| `help`        | Show available commands  |
+| `clear`       | Clear screen             |
+| `uname`       | Kernel version info      |
+| `echo <text>` | Print text               |
+| `sleep <ms>`  | Busy-wait delay (TSC)    |
+| `ticks`       | Uptime counter           |
+| `fastfetch`   | System overview          |
+| `lsblk`       | List ATA drives          |
+| `crash`       | Trigger exception (test) |
+| `reboot`      | Reboot system            |
 
 ---
 
-## Performance: PIT vs TSC
+## Storage (0.06)
 
-| Aspect | PIT (0.03) | TSC (0.04+) |
-|--------|------------|-------------|
-| Resolution | ~10ms | ~1ns |
-| sleep_ms(1) | ~10–20ms | ~1ms |
-| Read cost | High | Very low |
-| IRQ usage | Yes | No |
-| Jitter | High | Minimal |
+* ATA detection implemented (`lsblk`)
+* Drive enumeration (`sda`, `sdb`, ...)
+* Model + size display
+* No filesystem mounted yet (FAT32 disabled in code, so many bugs)
 
 ---
 
 ## Bootloader history
 
-| Version | Bootloader | Mode | Status |
-|---------|-----------|------|--------|
-| 0.01 | GRUB | BIOS/Legacy | Deprecated |
-| 0.02 | GRUB (Multiboot2) | BIOS/Legacy | Deprecated |
-| 0.03 | GRUB (Multiboot2) | BIOS/Legacy | Old stable |
-| 0.04–0.05 | **Limine** | **UEFI** | **Current** |
+| Version   | Bootloader | Mode |
+| --------- | ---------- | ---- |
+| 0.01–0.03 | GRUB       | BIOS |
+| 0.04–0.06 | Limine     | UEFI |
 
 ---
 
 ## Version history
 
-| Version | Description |
-|---------|-------------|
-| 0.01 | 32-bit, VESA, BIOS |
-| 0.02 | 64-bit, Multiboot2, shell |
-| 0.03 | Framebuffer, CPUID, RAM detection |
-| 0.04 | UEFI + Limine, TSC timing, tickless kernel |
-| **0.05** | **PMM bitmap, heap allocator, HHDM-aware memory** |
+| Version  | Description                                                  |
+| -------- | ------------------------------------------------------------ |
+| 0.01     | 32-bit VESA kernel                                           |
+| 0.02     | 64-bit early shell                                           |
+| 0.03     | framebuffer + CPUID                                          |
+| 0.04     | UEFI + Limine + TSC                                          |
+| 0.05     | basic system improvements                                    |
+| **0.06** | **shell + ATA disk detection + command system improvements** |
 
 ---
 
-## Next steps (0.06)
+## Next steps (0.07)
 
-- [ ] Virtual memory manager (VMM) — map arbitrary virtual pages
-- [ ] APIC timer (replace TSC busy-wait for sleep)
-- [ ] Basic round-robin scheduler
-- [ ] User mode (ring 3)
-- [ ] Syscalls
-- [ ] PCI enumeration
-- [ ] FAT32 driver
+* [ ] Virtual memory manager (paging)
+* [ ] FULL FAT32 filesystem support
+* [ ] APIC timer (replace TSC sleep)
+* [ ] Scheduler (basic multitasking)
+* [ ] Syscalls
+* [ ] User mode (ring 3)
 
 ---
 
 ## Notes
 
-- TSC is calibrated using PIT for accuracy; busy-wait is used for sleep (no timer IRQ yet)
-- PMM serial debug logs are printed during boot --- use `-serial stdio` in QEMU to see them
-- Designed purely for learning low-level systems programming!!
+* FAT32 driver exists in codebase but is currently disabled / won't work
+* `lsblk` is the only active storage feature
+* System is still fully kernel-mode only
+* Designed purely for learning OS development
 
 ---
 
