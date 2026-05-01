@@ -4,9 +4,10 @@
 #include <limine.h>
 #include "mm/pmm.h"
 #include "mm/heap.h"
-#include "drivers/fs/ata.h"
-#include "graphics/font.h"
 #include "drivers/keyboard.h"
+#include "drivers/rtc.h"
+#include "graphics/font.h"
+
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
@@ -323,10 +324,24 @@ static int ramdisk_delete(const char *name) {
 
 static void cmd_help(void) {
     fg = 0x00FFFF; println("\n  === Commands ==="); fg = 0xFFFFFF;
-    println("  help / clear / uname / echo <txt> / sleep <ms>");
+    println("  help / clear / uname / echo <txt> / sleep <ms> / date");
     println("  ticks / crash / fastfetch / reboot / memtest");
-    println("  lsblk / anim");
     println("  ramls / ramcat <file> / ramwrite <file> <content> / ramdel <file> / raminfo");
+    println("");
+}
+
+static void cmd_date(void) {
+    rtc_time_t t = rtc_read();
+    fg = 0x00FFFF;
+    print("\n  ");
+    if (t.day   < 10) put('0'); print_int(t.day);   put('/');
+    if (t.month < 10) put('0'); print_int(t.month); put('/');
+    print_int(t.year);
+    print("  ");
+    if (t.hour   < 10) put('0'); print_int(t.hour);   put(':');
+    if (t.minute < 10) put('0'); print_int(t.minute); put(':');
+    if (t.second < 10) put('0'); print_int(t.second);
+    println("");
     println("");
 }
 
@@ -435,21 +450,6 @@ static void cmd_fastfetch(void) {
     println("");
 }
 
-static void cmd_lsblk(void) {
-    fg = 0x00FFFF; println("\n  === ATA Disks ==="); fg = 0xFFFFFF;
-    int n = ata_init();
-    if (n == 0) { fg = 0xFF4444; println("  No disks found."); return; }
-    for (int i = 0; i < n; i++) {
-        ata_drive_t *d = ata_get_drive(i);
-        fg = 0x88CC88; print("  sd"); put('a' + i); print(": ");
-        fg = 0xFFFFFF; print(d->model);
-        print("  (");
-        print_int((uint32_t)(d->sector_count / 2048)); 
-        println(" MB)");
-    }
-    println("");
-}
-
 static void cmd_ramls(void) {
     fg = 0x00FFFF; println("\n  === Ramdisk Files ==="); fg = 0xFFFFFF;
     if (ramfile_count == 0) {
@@ -549,8 +549,8 @@ static void shell(void) {
         else if (!strcmp_local(in, "fastfetch")) cmd_fastfetch();
         else if (!strcmp_local(in, "memtest"))   cmd_memtest();
         else if (!strcmp_local(in, "reboot"))    outb(0x64, 0xFE);
-        else if (!strcmp_local(in, "lsblk"))   cmd_lsblk();
         else if (!strcmp_local(in, "anim"))    cmd_anim();
+        else if (!strcmp_local(in, "date")) cmd_date();
         else if (!strcmp_local(in, "ramls"))   cmd_ramls();
         else if (!strcmp_local(in, "raminfo")) cmd_raminfo();
         else if (startswith(in, "ramcat ")) {
