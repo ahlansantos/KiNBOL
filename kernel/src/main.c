@@ -5,7 +5,6 @@
 #include "mm/pmm.h"
 #include "mm/heap.h"
 #include "drivers/fs/ata.h"
-#include "drivers/fs/fat32.h"
 #include "graphics/font.h"
 #include "drivers/keyboard.h"
 
@@ -242,13 +241,92 @@ static int startswith(const char *s, const char *p) {
     while (*p) if (*s++ != *p++) return 0;
     return 1;
 }
+static int kstrlen(const char *s) { int i=0; while(s[i]) i++; return i; }
+static void *kmemcpy(void *dest, const void *src, uint32_t n) {
+    uint8_t *d = dest;
+    const uint8_t *s = src;
+    while (n--) *d++ = *s++;
+    return dest;
+}
+static char *kstrcpy(char *dest, const char *src) {
+    char *d = dest;
+    while ((*d++ = *src++));
+    return dest;
+}
+
+#define MAX_RAMFILES 64
+typedef struct {
+    char name[64];
+    uint8_t *data;
+    uint32_t size;
+    uint8_t type;
+} ramfile_t;
+static ramfile_t ramfiles[MAX_RAMFILES];
+static int ramfile_count = 0;
+
+static void ramdisk_init(void) {
+    for (int i = 0; i < MAX_RAMFILES; i++) {
+        ramfiles[i].name[0] = 0;
+        ramfiles[i].data = NULL;
+        ramfiles[i].size = 0;
+        ramfiles[i].type = 0;
+    }
+    ramfile_count = 0;
+}
+
+static int ramdisk_find(const char *name) {
+    for (int i = 0; i < MAX_RAMFILES; i++) {
+        if (ramfiles[i].name[0] && strcmp_local(ramfiles[i].name, name) == 0)
+            return i;
+    }
+    return -1;
+}
+
+static int ramdisk_create(const char *name, const uint8_t *data, uint32_t size) {
+    int idx = ramdisk_find(name);
+    if (idx >= 0) {
+        kfree(ramfiles[idx].data);
+        ramfiles[idx].data = kmalloc(size);
+        if (!ramfiles[idx].data) return -1;
+        kmemcpy(ramfiles[idx].data, data, size);
+        ramfiles[idx].size = size;
+        return 0;
+    }
+    for (int i = 0; i < MAX_RAMFILES; i++) {
+        if (ramfiles[i].name[0] == 0) {
+            kstrcpy(ramfiles[i].name, name);
+            ramfiles[i].data = kmalloc(size);
+            if (!ramfiles[i].data) {
+                ramfiles[i].name[0] = 0;
+                return -1;
+            }
+            kmemcpy(ramfiles[i].data, data, size);
+            ramfiles[i].size = size;
+            ramfiles[i].type = 0;
+            ramfile_count++;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int ramdisk_delete(const char *name) {
+    int idx = ramdisk_find(name);
+    if (idx < 0) return -1;
+    kfree(ramfiles[idx].data);
+    ramfiles[idx].name[0] = 0;
+    ramfiles[idx].data = NULL;
+    ramfiles[idx].size = 0;
+    ramfile_count--;
+    return 0;
+}
 
 static void cmd_help(void) {
     fg = 0x00FFFF; println("\n  === Commands ==="); fg = 0xFFFFFF;
     println("  help / clear / uname / echo <txt> / sleep <ms>");
     println("  ticks / crash / fastfetch / reboot / memtest");
-    println("  lsblk / mount (wont work 0.06) / ls (wont work 0.06) / cat <file> (wont work 0.06) / write <file> <cont> (wont work 0.06)");
-    
+    println("  lsblk / anim");
+    println("  ramls / ramcat <file> / ramwrite <file> <content> / ramdel <file> / raminfo");
     println("");
 }
 
@@ -306,10 +384,10 @@ static void cmd_fastfetch(void) {
     println("  |_|  |_|  \\___|\\___| /_/    \\_\\_|  \\_\\_____/ ");
     println("");
     fg = 0x88CC88; println("  user@FreeARS"); fg = 0xAAAAAA; println("  -----------");
-    fg = 0xDDDDDD; print("  OS:       "); fg = 0x88CC88; println("FreeARS 0.06");
+    fg = 0xDDDDDD; print("  OS:       "); fg = 0x88CC88; println("FreeARS 0.07");
     fg = 0xDDDDDD; print("  Branch:   "); fg = 0x88CC88; println("FreeARS/tree/x86_64-uefi");
     fg = 0xDDDDDD; print("  Kernel:   "); fg = 0x88CC88; println("x86_64 Limine UEFI");
-    fg = 0xDDDDDD; print("  Shell:    "); fg = 0x88CC88; println("fsh 0.5");
+    fg = 0xDDDDDD; print("  Shell:    "); fg = 0x88CC88; println("freesh 1");
     fg = 0xDDDDDD; print("  Credits:  "); fg = 0x88CC88;
     println("ahlansantos - Main Dev | limine-c-template");
 
@@ -357,23 +435,6 @@ static void cmd_fastfetch(void) {
     println("");
 }
 
-/* static void ls_print(const char *name, uint32_t size, int is_dir) {
-    fg = is_dir ? 0x88AAFF : 0xFFFFFF;
-    print("  ");
-    if (is_dir) print("[DIR] ");
-    print(name);
-    if (!is_dir) {
-        print("  (");
-        print_int(size);
-        print(" bytes)");
-    }
-    println("");
-} */
-
-/* static void cat_print(const uint8_t *data, uint32_t len) {
-    for (uint32_t i = 0; i < len; i++) put((char)data[i]);
-} */
-
 static void cmd_lsblk(void) {
     fg = 0x00FFFF; println("\n  === ATA Disks ==="); fg = 0xFFFFFF;
     int n = ata_init();
@@ -389,34 +450,72 @@ static void cmd_lsblk(void) {
     println("");
 }
 
-/* static void cmd_mount(void) {
-    if (fat32_mount(1, 0) == 0) {
-        fg = 0x88CC88; println("  fat32 mount on sdb");
+static void cmd_ramls(void) {
+    fg = 0x00FFFF; println("\n  === Ramdisk Files ==="); fg = 0xFFFFFF;
+    if (ramfile_count == 0) {
+        fg = 0xFF4444; println("  (empty)");
     } else {
-        fg = 0xFF4444; println("  cantm mount");
+        for (int i = 0; i < MAX_RAMFILES; i++) {
+            if (ramfiles[i].name[0]) {
+                fg = 0x88CC88; print("  "); print(ramfiles[i].name);
+                fg = 0xFFFFFF; print("  ("); print_int(ramfiles[i].size); println(" bytes)");
+            }
+        }
     }
-} */
-
-/* static void cmd_ls(void) {
-    fg = 0x00FFFF; println("\n  === / ===");
-    fat32_ls(ls_print);
     println("");
-} */
+}
 
-/* static void cmd_cat(const char *filename) {
-    fg = 0xFFFFFF;
-    int r = fat32_cat(filename, cat_print);
-    if (r < 0) { fg = 0xFF4444; print("  File not found: "); println(filename); }
-    else put('\n');
-} */
+static void cmd_ramcat(const char *name) {
+    int idx = ramdisk_find(name);
+    if (idx < 0) {
+        fg = 0xFF4444; print("  File not found: "); println(name);
+        return;
+    }
+    fg = 0xDDDDDD;
+    print("  ");
+    for (uint32_t i = 0; i < ramfiles[idx].size; i++) {
+        put((char)ramfiles[idx].data[i]);
+    }
+    println("");
+}
 
-static int kstrlen(const char *s){ int i=0; while(s[i]) i++; return i; }
+static void cmd_ramwrite(const char *name, const char *content) {
+    int r = ramdisk_create(name, (const uint8_t *)content, kstrlen(content));
+    if (r == 0) {
+        fg = 0x88CC88; print("  Written: "); println(name);
+    } else {
+        fg = 0xFF4444; println("  Error writing file.");
+    }
+}
 
-/* static void cmd_write(const char *filename, const char *content) {
-    int r = fat32_write_file(filename, (const uint8_t*)content, kstrlen(content));
-    if (r == 0) { fg = 0x88CC88; print("  Escrito: "); println(filename); }
-    else { fg = 0xFF4444; println("  Erro ao escrever."); }
-} */
+static void cmd_ramdel(const char *name) {
+    int r = ramdisk_delete(name);
+    if (r == 0) {
+        fg = 0x88CC88; print("  Deleted: "); println(name);
+    } else {
+        fg = 0xFF4444; println("  File not found.");
+    }
+}
+
+static void cmd_raminfo(void) {
+    fg = 0x00FFFF; println("\n  === Ramdisk Info ===");
+    fg = 0xFFFFFF; print("  Files: "); print_int(ramfile_count); println("");
+    print("  Free slots: "); print_int(MAX_RAMFILES - ramfile_count); println("");
+    println("");
+}
+
+static void cmd_anim(void) {
+    fg = 0xFFFF00;
+    print("\n  ");
+    const char spinner[] = "|/-\\";
+    for (int i = 0; i < 20; i++) {
+        put(spinner[i % 4]);
+        sleep_ms(100);
+        put('\b');
+    }
+    fg = 0x88FF88;
+    println(" Done!");
+}
 
 static void shell(void) {
     char in[256];
@@ -426,7 +525,7 @@ static void shell(void) {
 
         if      (!strcmp_local(in, "help"))      cmd_help();
         else if (!strcmp_local(in, "clear"))     clear();
-        else if (!strcmp_local(in, "uname"))   { fg = 0x00FF00; println("  FreeARS 0.06 - x86_64-uefi - Limine"); }
+        else if (!strcmp_local(in, "uname"))   { fg = 0x00FF00; println("  FreeARS 0.07 - x86_64-uefi - Limine"); }
         else if (startswith(in, "echo "))      { fg = 0x00FF00; print("  "); println(in + 5); }
         else if (!strcmp_local(in, "ticks"))   {
             fg = 0x00FF00;
@@ -451,6 +550,35 @@ static void shell(void) {
         else if (!strcmp_local(in, "memtest"))   cmd_memtest();
         else if (!strcmp_local(in, "reboot"))    outb(0x64, 0xFE);
         else if (!strcmp_local(in, "lsblk"))   cmd_lsblk();
+        else if (!strcmp_local(in, "anim"))    cmd_anim();
+        else if (!strcmp_local(in, "ramls"))   cmd_ramls();
+        else if (!strcmp_local(in, "raminfo")) cmd_raminfo();
+        else if (startswith(in, "ramcat ")) {
+            char *name = in + 7;
+            if (name[0] == 0) { fg = 0xFF0000; println("  Usage: ramcat <file>"); }
+            else cmd_ramcat(name);
+        }
+        else if (startswith(in, "ramwrite ")) {
+            char *p = in + 9;
+            if (p[0] == 0) { fg = 0xFF0000; println("  Usage: ramwrite <file> <content>"); }
+            else {
+                char *sp = p;
+                while (*sp && *sp != ' ') sp++;
+                if (*sp == ' ') {
+                    *sp = 0;
+                    char *name = p;
+                    char *content = sp + 1;
+                    cmd_ramwrite(name, content);
+                } else {
+                    fg = 0xFF0000; println("  Usage: ramwrite <file> <content>");
+                }
+            }
+        }
+        else if (startswith(in, "ramdel ")) {
+            char *name = in + 7;
+            if (name[0] == 0) { fg = 0xFF0000; println("  Usage: ramdel <file>"); }
+            else cmd_ramdel(name);
+        }
         else if (in[0])                          { fg = 0xFF0000; print("  not found: "); println(in); }
     }
 }
@@ -473,22 +601,15 @@ void kmain(void) {
             struct limine_memmap_entry *e = memmap_request.response->entries[i];
             if (e->type == LIMINE_MEMMAP_USABLE) total_ram += e->length;
         }
-        serial_print("HHDM offset: "); serial_hex(hhdm_off); serial_print("\n");
-        serial_print("Initializing PMM...\n");
         pmm_init(memmap_request.response, hhdm_off);
-        uint64_t fp = pmm_get_free_page_count();
-        char buf[20]; int bi = 19; buf[bi--] = 0;
-        if (fp == 0) buf[bi--] = '0';
-        while (fp) { buf[bi--] = '0' + (fp % 10); fp /= 10; }
-        serial_print("PMM OK. Free pages: "); serial_print(&buf[bi + 1]); serial_print("\n");
     } else {
-        serial_print("ERROR: memmap or HHDM response is NULL!\n");
         hcf();
     }
 
     tsc_calibrate();
     boot_tsc = rdtsc();
     idt_init();
+    ramdisk_init();
     asm volatile("sti");
 
     keyboard_set_cursor_cb(cursor_draw);
@@ -506,7 +627,7 @@ void kmain(void) {
     println("  |_|  |_|  \\___|\\___| /_/    \\_\\_|  \\_\\_____/ ");
     println("");
 
-    fg = 0x88CC88; println("  FreeARS 0.06"); println("");
+    fg = 0x88CC88; println("  FreeARS 0.07"); println("");
     fg = 0xDDDDDD; print("  Framebuffer: "); fg = 0x88CC88;
     print_int(fbi->width); print("x"); print_int(fbi->height); println("");
     fg = 0xDDDDDD; print("  RAM:         "); fg = 0x88CC88;
