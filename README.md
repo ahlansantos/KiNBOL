@@ -26,9 +26,9 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 *01/05/26 — PMM + heap working! Tested up to 32GB RAM.*
 *01/05/26 — Shell + ATA disk detection added, ill post on my tiktok!!*
 
-### Boot + shell (VirtualBox)
+### 0.06 fastfetch + lsblk on VBox!
 
-![FreeARS](pictures/FreeARS-0.05-PMM.png)
+![FreeARS](pictures/FreeARS-0.06-lsblk.png)
 
 ---
 
