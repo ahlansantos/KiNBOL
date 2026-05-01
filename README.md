@@ -1,9 +1,3 @@
-boa — então vamos deixar isso **honesto com o que o código realmente mostra**, sem inflar PMM/heap como novidade de 0.06.
-
-Aqui vai o README corrigido:
-
----
-
 # FreeARS - Another Random System
 
 > *"I'm doing a (free) operating system (just a hobby, won't be big and professional like linux)"*
