@@ -571,7 +571,7 @@ static void cmd_fastfetch(void) {
     println("  |_|  |_|  \\___|\\___| /_/    \\_\\_|  \\_\\_____/ ");
     println("");
     fg=0x88CC88; println("  user@FreeARS"); fg=0xAAAAAA; println("  -----------");
-    fg=0xDDDDDD; print("  OS:       "); fg=0x88CC88; println("FreeARS 0.06");
+    fg=0xDDDDDD; print("  OS:       "); fg=0x88CC88; println("FreeARS 0.06.1");
     fg=0xDDDDDD; print("  Kernel:   "); fg=0x88CC88; println("x86_64 Limine UEFI");
     fg=0xDDDDDD; print("  Shell:    "); fg=0x88CC88; println("freesh 1");
     fg=0xDDDDDD; print("  VFS:      "); fg=0x88CC88; print_int(vfs_node_count()); println(" nodes");
@@ -647,7 +647,7 @@ static void shell(void) {
 
         if     (!strcmp_local(in,"help"))      cmd_help();
         else if(!strcmp_local(in,"clear"))     clear();
-        else if(!strcmp_local(in,"uname"))   { fg=0x00FF00; println("  FreeARS 0.06 x86_64-uefi Limine"); }
+        else if(!strcmp_local(in,"uname"))   { fg=0x00FF00; println("  FreeARS 0.06.1 x86_64-uefi Limine"); }
         else if(startswith(in,"echo "))      { fg=0x00FF00; print("  "); println(in+5); }
         else if(!strcmp_local(in,"ticks"))   {
             fg=0x00FF00;
@@ -738,7 +738,7 @@ void kmain(void) {
 
     serial_init();
     dmesg_init();
-    dmesg("[boot] FreeARS 0.06 starting\n");
+    dmesg("[boot] FreeARS 0.06.1 starting\n");
 
     if(memmap_request.response!=NULL&&hhdm_request.response!=NULL){
         hhdm_offset=hhdm_request.response->offset;
@@ -778,7 +778,7 @@ void kmain(void) {
     fg=0x88AACC;
     println("  |_|  |_|  \\___|\\___| /_/    \\_\\_|  \\_\\_____/ ");
     println("");
-    fg=0x88CC88; println("  FreeARS 0.06"); println("");
+    fg=0x88CC88; println("  FreeARS 0.06.1"); println("");
     fg=0xDDDDDD; print("  Framebuffer: "); fg=0x88CC88;
     print_int(fbi->width); print("x"); print_int(fbi->height); println("");
     fg=0xDDDDDD; print("  RAM:         "); fg=0x88CC88;
