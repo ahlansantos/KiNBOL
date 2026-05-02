@@ -3,7 +3,9 @@
 #include <stdbool.h>
 #include <limine.h>
 #include "mm/pmm.h"
+#include "mm/vmm.h"
 #include "mm/heap.h"
+#include "drivers/apic.h"
 #include "drivers/keyboard.h"
 #include "drivers/rtc.h"
 #include "graphics/font.h"
@@ -73,7 +75,7 @@ static uint64_t uptime_ms(void) {
     return ((rdtsc() - boot_tsc) * 1000ULL) / tsc_hz;
 }
 static uint32_t get_ticks(void) { return (uint32_t)(uptime_ms() / 10); }
-static void sleep_ms(uint32_t ms) {
+void sleep_ms(uint32_t ms) {
     uint64_t end = rdtsc() + (tsc_hz * (uint64_t)ms) / 1000ULL;
     while (rdtsc() < end) asm volatile("pause");
 }
@@ -153,8 +155,8 @@ static void serial_init(void) {
 static void serial_putc(char c) {
     while(!(inb(0x3F8+5)&0x20)); outb(0x3F8,c);
 }
-static void serial_print(const char *s) { for(int i=0;s[i];i++) serial_putc(s[i]); }
-static void serial_hex(uint64_t n) {
+void serial_print(const char *s) { for(int i=0;s[i];i++) serial_putc(s[i]); }
+void serial_hex(uint64_t n) {
     char h[]="0123456789ABCDEF"; serial_print("0x");
     for(int i=15;i>=0;i--) serial_putc(h[(n>>(i*4))&0xF]);
 }
@@ -184,11 +186,28 @@ __attribute__((used,naked)) static void isr6(void)  { asm volatile("pushq $0; pu
 __attribute__((used,naked)) static void isr8(void)  { asm volatile("pushq $0; pushq $8;  jmp isr_common"); }
 __attribute__((used,naked)) static void isr13(void) { asm volatile("pushq $0; pushq $13; jmp isr_common"); }
 __attribute__((used,naked)) static void isr14(void) { asm volatile("pushq $0; pushq $14; jmp isr_common"); }
+__attribute__((used, naked)) static void isr32(void) {
+    asm volatile(
+        "pushq $0; pushq $32;"
+        "pushq %%rax; pushq %%rbx; pushq %%rcx; pushq %%rdx;"
+        "pushq %%rsi; pushq %%rdi; pushq %%rbp;"
+        "pushq %%r8;  pushq %%r9;  pushq %%r10; pushq %%r11;"
+        "pushq %%r12; pushq %%r13; pushq %%r14; pushq %%r15;"
+        "cld; call apic_send_eoi;"
+        "popq %%r15; popq %%r14; popq %%r13; popq %%r12;"
+        "popq %%r11; popq %%r10; popq %%r9;  popq %%r8;"
+        "popq %%rbp; popq %%rdi; popq %%rsi;"
+        "popq %%rdx; popq %%rcx; popq %%rbx; popq %%rax;"
+        "addq $16, %%rsp; iretq" ::: "memory"
+    );
+}
+
 static void idt_init(void) {
     for(int i=0;i<256;i++) idt_set_gate(i,(uint64_t)isr_common,0x08,0x8E);
     idt_set_gate(0,(uint64_t)isr0,0x08,0x8E);   idt_set_gate(6,(uint64_t)isr6,0x08,0x8E);
     idt_set_gate(8,(uint64_t)isr8,0x08,0x8E);   idt_set_gate(13,(uint64_t)isr13,0x08,0x8E);
     idt_set_gate(14,(uint64_t)isr14,0x08,0x8E);
+    idt_set_gate(32, (uint64_t)isr32, 0x08, 0x8E);
     idt_ptr.limit=sizeof(idt_entry_t)*256-1; idt_ptr.base=(uint64_t)&idt;
     asm volatile("lidt %0"::"m"(idt_ptr));
 }
@@ -642,7 +661,7 @@ static void cmd_raminfo(void) {
 static void shell(void) {
     char in[256];
     while(1){
-        fg=0x00FF00; print("freeARS> "); fg=0xFFFFFF;
+        fg=0x88CC88; print("freeARS> "); fg=0xFFFFFF;
         keyboard_readline(in,256);
 
         if     (!strcmp_local(in,"help"))      cmd_help();
@@ -722,6 +741,17 @@ static void shell(void) {
             char *n=in+7; if(*n) cmd_ramdel(n);
             else{fg=0xFF0000;println("  Usage: ramdel <file>");}
         }
+        else if (!strcmp_local(in, "vminfo")) {
+            fg = 0x00FFFF; println("\n  === VMM Info ===");
+            fg = 0xDDDDDD; print("  VMM kernel pagemap: ");
+            fg = 0x88CC88; print_hex((uint64_t)hhdm_offset); println("");
+            fg = 0xDDDDDD; print("  CR3 atual (Limine): ");
+            uint64_t cr3;
+            asm volatile("mov %%cr3, %0" : "=r"(cr3));
+            fg = 0x88CC88; print_hex(cr3); println("");
+            fg = 0xDDDDDD; println("  (vmm_virt_to_phys only works in own pagemaps.)");
+            println("");
+        }
         else if(in[0]){ fg=0xFF0000; print("  not found: "); println(in); }
     }
 }
@@ -751,6 +781,8 @@ void kmain(void) {
         dmesg("[pmm] initializing\n");
         pmm_init(memmap_request.response,hhdm_offset);
         dmesg("[pmm] OK, free pages: "); dmesg_int((uint32_t)pmm_get_free_page_count()); dmesg("\n");
+        vmm_init();
+        dmesg("[vmm] page tables initialized\n");
     } else { hcf(); }
 
     tsc_calibrate();
@@ -759,10 +791,15 @@ void kmain(void) {
 
     idt_init();
     dmesg("[idt] loaded\n");
+    apic_init();
+    dmesg("[apic] init called\n");
+
 
     ramdisk_init();
+    dmesg("[ramdisk] init called\n");
+
     vfs_init();
-    dmesg("[vfs] ready\n");
+    dmesg("[vfs] init called\n");
 
     asm volatile("sti");
     keyboard_set_cursor_cb(cursor_draw);
