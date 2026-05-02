@@ -103,21 +103,19 @@ void apic_init(void) {
 
         wrmsr(IA32_APIC_BASE_MSR, msr | (1 << 11));
     
-    // Aguarda estabilização
     for(volatile int i = 0; i < 1000; i++) asm volatile("pause");
     
-    // Testa escrita/leitura no APIC
     uint32_t test_val = apic_read(APIC_SPURIOUS);
     serial_print("[apic] spurious vector: "); serial_hex(test_val); serial_print("\n");
-    
-    // Ativa APIC (bit 8 = enable, bits 0-7 = spurious vector)
+
     apic_write(APIC_SPURIOUS, (test_val & ~0xFF) | (1 << 8) | 0xFF);
     
     serial_print("[apic] init done\n");
 }
 
 void apic_timer_init(uint32_t hz) {
-    // Mascara o timer (desativa)
-    apic_write(APIC_LVT_TIMER, 0x10000);  // Bit 16 = 1 (masked)
+    apic_write(APIC_LVT_TIMER, 0x10000);  
     serial_print("[apic] timer masked (disabled)\n");
 }
+
+// TODO: FIX APIC TIMER ADD APIC TIMER

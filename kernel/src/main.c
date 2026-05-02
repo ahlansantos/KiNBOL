@@ -833,3 +833,5 @@ void kmain(void) {
     shell();
     hcf();
 }
+
+// TODO: FIX APIC TIMER ADD APIC TIMER
