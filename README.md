@@ -1,40 +1,43 @@
 # FreeARS - Another Random System
-
 > *"I'm doing a (free) operating system (just a hobby, won't be big and professional like linux)"*
-> — inspired by Linus Torvalds, 1991
+> -> inspired by Linus Torvalds, 1991
 
 FreeARS is a hobby x86_64 kernel written from scratch.
 UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 
-**Current version:** 0.06
+**Current version:** 0.06.1
 **Branch:** `x86_64-uefi` (active development)
 
 ---
 
 ## Screenshots
 
-*28/04/26 — IT BOOTED!!! 64-bit mode (QEMU) after hours of bugs!*  
-*30/04/26 — Booted on a baremetal-like VM (VirtualBox)!*  
-*31/04/26 — UEFI + Limine + TSC working!!!*  
-*31/04/26 — Bare metal on real hardware working! Posted on my tiktok. @theloneahlan*  
-*01/05/26 — PMM + heap working! Tested up to 32GB RAM.*
-*01/05/26 — Shell + ATA disk detection added, ill post on my tiktok!!*
+*28/04/26 -> IT BOOTED!!! 64-bit mode (QEMU) after hours of bugs!*
+*30/04/26 -> Booted on a baremetal-like VM (VirtualBox)!*
+*31/04/26 -> UEFI + Limine + TSC working!!!*
+*31/04/26 -> Bare metal on real hardware working! Posted on my tiktok. @theloneahlan*
+*01/05/26 -> PMM + heap working! Tested up to 32GB RAM.*
+*01/05/26 -> Shell + ATA disk detection added.*
+*03/05/26 -> VFS, ramdisk, dmesg, heap improvements, new Spleen font!*
 
-### 0.06 fastfetch + lsblk on VBox!
-
-![FreeARS](pictures/FreeARS-0.06-lsblk.png)
+### 0.06.1 -> New Spleen 8x16 font!
+![FreeARS](pictures/FreeARS-0.06.1_font.png)
 
 ---
 
-## What's new in 0.06
+## What's new in 0.06.1
 
-* **Interactive shell (fsh)** with command parsing
-* **ATA disk detection (`lsblk`)**
-* Improved command system structure
-* Basic system info commands (`uname`, `ticks`, `fastfetch`)
-* Exception handling improvements
-* Keyboard-driven terminal input
-* Cursor rendering callback integration
+* **Spleen 8x16 bitmap font** -> much cleaner terminal output
+* **VFS (Virtual File System)** -> `/dev/null`, `/dev/zero`, `/dev/random`, `/dev/tty`, `/dev/ram0`
+* **Ramdisk** -> in-memory filesystem, create/read/delete files at runtime
+* **dmesg** -> kernel ring buffer log (4KB circular), records all boot events
+* **Heap improvements** -> `kcalloc`, `krealloc`, magic number corruption detection, bidirectional coalescing, usage statistics
+* **Memory debug tools** -> `hexdump`, `peek`, `poke` with automatic physical→virtual address conversion
+* **`calc`** -> expression calculator with correct precedence, hex support, bitwise operators
+* **`meminfo`** -> detailed memory map + heap statistics
+* **`ascii`** -> ASCII table
+* **Blinking cursor** in the terminal (callback-based, keyboard driver integrated)
+* **RTC driver** -> `date` command shows real time
 
 ---
 
@@ -42,68 +45,91 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 
 * UEFI boot via Limine
 * x86_64 long mode kernel
-* Framebuffer terminal (bitmap font)
-* PS/2 keyboard input (line-based shell)
-* TSC-based timing system (calibrated via PIT)
+* Framebuffer terminal with **Spleen 8x16** bitmap font
+* PS/2 keyboard input with blinking cursor
+* TSC-based timing (calibrated via PIT)
 * CPUID CPU detection
-* RAM detection (Limine memmap)
-* IDT + basic exception handling
-* Serial debug output (QEMU support)
+* RAM detection via Limine memmap
+* IDT + exception handling
+* Serial debug output
+* Physical Memory Manager (PMM) -> bitmap allocator
+* Heap allocator with corruption detection and coalescing
+* Virtual File System (VFS) with device nodes
+* In-memory ramdisk (RAM-backed file storage)
+* Kernel log ring buffer (dmesg)
+* RTC real-time clock driver
 
 ---
 
 ## Shell commands
 
-| Command       | Description              |
-| ------------- | ------------------------ |
-| `help`        | Show available commands  |
-| `clear`       | Clear screen             |
-| `uname`       | Kernel version info      |
-| `echo <text>` | Print text               |
-| `sleep <ms>`  | Busy-wait delay (TSC)    |
-| `ticks`       | Uptime counter           |
-| `fastfetch`   | System overview          |
-| `lsblk`       | List ATA drives          |
-| `crash`       | Trigger exception (test) |
-| `reboot`      | Reboot system            |
+| Command                    | Description                              |
+| -------------------------- | ---------------------------------------- |
+| `help`                     | Show available commands                  |
+| `clear`                    | Clear screen                             |
+| `uname`                    | Kernel version info                      |
+| `echo <text>`              | Print text                               |
+| `sleep <ms>`               | Busy-wait delay (TSC)                    |
+| `ticks`                    | Uptime counter                           |
+| `fastfetch`                | System overview                          |
+| `date`                     | Show real-time clock                     |
+| `crash`                    | Trigger exception (test)                 |
+| `reboot`                   | Reboot system                            |
+| `memtest`                  | PMM + heap allocator test                |
+| `meminfo`                  | Memory map + heap statistics             |
+| `hexdump <addr> <len>`     | Hex dump of memory region                |
+| `peek <addr>`              | Read 8 bytes from address                |
+| `poke <addr> <val>`        | Write 32-bit value to address            |
+| `calc <expr>`              | Calculator (`+−*/% & \| ^ << >> ~`)      |
+| `ascii`                    | ASCII table                              |
+| `dmesg`                    | Show kernel log                          |
+| `vfsls`                    | List VFS device nodes (`/dev/*`)         |
+| `vfsread <dev>`            | Read from VFS device                     |
+| `vfswrite <dev> <data>`    | Write to VFS device                      |
+| `ramls`                    | List ramdisk files                       |
+| `ramcat <file>`            | Read ramdisk file                        |
+| `ramwrite <file> <text>`   | Write ramdisk file                       |
+| `ramdel <file>`            | Delete ramdisk file                      |
+| `raminfo`                  | Ramdisk usage info                       |
+| `anim`                     | Spinner animation (timing test)          |
 
 ---
 
-## Storage (0.06)
+## Storage
 
-* ATA detection implemented (`lsblk`)
-* Drive enumeration (`sda`, `sdb`, ...)
-* Model + size display
-* No filesystem mounted yet (FAT32 disabled in code, so many bugs)
+* **Ramdisk** -> fully functional in-memory filesystem
+* **VFS** -> `/dev/null`, `/dev/zero`, `/dev/random`, `/dev/tty`, `/dev/ram0`
+* No persistent disk filesystem yet (planned for next versions!)
 
 ---
 
 ## Bootloader history
 
-| Version   | Bootloader | Mode |
-| --------- | ---------- | ---- |
-| 0.01–0.03 | GRUB       | BIOS |
-| 0.04–0.06 | Limine     | UEFI |
+| Version     | Bootloader | Mode |
+| ---------   | ---------- | ---- |
+| 0.01–0.03   | GRUB       | BIOS |
+| 0.04–0.06.1 | Limine     | UEFI |
 
 ---
 
 ## Version history
 
-| Version  | Description                                                  |
-| -------- | ------------------------------------------------------------ |
-| 0.01     | 32-bit VESA kernel                                           |
-| 0.02     | 64-bit early shell                                           |
-| 0.03     | framebuffer + CPUID                                          |
-| 0.04     | UEFI + Limine + TSC                                          |
-| 0.05     | basic system improvements                                    |
-| **0.06** | **shell + ATA disk detection + command system improvements** |
+| Version    | Description                                                              |
+| ---------- | ------------------------------------------------------------------------ |
+| 0.01       | 32-bit VESA kernel                                                       |
+| 0.02       | 64-bit early shell                                                       |
+| 0.03       | Framebuffer + CPUID                                                      |
+| 0.04       | UEFI + Limine + TSC                                                      |
+| 0.05       | PMM + heap + keyboard driver                                             |
+| 0.06       | Shell + command system + RTC + Fat32 and ATA (removed on .1)             |
+| **0.06.1** | **Spleen font + VFS + ramdisk + dmesg + heap improvements + debug tools**|
 
 ---
 
-## Next steps (0.07)
+## Next steps
 
 * [ ] Virtual memory manager (paging)
-* [ ] FULL FAT32 filesystem support
+* [ ] FAT32 filesystem on real disk
 * [ ] APIC timer (replace TSC sleep)
 * [ ] Scheduler (basic multitasking)
 * [ ] Syscalls
@@ -113,10 +139,9 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 
 ## Notes
 
-* FAT32 driver exists in codebase but is currently disabled / won't work
-* `lsblk` is the only active storage feature
-* System is still fully kernel-mode only
+* Fully kernel-mode only (no user processes yet)
 * Designed purely for learning OS development
+* Tested on QEMU, VirtualBox, and real hardware!
 
 ---
 

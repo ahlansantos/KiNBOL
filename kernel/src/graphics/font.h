@@ -1,6 +1,8 @@
+// font.h - Spleen 8x16 bitmap font
 #ifndef FONT_H
 #define FONT_H
-#include <stdint.h>
 
-extern const uint8_t font[128][16];
+// font[char_code][row] = 8 bits, bit7 = leftmost pixel
+extern const unsigned char font[256][16];
+
 #endif
