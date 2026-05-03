@@ -19,7 +19,6 @@
 #include "fs/ramdisk.h"
 #include "shell/shell.h"
 
-/* --- Limine requests --- */
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
 __attribute__((used, section(".limine_requests")))
@@ -39,7 +38,6 @@ static volatile struct limine_hhdm_request hhdm_request = {
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
-/* --- Globais expostas (usadas por commands.c e outros módulos) --- */
 uint64_t hhdm_offset = 0;
 struct limine_framebuffer     *fbi      = 0;
 struct limine_memmap_response *g_memmap = 0;

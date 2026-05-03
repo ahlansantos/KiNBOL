@@ -2,6 +2,7 @@
 #include "draw.h"
 #include "../../drivers/keyboard.h"
 #include "../../kernel/pit.h"
+#include "../../graphics/terminal.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -150,6 +151,7 @@ static void ray_render(void) {
     int sw = draw_width();
     int sh = draw_height();
 
+    
     draw_rect_fill(0,      0,    sw, sh / 2, draw_rgb(40,  40,  80));
     draw_rect_fill(0, sh / 2,    sw, sh / 2, draw_rgb(60,  40,  20));
 
@@ -187,11 +189,14 @@ void ray_run(void) {
     cam_angle = 0;
 
     while (1) {
-        uint8_t key = keyboard_peek();
+        keyboard_update();
 
-        if (key == 0x01) break;
+        if (keyboard_held(0x01)) {
+            terminal_clear();
+            break;
+        }
 
-        if (key == 0x48) {
+        if (keyboard_held(0x48)) {
             fixed_t dx = FP_MUL(fp_cos(cam_angle), MOVE_SPEED);
             fixed_t dy = FP_MUL(fp_sin(cam_angle), MOVE_SPEED);
             fixed_t nx = cam_x + dx;
@@ -199,7 +204,7 @@ void ray_run(void) {
             if (!map_solid(FP2INT(nx), FP2INT(cam_y))) cam_x = nx;
             if (!map_solid(FP2INT(cam_x), FP2INT(ny))) cam_y = ny;
         }
-        if (key == 0x50) {
+        if (keyboard_held(0x50)) {
             fixed_t dx = FP_MUL(fp_cos(cam_angle), MOVE_SPEED);
             fixed_t dy = FP_MUL(fp_sin(cam_angle), MOVE_SPEED);
             fixed_t nx = cam_x - dx;
@@ -207,14 +212,11 @@ void ray_run(void) {
             if (!map_solid(FP2INT(nx), FP2INT(cam_y))) cam_x = nx;
             if (!map_solid(FP2INT(cam_x), FP2INT(ny))) cam_y = ny;
         }
-        if (key == 0x4B) {
-            cam_angle = (cam_angle - TURN_SPEED + 360) % 360;
-        }
-        if (key == 0x4D) {
-            cam_angle = (cam_angle + TURN_SPEED) % 360;
-        }
+        if (keyboard_held(0x4B)) cam_angle = (cam_angle - TURN_SPEED + 360) % 360;
+        if (keyboard_held(0x4D)) cam_angle = (cam_angle + TURN_SPEED) % 360;
 
         ray_render();
+        draw_flip();
         sleep_ms(16);
     }
 }

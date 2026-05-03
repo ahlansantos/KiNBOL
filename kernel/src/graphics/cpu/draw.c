@@ -1,13 +1,19 @@
 #include "draw.h"
+#include "../../mm/heap.h"
 #include <stdint.h>
 #include <stddef.h>
 
+#define MAX_FB_SIZE (1280 * 800 * 4)
+
 static struct limine_framebuffer *d_fb = NULL;
+static uint8_t back_storage[MAX_FB_SIZE];
+static uint32_t *d_back = NULL;
 static uint32_t d_pw = 0;
 
 void draw_init(struct limine_framebuffer *fb) {
     d_fb = fb;
     d_pw = fb->pitch / 4;
+    d_back = (uint32_t *)back_storage;
 }
 
 int draw_width(void)  { return d_fb ? (int)d_fb->width  : 0; }
@@ -18,10 +24,18 @@ uint32_t draw_rgb(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void draw_pixel(int x, int y, uint32_t color) {
-    if (!d_fb) return;
+    if (!d_fb || !d_back) return;
     if (x < 0 || y < 0) return;
     if ((uint32_t)x >= d_fb->width || (uint32_t)y >= d_fb->height) return;
-    ((volatile uint32_t *)d_fb->address)[y * d_pw + x] = color;
+    d_back[y * d_fb->width + x] = color;
+}
+
+void draw_flip(void) {
+    if (!d_fb || !d_back) return;
+    volatile uint32_t *fb = d_fb->address;
+    for (uint32_t y = 0; y < d_fb->height; y++)
+        for (uint32_t x = 0; x < d_fb->width; x++)
+            fb[y * d_pw + x] = d_back[y * d_fb->width + x];
 }
 
 void draw_clear(uint32_t color) {

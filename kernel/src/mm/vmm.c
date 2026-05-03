@@ -41,7 +41,6 @@ static uint64_t *get_or_create(uint64_t *entry, uint64_t flags) {
     if (*entry & VMM_PRESENT) {
         return (uint64_t *)phys_to_virt(*entry & ~0xFFFULL);
     }
-    // Não existe — aloca nova tabela
     uint64_t phys = alloc_table();
     if (!phys) return NULL;
     *entry = phys | VMM_PRESENT | VMM_WRITE | VMM_USER;

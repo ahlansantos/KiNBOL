@@ -5,6 +5,8 @@
 void    keyboard_set_cursor_cb(void (*cb)(int visible));
 void    keyboard_readline(char *buf, int max);
 uint8_t keyboard_peek(void);
+int keyboard_held(uint8_t scancode);
+void keyboard_update(void);
 
 #define KEY_ESC   0x01
 #define KEY_UP    0x48

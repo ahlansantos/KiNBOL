@@ -147,3 +147,19 @@ uint8_t keyboard_peek(void) {
     if (!(inb(0x64) & 1)) return 0;
     return inb(0x60);
 }
+static uint8_t key_state[256] = {0};
+
+void keyboard_update(void) {
+    while (inb(0x64) & 1) {
+        uint8_t sc = inb(0x60);
+        if (sc & 0x80) {
+            key_state[sc & 0x7F] = 0;
+        } else {
+            key_state[sc] = 1;
+        }
+    }
+}
+
+int keyboard_held(uint8_t scancode) {
+    return key_state[scancode];
+}
