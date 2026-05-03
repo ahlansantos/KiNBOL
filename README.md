@@ -27,6 +27,10 @@ FreeARS Boot code can still be found!
 
 *03/05/26 -> VFS, ramdisk, dmesg, heap improvements, new Spleen font!*
 
+*04/05/26 -> Intial software render + Raycast game!*
+
+### KiNBOL 0.06.1 - Raycast!!
+![KiNBOL](pictures/raycast.png)
 
 ### KiNBOL 0.06.1 - Fastfetch and some test!
 ![KiNBOL](pictures/KiNBOL-0.06.1-dump1.png)
