@@ -48,17 +48,24 @@ static uint64_t total_ram = 0;
 static void hcf(void) { for (;;) asm("hlt"); }
 
 static void print_banner(void) {
+    terminal_clear();
+
     terminal_set_fg(0x88AACC);
-    terminal_println("   ______                        _____   _____ ");
-    terminal_println("  |  ____|                 /\\   |  __ \\ / ____|");
-    terminal_println("  | |__ _ __ ___  ___     /  \\  | |__) | (___  ");
-    terminal_set_fg(0xFFFFFF);
-    terminal_println("  |  __| '__/ _ \\/ _ \\   / /\\ \\ |  _  / \\___ \\ ");
-    terminal_println("  | |  | | |  __/  __/  / ____ \\| | \\ \\ ____) |");
-    terminal_set_fg(0x88AACC);
-    terminal_println("  |_|  |_|  \\___|\\___| /_/    \\_\\_|  \\_\\_____/ ");
+    terminal_println(" ___  __    ___  ________   ________  ________  ___          ");
+    terminal_println("|\\  \\|\\  \\ |\\  \\|\\   ___  \\|\\   __  \\|\\   __  \\|\\  \\         ");
+    terminal_println("\\ \\  \\/  /|\\ \\  \\ \\  \\\\ \\  \\ \\  \\|\\ /\\ \\  \\|\\  \\ \\  \\        ");
+    terminal_println(" \\ \\   ___  \\ \\  \\ \\  \\\\ \\  \\ \\   __  \\ \\  \\\\\\  \\ \\  \\       ");
+    terminal_println("  \\ \\  \\\\ \\  \\ \\  \\ \\  \\\\ \\  \\ \\  \\|\\  \\ \\  \\\\\\  \\ \\  \\____  ");
+    terminal_println("   \\ \\__\\\\ \\__\\ \\__\\ \\__\\\\ \\__\\ \\_______\\ \\_______\\ \\_______\\");
+    terminal_println("    \\|__| \\|__|\\|__|\\|__| \\|__|\\|_______|\\|_______|\\|_______\\");
     terminal_println("");
-    terminal_set_fg(0x88CC88); terminal_println("  FreeARS 0.06.1"); terminal_println("");
+
+    terminal_set_fg(0x88CC88);
+    terminal_println("  KiNBOL 0.06.1");
+    terminal_set_fg(0xAAAAAA);
+    terminal_println("  this Kernel is Not Based On Linux");
+    terminal_println("");
+
 
     terminal_set_fg(0xDDDDDD); terminal_print("  Framebuffer: ");
     terminal_set_fg(0x88CC88);
@@ -92,7 +99,7 @@ void kmain(void) {
     serial_init();
     terminal_init(fbi);
     dmesg_init();
-    dmesg("[boot] FreeARS 0.06.1 starting\n");
+    dmesg("[boot] FreeARS Base boot init, KiNBOL 0.06.1 starting\n");
 
     hhdm_offset = hhdm_request.response->offset;
     for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {

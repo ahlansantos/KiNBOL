@@ -1,9 +1,10 @@
-# FreeARS - Another Random System
+# KiNBOL - this Kernel is Not Based On Linux
 > *"I'm doing a (free) operating system (just a hobby, won't be big and professional like linux)"*
 > -> inspired by Linus Torvalds, 1991
 
-FreeARS is a hobby x86_64 kernel written from scratch.
+KiNBOL (formerly FreeARS) is a hobby x86_64 kernel written from scratch.
 UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
+FreeARS Boot code can still be found!
 
 **Current version:** 0.06.1
 **Branch:** `x86_64-uefi` (active development)
@@ -20,12 +21,10 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 *01/05/26 -> Shell + ATA disk detection added.*
 *03/05/26 -> VFS, ramdisk, dmesg, heap improvements, new Spleen font!*
 
-### 0.06.1 -> Separeted archives in root and some changes to shell
-![FreeARS](pictures/FreeARS-0.06.1-ff.png)
+### KiNBOL 0.06.1 - Fastfetch and some test!
+![KiNBOL](pictures/KiNBOL-0.06.1_dump1.png)
+![KiNBOL](pictures/KiNBOL-0.06.1_dump2.png)
 
-### 0.06.1 -> New Spleen 8x16 font + some testing!!
-![FreeARS](pictures/FreeARS-0.06.1_dump1.png)
-![FreeARS](pictures/FreeARS-0.06.1_dump2.png)
 
 ---
 
@@ -139,7 +138,6 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 * [ ] Scheduler (basic multitasking)
 * [ ] Syscalls
 * [ ] User mode (ring 3)
-* [ ] Lua VM support (Why not?)
 
 ---
 
