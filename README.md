@@ -14,12 +14,19 @@ FreeARS Boot code can still be found!
 ## Screenshots
 
 *28/04/26 -> IT BOOTED!!! 64-bit mode (QEMU) after hours of bugs!*
+
 *30/04/26 -> Booted on a baremetal-like VM (VirtualBox)!*
+
 *31/04/26 -> UEFI + Limine + TSC working!!!*
+
 *31/04/26 -> Bare metal on real hardware working! Posted on my tiktok. @theloneahlan*
+
 *01/05/26 -> PMM + heap working! Tested up to 32GB RAM.*
+
 *01/05/26 -> Shell + ATA disk detection added.*
+
 *03/05/26 -> VFS, ramdisk, dmesg, heap improvements, new Spleen font!*
+
 
 ### KiNBOL 0.06.1 - Fastfetch and some test!
 ![KiNBOL](pictures/KiNBOL-0.06.1-dump1.png)
