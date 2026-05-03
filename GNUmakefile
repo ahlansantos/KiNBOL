@@ -8,7 +8,7 @@ ARCH := x86_64
 # FS TEST 0.06
 QEMUFLAGS := -m 2G -serial stdio -d int -D qemu.log -no-shutdown -no-reboot \
 
-override IMAGE_NAME := FreeARS_0.06-$(ARCH)
+override IMAGE_NAME := FreeARS_0.06.1-$(ARCH)
 
 # Toolchain for building the 'limine' executable for the host.
 HOST_CC := cc
