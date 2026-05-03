@@ -44,6 +44,7 @@ void irq_register(int num, irq_handler_t handler) {
 }
 
 void irq_dispatcher(uint64_t irq_num, uint64_t error_code) {
+    (void)error_code;
     if (irq_handlers[irq_num] != NULL) {
         irq_handlers[irq_num]();
         return;
@@ -52,6 +53,8 @@ void irq_dispatcher(uint64_t irq_num, uint64_t error_code) {
 }
 
 void exception_fatal(uint64_t exception_num, uint64_t error_code) {
+    (void)exception_num;
+    (void)error_code;
     terminal_set_fg(0xFF0000);
     terminal_println("\n=== FATAL EXCEPTION ===");
     terminal_println("System halted");

@@ -146,11 +146,6 @@ static vfs_node_t dev_ram0 = {
     .device = &ram0_dev,
 };
 
-static void str_copy(char *dst, const char *src, int max) {
-    int i = 0;
-    while (src[i] && i < max - 1) { dst[i] = src[i]; i++; }
-    dst[i] = '\0';
-}
 static int str_eq(const char *a, const char *b) {
     while (*a && *b && *a == *b) { a++; b++; }
     return *a == *b;

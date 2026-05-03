@@ -37,6 +37,7 @@ static inline uint64_t pd_idx  (uint64_t virt) { return (virt >> 21) & 0x1FF; }
 static inline uint64_t pt_idx  (uint64_t virt) { return (virt >> 12) & 0x1FF; }
 
 static uint64_t *get_or_create(uint64_t *entry, uint64_t flags) {
+    (void)flags;
     if (*entry & VMM_PRESENT) {
         return (uint64_t *)phys_to_virt(*entry & ~0xFFFULL);
     }
