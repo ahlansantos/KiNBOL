@@ -26,7 +26,6 @@ typedef struct {
 static idt_entry_t idt[IDT_ENTRIES];
 static idt_ptr_t   idt_ptr;
 
-// Forward declarations
 __attribute__((naked)) static void isr_common(void);
 __attribute__((naked)) static void isr0(void);
 __attribute__((naked)) static void isr6(void);
@@ -34,11 +33,9 @@ __attribute__((naked)) static void isr8(void);
 __attribute__((naked)) static void isr13(void);
 __attribute__((naked)) static void isr14(void);
 
-// Tabela de handlers por IRQ
 typedef void (*irq_handler_t)(void);
 static irq_handler_t irq_handlers[IDT_ENTRIES] = {0};
 
-// Registra handler para um número específico de interrupção
 void irq_register(int num, irq_handler_t handler) {
     if (num >= 0 && num < IDT_ENTRIES) {
         irq_handlers[num] = handler;
@@ -46,18 +43,14 @@ void irq_register(int num, irq_handler_t handler) {
     }
 }
 
-// Dispatcher real - decide o que fazer baseado no número da IRQ
 void irq_dispatcher(uint64_t irq_num, uint64_t error_code) {
-    // Se tem handler registrado, chama ele
     if (irq_handlers[irq_num] != NULL) {
         irq_handlers[irq_num]();
         return;
     }
     
-    // Se não tem handler, só ignora (não trava o sistema)
 }
 
-// Handler para exceptions fatais
 void exception_fatal(uint64_t exception_num, uint64_t error_code) {
     terminal_set_fg(0xFF0000);
     terminal_println("\n=== FATAL EXCEPTION ===");
@@ -79,7 +72,6 @@ void idt_set_gate(int num, uint64_t base, uint16_t sel, uint8_t flags) {
     idt[num].reserved = 0;
 }
 
-// NOVO isr_common - AGORA COM DISPATCHER
 __attribute__((naked)) static void isr_common(void) {
     asm volatile(
         "pushq %%rax; pushq %%rbx; pushq %%rcx; pushq %%rdx;"
@@ -88,9 +80,7 @@ __attribute__((naked)) static void isr_common(void) {
         "pushq %%r12; pushq %%r13; pushq %%r14; pushq %%r15;"
         
         "cld;"
-        
-        // RDI = número da IRQ (empilhado pelo stub)
-        // RSI = error code (empilhado pelo stub)
+
         "movq 120(%%rsp), %%rdi;"
         "movq 128(%%rsp), %%rsi;"
         "call irq_dispatcher;"
