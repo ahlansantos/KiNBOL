@@ -258,7 +258,7 @@ void cmd_fastfetch(void) {
     terminal_set_fg(0x88AACC);
     terminal_println("  |_|  |_|  \\___|\\___| /_/    \\_\\_|  \\_\\_____/ ");
     terminal_println("");
-    terminal_set_fg(0x88CC88); terminal_println("  user@FreeARS");
+    terminal_set_fg(0x88CC88); terminal_println("  kernel@FreeARS");
     terminal_set_fg(0xAAAAAA); terminal_println("  -----------");
 
     terminal_set_fg(0xDDDDDD); terminal_print("  OS:       "); terminal_set_fg(0x88CC88); terminal_println("FreeARS 0.06.1");
