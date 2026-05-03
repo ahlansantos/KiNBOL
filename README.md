@@ -22,8 +22,8 @@ FreeARS Boot code can still be found!
 *03/05/26 -> VFS, ramdisk, dmesg, heap improvements, new Spleen font!*
 
 ### KiNBOL 0.06.1 - Fastfetch and some test!
-![KiNBOL](pictures/KiNBOL-0.06.1_dump1.png)
-![KiNBOL](pictures/KiNBOL-0.06.1_dump2.png)
+![KiNBOL](pictures/KiNBOL-0.06.1-dump1.png)
+![KiNBOL](pictures/KiNBOL-0.06.1-dump2.png)
 
 
 ---
