@@ -20,6 +20,9 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 *01/05/26 -> Shell + ATA disk detection added.*
 *03/05/26 -> VFS, ramdisk, dmesg, heap improvements, new Spleen font!*
 
+### 0.06.1 -> Separeted archives in root and some changes to shell
+![FreeARS](pictures/FreeARS-0.06.1-ff.png)
+
 ### 0.06.1 -> New Spleen 8x16 font + some testing!!
 ![FreeARS](pictures/FreeARS-0.06.1_dump1.png)
 ![FreeARS](pictures/FreeARS-0.06.1_dump2.png)
