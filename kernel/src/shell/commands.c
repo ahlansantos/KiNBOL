@@ -10,14 +10,10 @@
 #include "../fs/ramdisk.h"
 #include <limine.h>
 
-/* Globais de main.c — remover 'static' de lá */
 extern uint64_t hhdm_offset;
 extern struct limine_framebuffer     *fbi;
 extern struct limine_memmap_response *g_memmap;
 
-/* ------------------------------------------------------------------ */
-/*  Helpers internos                                                   */
-/* ------------------------------------------------------------------ */
 static inline void outb(uint16_t port, uint8_t val) {
     asm volatile("outb %0,%1" :: "a"(val), "Nd"(port));
 }
@@ -25,10 +21,6 @@ static uint32_t get_ticks(void) { return (uint32_t)(uptime_ms() / 10); }
 
 static int cmd_strlen(const char *s) { int i = 0; while (s[i]) i++; return i; }
 
-/* ------------------------------------------------------------------ */
-/*  Calc (parser de expressões — copiado de main.c)                   */
-/* ------------------------------------------------------------------ */
-static const char *calc_ptr;
 
 static uint64_t calc_expr(void);
 
@@ -105,10 +97,6 @@ static uint64_t calc_bor(void) {
     return v;
 }
 static uint64_t calc_expr(void) { return calc_bor(); }
-
-/* ------------------------------------------------------------------ */
-/*  Implementações dos comandos                                        */
-/* ------------------------------------------------------------------ */
 
 void cmd_help(void) {
     terminal_set_fg(0x00FFFF); terminal_println("\n  === Commands ==="); terminal_set_fg(0xFFFFFF);
@@ -249,7 +237,6 @@ void cmd_meminfo(void) {
 void cmd_fastfetch(void) {
     terminal_clear();
 
-    /* --- KiNBOL ASCII banner --- */
     terminal_set_fg(0x88AACC);
     terminal_println(" ___  __    ___  ________   ________  ________  ___          ");
     terminal_println("|\\  \\|\\  \\ |\\  \\|\\   ___  \\|\\   __  \\|\\   __  \\|\\  \\         ");
@@ -266,13 +253,11 @@ void cmd_fastfetch(void) {
     terminal_println("  this Kernel is Not Based On Linux");
     terminal_println("");
 
-    /* --- identity header --- */
     terminal_set_fg(0x88CC88);
     terminal_println("  kernel@KiNBOL");
     terminal_set_fg(0xAAAAAA);
     terminal_println("  -----------");
 
-    /* --- system info --- */
     terminal_set_fg(0xDDDDDD);
     terminal_print("  OS:       ");
     terminal_set_fg(0x88CC88);
@@ -294,7 +279,6 @@ void cmd_fastfetch(void) {
     terminal_print_int(vfs_node_count());
     terminal_println(" nodes");
 
-    /* --- uptime --- */
     uint64_t ms = uptime_ms();
     uint32_t s = (uint32_t)(ms / 1000);
     uint32_t h = s / 3600;
@@ -310,7 +294,6 @@ void cmd_fastfetch(void) {
     terminal_print_int(s);
     terminal_println("s");
 
-    /* --- display --- */
     terminal_set_fg(0xDDDDDD);
     terminal_print("  Display:  ");
     terminal_set_fg(0x88CC88);
@@ -321,7 +304,6 @@ void cmd_fastfetch(void) {
     terminal_print_int(fbi->bpp);
     terminal_println("bpp");
 
-    /* --- CPU --- */
     terminal_set_fg(0xDDDDDD);
     terminal_print("  CPU:      ");
     terminal_set_fg(0x88CC88);
@@ -359,7 +341,6 @@ void cmd_fastfetch(void) {
     while (cpu[cp] == ' ') cp++;
     terminal_println(&cpu[cp]);
 
-    /* --- timers / memory --- */
     terminal_set_fg(0xDDDDDD);
     terminal_print("  TSC:      ");
     terminal_set_fg(0x88CC88);
@@ -372,7 +353,6 @@ void cmd_fastfetch(void) {
     terminal_print_int((uint32_t)pmm_get_free_page_count());
     terminal_println(" pages free");
 
-    /* --- bottom bars --- */
     terminal_println("");
     uint32_t cols[] = {0xCC88AA, 0xCCCC88, 0x88CC88, 0x88AACC, 0x8888CC};
 
@@ -417,7 +397,6 @@ void cmd_dmesg(void) {
     terminal_println("");
 }
 
-/* --- VFS --- */
 static void vfsls_cb(const char *name, uint32_t flags, uint32_t size) {
     terminal_set_fg((flags & VFS_BLOCKDEV) ? 0xFFAA00 : 0x88CC88);
     terminal_print("  /dev/"); terminal_print(name);
@@ -445,7 +424,6 @@ void cmd_vfswrite(const char *dev, const char *data) {
     terminal_set_fg(0x88CC88); terminal_print("\n  wrote "); terminal_print_int(n); terminal_println(" bytes"); terminal_println("");
 }
 
-/* --- RAM disk --- */
 void cmd_ramls(void) {
     terminal_set_fg(0x00FFFF); terminal_println("\n  === Ramdisk ==="); terminal_set_fg(0xFFFFFF);
     if (!ramfile_count) { terminal_set_fg(0xFF4444); terminal_println("  (empty)"); }
@@ -481,7 +459,6 @@ void cmd_ramdel(const char *name) {
     else        { terminal_set_fg(0xFF4444); terminal_println("  Not found."); }
 }
 
-/* --- Calc / mem --- */
 void cmd_calc(const char *expr) {
     calc_ptr = expr;
     uint64_t result = calc_expr();
@@ -541,7 +518,6 @@ void cmd_poke(const char *addr_str, const char *val_str) {
     terminal_print(" <- "); terminal_print_hex(val); terminal_println(""); terminal_println("");
 }
 
-/* --- vminfo --- */
 void cmd_vminfo(void) {
     terminal_set_fg(0x00FFFF); terminal_println("\n  === VMM Info ===");
     terminal_set_fg(0xDDDDDD); terminal_print("  HHDM offset: ");

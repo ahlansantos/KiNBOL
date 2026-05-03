@@ -7,6 +7,7 @@
 #include "drivers/keyboard.h"
 #include "drivers/rtc.h"
 #include "graphics/terminal.h"
+#include "graphics/cpu/draw.h"
 #include "graphics/font.h"
 #include "kernel/idt.h"
 #include "kernel/dmesg.h"
@@ -98,8 +99,10 @@ void kmain(void) {
 
     serial_init();
     terminal_init(fbi);
+    draw_init(fbi);
     dmesg_init();
     dmesg("[boot] FreeARS Base boot init, KiNBOL 0.06.1 starting\n");
+    dmesg("[pre-boot] terminal init before boot + software render init bfr boot\n");
 
     hhdm_offset = hhdm_request.response->offset;
     for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {
