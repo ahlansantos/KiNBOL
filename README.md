@@ -28,6 +28,7 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 
 ## What's new in 0.06.1
 
+* **Command History** -> Commands are now saved! kb.c.
 * **Spleen 8x16 bitmap font** -> much cleaner terminal output
 * **VFS (Virtual File System)** -> `/dev/null`, `/dev/zero`, `/dev/random`, `/dev/tty`, `/dev/ram0`
 * **Ramdisk** -> in-memory filesystem, create/read/delete files at runtime
