@@ -139,6 +139,7 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 * [ ] Scheduler (basic multitasking)
 * [ ] Syscalls
 * [ ] User mode (ring 3)
+* [ ] Lua VM support (Why not?)
 
 ---
 
