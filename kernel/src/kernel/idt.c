@@ -3,8 +3,8 @@
 #include <stdbool.h>
 
 #include "idt.h"
-#include "graphics/terminal.h"
-#include "kernel/dmesg.h"
+#include "../graphics/terminal.h"
+#include "dmesg.h"
 
 #define IDT_ENTRIES 256
 

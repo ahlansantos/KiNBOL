@@ -5,10 +5,10 @@
 
 #include "drivers/serial.h"
 #include "drivers/keyboard.h"
-#include "drivers/idt.h"
 #include "drivers/rtc.h"
 #include "graphics/terminal.h"
 #include "graphics/font.h"
+#include "kernel/idt.h"
 #include "kernel/dmesg.h"
 #include "kernel/pit.h"
 #include "mm/pmm.h"
