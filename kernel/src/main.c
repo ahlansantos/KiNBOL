@@ -5,7 +5,6 @@
 #include "mm/pmm.h"
 #include "mm/vmm.h"
 #include "mm/heap.h"
-#include "drivers/apic.h"
 #include "drivers/keyboard.h"
 #include "drivers/rtc.h"
 #include "graphics/font.h"
@@ -186,28 +185,12 @@ __attribute__((used,naked)) static void isr6(void)  { asm volatile("pushq $0; pu
 __attribute__((used,naked)) static void isr8(void)  { asm volatile("pushq $0; pushq $8;  jmp isr_common"); }
 __attribute__((used,naked)) static void isr13(void) { asm volatile("pushq $0; pushq $13; jmp isr_common"); }
 __attribute__((used,naked)) static void isr14(void) { asm volatile("pushq $0; pushq $14; jmp isr_common"); }
-__attribute__((used, naked)) static void isr32(void) {
-    asm volatile(
-        "pushq $0; pushq $32;"
-        "pushq %%rax; pushq %%rbx; pushq %%rcx; pushq %%rdx;"
-        "pushq %%rsi; pushq %%rdi; pushq %%rbp;"
-        "pushq %%r8;  pushq %%r9;  pushq %%r10; pushq %%r11;"
-        "pushq %%r12; pushq %%r13; pushq %%r14; pushq %%r15;"
-        "cld; call apic_send_eoi;"
-        "popq %%r15; popq %%r14; popq %%r13; popq %%r12;"
-        "popq %%r11; popq %%r10; popq %%r9;  popq %%r8;"
-        "popq %%rbp; popq %%rdi; popq %%rsi;"
-        "popq %%rdx; popq %%rcx; popq %%rbx; popq %%rax;"
-        "addq $16, %%rsp; iretq" ::: "memory"
-    );
-}
 
 static void idt_init(void) {
     for(int i=0;i<256;i++) idt_set_gate(i,(uint64_t)isr_common,0x08,0x8E);
     idt_set_gate(0,(uint64_t)isr0,0x08,0x8E);   idt_set_gate(6,(uint64_t)isr6,0x08,0x8E);
     idt_set_gate(8,(uint64_t)isr8,0x08,0x8E);   idt_set_gate(13,(uint64_t)isr13,0x08,0x8E);
     idt_set_gate(14,(uint64_t)isr14,0x08,0x8E);
-    idt_set_gate(32, (uint64_t)isr32, 0x08, 0x8E);
     idt_ptr.limit=sizeof(idt_entry_t)*256-1; idt_ptr.base=(uint64_t)&idt;
     asm volatile("lidt %0"::"m"(idt_ptr));
 }
@@ -791,10 +774,6 @@ void kmain(void) {
 
     idt_init();
     dmesg("[idt] loaded\n");
-    apic_init();
-    dmesg("[apic] init called\n");
-
-
     ramdisk_init();
     dmesg("[ramdisk] init called\n");
 
@@ -834,4 +813,3 @@ void kmain(void) {
     hcf();
 }
 
-// TODO: FIX APIC TIMER ADD APIC TIMER
