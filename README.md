@@ -7,6 +7,7 @@ UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
 FreeARS Boot code can still be found!
 
 **Current version:** 0.06.1
+
 **Branch:** `x86_64-uefi` (active development)
 
 ---
