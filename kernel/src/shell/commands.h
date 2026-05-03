@@ -12,6 +12,8 @@ void cmd_date(void);
 void cmd_meminfo(void);
 void cmd_ascii(void);
 void cmd_dmesg(void);
+void cmd_drawtest(void);
+void cmd_ray(void);
 void cmd_vfsls(void);
 void cmd_vminfo(void);
 void cmd_ramls(void);

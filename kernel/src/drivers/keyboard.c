@@ -143,3 +143,7 @@ void keyboard_readline(char *buf, int max) {
     hist_add(buf);
     if (cursor_cb) cursor_cb(0);
 }
+uint8_t keyboard_peek(void) {
+    if (!(inb(0x64) & 1)) return 0;
+    return inb(0x60);
+}

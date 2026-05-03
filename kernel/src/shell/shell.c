@@ -37,6 +37,8 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "meminfo"))   cmd_meminfo();
         else if (!sh_strcmp(in, "ascii"))     cmd_ascii();
         else if (!sh_strcmp(in, "dmesg"))     cmd_dmesg();
+        else if (!sh_strcmp(in, "drawtest"))  cmd_drawtest();
+        else if (!sh_strcmp(in, "ray"))       cmd_ray();
         else if (!sh_strcmp(in, "vfsls"))     cmd_vfsls();
         else if (!sh_strcmp(in, "ramls"))     cmd_ramls();
         else if (!sh_strcmp(in, "raminfo"))   cmd_raminfo();

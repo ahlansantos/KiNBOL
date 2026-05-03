@@ -1,5 +1,7 @@
 #include "commands.h"
 #include "../graphics/terminal.h"
+#include "../graphics/cpu/draw.h"
+#include "../graphics/cpu/ray.h"
 #include "../drivers/rtc.h"
 #include "../drivers/keyboard.h"
 #include "../kernel/dmesg.h"
@@ -21,6 +23,7 @@ static uint32_t get_ticks(void) { return (uint32_t)(uptime_ms() / 10); }
 
 static int cmd_strlen(const char *s) { int i = 0; while (s[i]) i++; return i; }
 
+static const char *calc_ptr;
 
 static uint64_t calc_expr(void);
 
@@ -528,3 +531,11 @@ void cmd_vminfo(void) {
     terminal_set_fg(0xDDDDDD); terminal_println("  (vmm_virt_to_phys only works in own pagemaps.)");
     terminal_println("");
 }
+
+void cmd_drawtest(void) {
+    draw_rect_fill(100, 100, 200, 150, draw_rgb(255, 0, 0));
+    draw_circle(400, 300, 80, draw_rgb(0, 255, 100));
+    draw_line(0, 0, 640, 480, draw_rgb(0, 150, 255));   
+}
+
+void cmd_ray(void) { ray_run(); }
