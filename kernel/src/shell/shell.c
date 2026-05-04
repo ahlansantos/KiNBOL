@@ -7,9 +7,22 @@ static int sh_strcmp(const char *a, const char *b) {
     while (*a && *a == *b) { a++; b++; }
     return *a - *b;
 }
+
 static int sh_startswith(const char *s, const char *p) {
     while (*p) if (*s++ != *p++) return 0;
     return 1;
+}
+
+static int parse_int(const char **p) {
+    int val = 0, neg = 0;
+    while (**p == ' ') (*p)++;
+    if (**p == '-') { neg = 1; (*p)++; }
+    else if (**p == '+') { (*p)++; }
+    while (**p >= '0' && **p <= '9') {
+        val = val * 10 + (**p - '0');
+        (*p)++;
+    }
+    return neg ? -val : val;
 }
 
 void shell_run(void) {
@@ -38,7 +51,8 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "ascii"))     cmd_ascii();
         else if (!sh_strcmp(in, "dmesg"))     cmd_dmesg();
         else if (!sh_strcmp(in, "drawtest"))  cmd_drawtest();
-        else if (!sh_strcmp(in, "ray"))       cmd_ray();
+        else if (!sh_strcmp(in, "doomport"))  cmd_ray();
+        else if (!sh_strcmp(in, "clearfb"))   cmd_clearfb();
         else if (!sh_strcmp(in, "vfsls"))     cmd_vfsls();
         else if (!sh_strcmp(in, "ramls"))     cmd_ramls();
         else if (!sh_strcmp(in, "raminfo"))   cmd_raminfo();
@@ -90,6 +104,51 @@ void shell_run(void) {
             if (*n) cmd_ramdel(n);
             else { terminal_set_fg(0xFF0000); terminal_println("  Usage: ramdel <file>"); }
         }
+        else if (sh_startswith(in, "pixel ")) {
+            const char *p = in + 6;
+            int x = parse_int(&p);
+            int y = parse_int(&p);
+            cmd_pixel(x, y);
+        }
+        else if (sh_startswith(in, "line ")) {
+            const char *p = in + 5;
+            int x0 = parse_int(&p);
+            int y0 = parse_int(&p);
+            int x1 = parse_int(&p);
+            int y1 = parse_int(&p);
+            cmd_line(x0, y0, x1, y1);
+        }
+        else if (sh_startswith(in, "rect ")) {
+            const char *p = in + 5;
+            int x = parse_int(&p);
+            int y = parse_int(&p);
+            int w = parse_int(&p);
+            int h = parse_int(&p);
+            cmd_rect(x, y, w, h);
+        }
+        else if (sh_startswith(in, "fillrect ")) {
+            const char *p = in + 9;
+            int x = parse_int(&p);
+            int y = parse_int(&p);
+            int w = parse_int(&p);
+            int h = parse_int(&p);
+            cmd_fillrect(x, y, w, h);
+        }
+        else if (sh_startswith(in, "circle ")) {
+            const char *p = in + 7;
+            int x = parse_int(&p);
+            int y = parse_int(&p);
+            int r = parse_int(&p);
+            cmd_circle(x, y, r);
+        }
+        else if (!sh_strcmp(in, "baregl status"))  cmd_baregl_status();
+        
+        else if (sh_startswith(in, "bmp ")) {
+            char *n = in + 4; while (*n == ' ') n++;
+            if (*n) cmd_bmp(n);
+            else { terminal_set_fg(0xFF0000); terminal_println("  Usage: bmp <file>"); }
+        }
+        else if (!sh_strcmp(in, "bmpv sigeonpex")) cmd_logo();
         else if (in[0]) {
             terminal_set_fg(0xFF0000);
             terminal_print("  not found: ");

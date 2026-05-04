@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# bdf2c.py - Converte fonte BDF para font.c do FreeARS
-# Uso: python3 bdf2c.py spleen-8x16.bdf > font.c
+# bdf2c.py - Converts bdf to c array
+# Use: python3 bdf2c.py spleen-8x16.bdf > font.c
 
 import sys
 

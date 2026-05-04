@@ -3,11 +3,14 @@
 #include <stdbool.h>
 #include <limine.h>
 
+// sigeon pex
+#include "bmp/logo.h"
+
 #include "drivers/serial.h"
 #include "drivers/keyboard.h"
 #include "drivers/rtc.h"
 #include "graphics/terminal.h"
-#include "graphics/cpu/draw.h"
+#include "graphics/api/baregl.h"
 #include "graphics/font.h"
 #include "kernel/idt.h"
 #include "kernel/dmesg.h"
@@ -83,6 +86,10 @@ static void print_banner(void) {
     terminal_set_fg(0x88CC88);
     terminal_print_int(vfs_node_count()); terminal_println(" nodes");
 
+    terminal_set_fg(0xDDDDDD); terminal_print("  BareGL:      ");
+    terminal_set_fg(0x88CC88);
+    terminal_println("0.2 (SR)");
+
     terminal_println("");
     terminal_set_fg(0xAAAAAA); terminal_println("  Type 'help' for available commands."); terminal_println("");
 }
@@ -96,11 +103,13 @@ void kmain(void) {
     g_memmap = memmap_request.response;
 
     serial_init();
+    dmesg("[pre-boot] serial init\n");
     terminal_init(fbi);
-    draw_init(fbi);
+    dmesg("[pre-boot] terminal init\n");
+    bare_init(fbi);
+    dmesg("[pre-boot] baregl init\n");
     dmesg_init();
     dmesg("[boot] FreeARS Base boot init, KiNBOL 0.06.1 starting\n");
-    dmesg("[pre-boot] terminal init before boot + software render init bfr boot\n");
 
     hhdm_offset = hhdm_request.response->offset;
     for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {

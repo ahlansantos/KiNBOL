@@ -1,7 +1,8 @@
+#include "../bmp/logo.h"
 #include "commands.h"
 #include "../graphics/terminal.h"
-#include "../graphics/cpu/draw.h"
-#include "../graphics/cpu/ray.h"
+#include "../graphics/api/baregl.h"
+#include "../graphics/games/doomport.h"
 #include "../drivers/rtc.h"
 #include "../drivers/keyboard.h"
 #include "../kernel/dmesg.h"
@@ -102,12 +103,22 @@ static uint64_t calc_bor(void) {
 static uint64_t calc_expr(void) { return calc_bor(); }
 
 void cmd_help(void) {
-    terminal_set_fg(0x00FFFF); terminal_println("\n  === Commands ==="); terminal_set_fg(0xFFFFFF);
+    terminal_set_fg(0x00FFFF); terminal_println("\n  --- Main Commands ---"); terminal_set_fg(0xFFFFFF);
     terminal_println("  help / clear / uname / echo <txt> / sleep <ms> / date / ticks");
     terminal_println("  crash / fastfetch / reboot / memtest / anim");
     terminal_println("  ramls / ramcat <f> / ramwrite <f> <txt> / ramdel <f> / raminfo");
     terminal_println("  meminfo / hexdump <addr> <len> / peek <addr> / poke <addr> <val>");
     terminal_println("  calc <expr> / ascii / dmesg / vfsls / vfsread <dev> / vfswrite <dev> <txt>");
+    terminal_println("");
+    terminal_println("  --- BareGL commands ---"); 
+    terminal_println("  bmpv (BMP Viewer) <file> (Currently there is sigeonpex avaliable.)");
+    terminal_println("  drawtest / doomport");
+    terminal_println("  pixel <x> <y>");
+    terminal_println("  line <x0> <y0> <x1> <y1>");
+    terminal_println("  rect <x> <y> <w> <h>");
+    terminal_println("  fillrect <x> <y> <w> <h>");
+    terminal_println("  circle <x> <y> <r>");
+    terminal_println("  clearfb");
     terminal_println("");
 }
 
@@ -306,6 +317,11 @@ void cmd_fastfetch(void) {
     terminal_print(" @ ");
     terminal_print_int(fbi->bpp);
     terminal_println("bpp");
+
+    terminal_set_fg(0xDDDDDD);
+    terminal_print("  BareGL:   ");
+    terminal_set_fg(0x88CC88);
+    terminal_println("0.2 (SR)");
 
     terminal_set_fg(0xDDDDDD);
     terminal_print("  CPU:      ");
@@ -533,9 +549,117 @@ void cmd_vminfo(void) {
 }
 
 void cmd_drawtest(void) {
-    draw_rect_fill(100, 100, 200, 150, draw_rgb(255, 0, 0));
-    draw_circle(400, 300, 80, draw_rgb(0, 255, 100));
-    draw_line(0, 0, 640, 480, draw_rgb(0, 150, 255));   
+    bare_sync_from_fb();
+    bare_rect_fill(100, 100, 200, 150, bare_rgb(255, 0, 0));
+    bare_circle(400, 300, 80, bare_rgb(0, 255, 100));
+    bare_line(0, 0, 640, 480, bare_rgb(0, 150, 255)); 
+    bare_flip();  
 }
 
-void cmd_ray(void) { ray_run(); }
+void cmd_ray(void) { doomport_run(); }
+
+void cmd_pixel(int x, int y) {
+    bare_sync_from_fb();
+    bare_pixel(x, y, bare_rgb(255, 255, 255));
+    bare_flip();
+}
+
+void cmd_line(int x0, int y0, int x1, int y1) {
+    bare_sync_from_fb();
+    bare_line(x0, y0, x1, y1, bare_rgb(0, 255, 0));
+    bare_flip();
+}
+
+void cmd_rect(int x, int y, int w, int h) {
+    bare_sync_from_fb();
+    bare_rect(x, y, w, h, bare_rgb(255, 0, 0));
+    bare_flip();
+}
+
+void cmd_fillrect(int x, int y, int w, int h) {
+    bare_sync_from_fb();
+    bare_rect_fill(x, y, w, h, bare_rgb(0, 0, 255));
+    bare_flip();
+}
+
+void cmd_circle(int x, int y, int r) {
+    bare_sync_from_fb();
+    bare_circle(x, y, r, bare_rgb(255, 255, 0));
+    bare_flip();
+}
+
+void cmd_clearfb(void) {
+    bare_clear(bare_rgb(0, 0, 0));
+    bare_flip();
+    terminal_clear();
+    terminal_set_fg(0x88CC88);
+}
+
+void cmd_baregl_status(void) {
+    terminal_set_fg(0x00FFFF); terminal_println("\n  === BareGL Status ===");
+    terminal_set_fg(0xDDDDDD);
+    terminal_print("  Version:  "); terminal_set_fg(0x88CC88); terminal_println("0.2 (SR)");
+    terminal_set_fg(0xDDDDDD);
+    terminal_print("  Status:   "); terminal_set_fg(0x00FF00); terminal_println("Active");
+    terminal_set_fg(0xDDDDDD);
+    terminal_print("  Backend:  "); terminal_set_fg(0x88CC88); terminal_println("Software Rasterizer (SR)");
+    terminal_set_fg(0xDDDDDD);
+    terminal_print("  Double Buffer: "); terminal_set_fg(0x88CC88); terminal_println("Yes");
+    terminal_set_fg(0xDDDDDD);
+    terminal_print("  Resolution: ");
+    terminal_set_fg(0x88CC88);
+    terminal_print_int(bare_width());
+    terminal_print("x");
+    terminal_print_int(bare_height());
+    terminal_println("");
+    terminal_set_fg(0xDDDDDD);
+    terminal_print("  Pitch:     "); terminal_set_fg(0x88CC88); terminal_print_int(fbi->pitch); terminal_println("");
+    terminal_set_fg(0xDDDDDD);
+    terminal_print("  BPP:       "); terminal_set_fg(0x88CC88); terminal_print_int(fbi->bpp); terminal_println("");
+    terminal_println("");
+    terminal_set_fg(0x00FFFF); terminal_println("  --- Credits ---");
+    terminal_set_fg(0x88CC88);
+    terminal_println("  BareGL - Minimal graphics library for KiNBOL");
+    terminal_println("  Software rasterizer with double buffering");
+    terminal_println("  Supports: pixel, line, rect, fill, circle");
+    terminal_println("");
+}
+
+void cmd_bmp(const char *name) {
+    int idx = ramdisk_find(name);
+    if (idx < 0) { terminal_set_fg(0xFF4444); terminal_print("  Not found: "); terminal_println(name); return; }
+    bare_sync_from_fb();
+    int r = bare_bmp_draw(0, 0, ramfiles[idx].data, ramfiles[idx].size);
+    if (r != 0) {
+        terminal_set_fg(0xFF4444);
+        terminal_print("  BMP error: "); terminal_print_int(r); terminal_println("");
+        return;
+    }
+    bare_flip();
+    terminal_set_fg(0x88CC88); terminal_println("  BMP drawn");
+}
+
+void cmd_logo(void) {
+    bare_sync_from_fb();
+
+    int32_t img_h = *(int32_t*)(logo_bmp + 22);
+    int32_t img_w = *(int32_t*)(logo_bmp + 18);
+
+    int x = (int)fbi->width - img_w;
+    if (x < 0) x = 0;
+
+    int y = 16;
+
+    int r = bare_bmp_draw(x, y, logo_bmp, logo_bmp_size);
+    if (r != 0) {
+        terminal_set_fg(0xFF4444);
+        terminal_print("  BMP error: ");
+        terminal_print_int(r);
+        terminal_println("");
+        return;
+    }
+
+    bare_flip();
+
+    terminal_set_fg(0x88CC88);
+}

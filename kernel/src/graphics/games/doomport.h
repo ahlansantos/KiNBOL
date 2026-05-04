@@ -1,4 +1,4 @@
 #pragma once
 #include <stdint.h>
 
-void ray_run(void);
+void doomport_run(void);
