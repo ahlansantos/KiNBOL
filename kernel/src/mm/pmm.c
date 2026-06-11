@@ -1,6 +1,7 @@
 #include "pmm.h"
 #include <stddef.h>
 #include <stdint.h>
+#include "../drivers/serial.h"
 
 static uint64_t hhdm_off    = 0;
 static uint8_t *bitmap      = NULL;
@@ -11,21 +12,6 @@ static inline void bm_set(uint64_t page)   { bitmap[page / 8] |=  (1u << (page %
 static inline void bm_clear(uint64_t page) { bitmap[page / 8] &= ~(1u << (page % 8)); }
 static inline int  bm_get(uint64_t page)   { return (bitmap[page / 8] >> (page % 8)) & 1; }
 
-static void pmm_serial_print(const char *s) {
-    for (int i = 0; s[i]; i++) {
-        uint8_t lsr;
-        do { asm volatile("inb %1,%0" : "=a"(lsr) : "Nd"((uint16_t)(0x3F8 + 5))); } while (!(lsr & 0x20));
-        asm volatile("outb %0,%1" :: "a"((uint8_t)s[i]), "Nd"((uint16_t)0x3F8));
-    }
-}
-static void pmm_serial_hex(uint64_t n) {
-    const char *h = "0123456789ABCDEF";
-    char buf[19]; buf[0] = '0'; buf[1] = 'x';
-    for (int i = 0; i < 16; i++) buf[2 + i] = h[(n >> (60 - i * 4)) & 0xF];
-    buf[18] = 0;
-    pmm_serial_print(buf);
-}
-
 uint64_t pmm_phys_to_virt(uint64_t phys) {
     return phys + hhdm_off;
 }
@@ -33,27 +19,27 @@ uint64_t pmm_phys_to_virt(uint64_t phys) {
 void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
     hhdm_off = hhdm_offset;
 
-    pmm_serial_print("=== memmap ===\n");
+    serial_print("=== memmap ===\n");
     uint64_t highest = 0;
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *e = memmap->entries[i];
-        pmm_serial_print("  base="); pmm_serial_hex(e->base);
-        pmm_serial_print(" len=");   pmm_serial_hex(e->length);
-        pmm_serial_print(" type=");  pmm_serial_hex(e->type);
-        pmm_serial_print("\n");
+        serial_print("  base="); serial_hex(e->base);
+        serial_print(" len=");   serial_hex(e->length);
+        serial_print(" type=");  serial_hex(e->type);
+        serial_print("\n");
         if (e->type == LIMINE_MEMMAP_USABLE) {
             uint64_t end = e->base + e->length;
             if (end > highest) highest = end;
         }
     }
-    pmm_serial_print("  highest_usable="); pmm_serial_hex(highest); pmm_serial_print("\n");
+    serial_print("  highest_usable="); serial_hex(highest); serial_print("\n");
 
     total_pages = highest / PAGE_SIZE;
     uint64_t bitmap_bytes = (total_pages + 7) / 8;
 
-    pmm_serial_print("  total_pages="); pmm_serial_hex(total_pages);
-    pmm_serial_print(" bitmap_bytes="); pmm_serial_hex(bitmap_bytes);
-    pmm_serial_print("\n");
+    serial_print("  total_pages="); serial_hex(total_pages);
+    serial_print(" bitmap_bytes="); serial_hex(bitmap_bytes);
+    serial_print("\n");
 
     bitmap = NULL;
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
@@ -62,15 +48,15 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
                 && e->base >= 0x100000
                 && e->length >= bitmap_bytes) {
             bitmap = (uint8_t *)(e->base + hhdm_off);
-            pmm_serial_print("  bitmap -> phys="); pmm_serial_hex(e->base);
-            pmm_serial_print(" bytes="); pmm_serial_hex(bitmap_bytes);
-            pmm_serial_print("\n");
+            serial_print("  bitmap -> phys="); serial_hex(e->base);
+            serial_print(" bytes="); serial_hex(bitmap_bytes);
+            serial_print("\n");
             break;
         }
     }
 
     if (!bitmap) {
-        pmm_serial_print("  ERROR: bitmap NULL, nenhuma regiao adequada!\n");
+        serial_print("  ERROR: bitmap NULL, nenhuma regiao adequada!\n");
         return;
     }
 
@@ -98,7 +84,7 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
         }
     }
 
-    pmm_serial_print("  free_pages="); pmm_serial_hex(free_pages); pmm_serial_print("\n");
+    serial_print("  free_pages="); serial_hex(free_pages); serial_print("\n");
 }
 
 void *pmm_alloc_page(void) {

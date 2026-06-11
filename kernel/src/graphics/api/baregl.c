@@ -1,15 +1,13 @@
-/* BareGL (SR) 0.2! */
+/* BareGL (SR) 0.2.1! */
 #include "baregl.h"
 #include "../../mm/heap.h"
 #include <stdint.h>
 #include <stddef.h>
 
-#define MAX_FB_SIZE (1280 * 800 * 4)
-
 static struct limine_framebuffer *d_fb = NULL;
-static uint8_t back_storage[MAX_FB_SIZE];
 static uint32_t *d_back = NULL;
 static uint32_t d_pw = 0;
+static size_t d_back_size = 0;
 
 void bare_sync_from_fb(void) {
     if (!d_fb || !d_back) return;
@@ -34,8 +32,21 @@ static inline int abs(int x) {
 
 void bare_init(struct limine_framebuffer *fb) {
     d_fb = fb;
+
+    if (!fb)
+        return;
+
     d_pw = fb->pitch / 4;
-    d_back = (uint32_t *)back_storage;
+
+    d_back_size = fb->pitch * fb->height;
+
+    d_back = kmalloc(d_back_size);
+
+    if (!d_back)
+        return;
+
+    for (size_t i = 0; i < d_back_size / 4; i++)
+        d_back[i] = 0;
 }
 
 int bare_width(void)  { return d_fb ? (int)d_fb->width  : 0; }
@@ -210,4 +221,11 @@ int bare_bmp_draw(int x, int y, const uint8_t *bmp_data, uint32_t bmp_size) {
         }
     }
     return 0;
+}
+
+void bare_shutdown(void) {
+    if (d_back) {
+        kfree(d_back);
+        d_back = NULL;
+    }
 }

@@ -21,8 +21,6 @@ void cmd_fillrect(int x, int y, int w, int h);
 void cmd_circle(int x, int y, int r);
 void cmd_clearfb(void);
 void cmd_baregl_status(void);
-void cmd_bmp(const char *name);
-void cmd_logo(void);
 void cmd_vfsls(void);
 void cmd_vminfo(void);
 void cmd_ramls(void);

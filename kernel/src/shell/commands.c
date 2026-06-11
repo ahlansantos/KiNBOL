@@ -1,8 +1,6 @@
-#include "../bmp/logo.h"
 #include "commands.h"
 #include "../graphics/terminal.h"
 #include "../graphics/api/baregl.h"
-#include "../graphics/games/doomport.h"
 #include "../drivers/rtc.h"
 #include "../drivers/keyboard.h"
 #include "../kernel/dmesg.h"
@@ -224,9 +222,7 @@ void cmd_help(void) {
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("\n  Graphics (BareGL):");
     terminal_set_fg(COLOR_BODY);
-    terminal_println("    bmpv <file> - Display BMP image");
     terminal_println("    drawtest    - Graphics test pattern");
-    terminal_println("    doomport    - Launch DOOM port");
     terminal_println("    pixel <x> <y> - Draw pixel");
     terminal_println("    line <x0> <y0> <x1> <y1> - Draw line");
     terminal_println("    rect <x> <y> <w> <h> - Draw rectangle");
@@ -950,10 +946,6 @@ void cmd_drawtest(void) {
     bare_flip();
 }
 
-void cmd_ray(void) {
-    doomport_run();
-}
-
 void cmd_pixel(int x, int y) {
     bare_sync_from_fb();
     bare_pixel(x, y, bare_rgb(255, 255, 255));
@@ -994,9 +986,9 @@ void cmd_clearfb(void) {
 void cmd_baregl_status(void) {
     print_header("BareGL Status");
 
-    print_field("  Version:      ", "0.2 (SR)");
+    print_field("  Version:      ", "0.2.1 (SR)");
     print_field("  Status:       ", "Active");
-    print_field("  Backend:      ", "Software Rasterizer (SR)");
+    print_field("  Backend:      ", "Software (SW)");
     print_field("  Double Buffer: ", "Yes");
 
     terminal_set_fg(COLOR_BODY);
@@ -1025,50 +1017,4 @@ void cmd_baregl_status(void) {
     terminal_println("  Software rasterizer with double buffering");
     terminal_println("  Supports: pixel, line, rect, fill, circle");
     terminal_println("");
-}
-
-void cmd_bmp(const char *name) {
-    int idx = ramdisk_find(name);
-    if (idx < 0) {
-        terminal_set_fg(COLOR_ERROR);
-        terminal_print("  Not found: ");
-        terminal_println(name);
-        return;
-    }
-    bare_sync_from_fb();
-    int r = bare_bmp_draw(0, 0, ramfiles[idx].data, ramfiles[idx].size);
-    if (r != 0) {
-        terminal_set_fg(COLOR_ERROR);
-        terminal_print("  BMP error: ");
-        terminal_print_int(r);
-        terminal_println("");
-        return;
-    }
-    bare_flip();
-    terminal_set_fg(COLOR_SUCCESS);
-    terminal_println("  BMP drawn successfully.");
-}
-
-void cmd_logo(void) {
-    bare_sync_from_fb();
-
-    int32_t img_h = *(int32_t*)(logo_bmp + 22);
-    int32_t img_w = *(int32_t*)(logo_bmp + 18);
-
-    int x = (int)fbi->width - img_w;
-    if (x < 0) x = 0;
-
-    int y = 16;
-
-    int r = bare_bmp_draw(x, y, logo_bmp, logo_bmp_size);
-    if (r != 0) {
-        terminal_set_fg(COLOR_ERROR);
-        terminal_print("  BMP error: ");
-        terminal_print_int(r);
-        terminal_println("");
-        return;
-    }
-
-    bare_flip();
-    terminal_set_fg(COLOR_HIGHLIGHT);
 }

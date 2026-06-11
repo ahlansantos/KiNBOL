@@ -88,7 +88,7 @@ static void print_banner(void) {
 
     terminal_set_fg(0xDDDDDD); terminal_print("  BareGL:      ");
     terminal_set_fg(0x88CC88);
-    terminal_println("0.2 (SR)");
+    terminal_println("0.2.1 (SR)");
 
     terminal_println("");
     terminal_set_fg(0xAAAAAA); terminal_println("  Type 'help' for available commands."); terminal_println("");

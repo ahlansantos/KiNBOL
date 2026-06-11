@@ -51,7 +51,6 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "ascii"))     cmd_ascii();
         else if (!sh_strcmp(in, "dmesg"))     cmd_dmesg();
         else if (!sh_strcmp(in, "drawtest"))  cmd_drawtest();
-        else if (!sh_strcmp(in, "doomport"))  cmd_ray();
         else if (!sh_strcmp(in, "clearfb"))   cmd_clearfb();
         else if (!sh_strcmp(in, "vfsls"))     cmd_vfsls();
         else if (!sh_strcmp(in, "ramls"))     cmd_ramls();
@@ -142,13 +141,6 @@ void shell_run(void) {
             cmd_circle(x, y, r);
         }
         else if (!sh_strcmp(in, "baregl status"))  cmd_baregl_status();
-        
-        else if (sh_startswith(in, "bmp ")) {
-            char *n = in + 4; while (*n == ' ') n++;
-            if (*n) cmd_bmp(n);
-            else { terminal_set_fg(0xFF0000); terminal_println("  Usage: bmp <file>"); }
-        }
-        else if (!sh_strcmp(in, "bmpv sigeonpex")) cmd_logo();
         else if (in[0]) {
             terminal_set_fg(0xFF0000);
             terminal_print("  not found: ");

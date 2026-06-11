@@ -1,10 +1,9 @@
-/* BareGL (SR) Headers 0.2 */
+/* BareGL (SW) Headers 0.2.1 */
 #pragma once
 #include <stdint.h>
 #include <limine.h>
 
 void bare_init(struct limine_framebuffer *fb);
-
 void bare_pixel(int x, int y, uint32_t color);
 void bare_rect(int x, int y, int w, int h, uint32_t color);
 void bare_rect_fill(int x, int y, int w, int h, uint32_t color);
