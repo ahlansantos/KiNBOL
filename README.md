@@ -181,7 +181,7 @@ This unlocks:
 | 0.05 | PMM + Heap |
 | 0.06 | Shell + Drivers |
 | 0.06.1 | VFS + Ramdisk + dmesg |
-| **0.07** | **Modern interrupt subsystem (GDT, TSS, IDT, ACPI, APIC, IOAPIC, LAPIC, IRQ0), paging/VMM stabilized, full register dump + named exceptions on panic, RAM display fix, 1080p boot resolution** |
+| **0.07** | **Modern interrupt subsystem (GDT, TSS, IDT, ACPI, APIC, IOAPIC, LAPIC, IRQ0), paging/VMM stabilized, full register dump + named exceptions on panic, RAM display fix, 1080p boot resolution + Mouse Tests + kinSH 2** |
 
 ## Philosophy
 
