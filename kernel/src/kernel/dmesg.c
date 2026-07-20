@@ -1,4 +1,5 @@
 #include "dmesg.h"
+#include "../drivers/serial.h"
 #include <stdint.h>
 
 static char     buf[DMESG_BUF_SIZE];
@@ -15,6 +16,7 @@ static void dmesg_putc(char c) {
     buf[head] = c;
     head = (head + 1) % DMESG_BUF_SIZE;
     if (count < DMESG_BUF_SIZE) count++;
+    serial_putc(c); /* live mirror - readable in qemu.log even after a halt/reset */
 }
 
 void dmesg(const char *msg) {

@@ -6,7 +6,7 @@ ARCH := x86_64
 
 # Default user QEMU flags. These are appended to the QEMU command calls.
 # FS TEST 0.06
-QEMUFLAGS := -m 2G -serial stdio -d int -D qemu.log -no-shutdown -no-reboot \
+QEMUFLAGS := -m 2G -serial stdio -d int -D qemu.log -no-shutdown -no-reboot -icount shift=auto,align=off,sleep=on \
 
 override IMAGE_NAME := KiNBOL_0.06.1_uefi-$(ARCH)
 
@@ -23,6 +23,15 @@ all: $(IMAGE_NAME).iso
 .PHONY: all-hdd
 all-hdd: $(IMAGE_NAME).hdd
 
+.PHONY: run-hvf
+run-hvf: edk2-ovmf $(IMAGE_NAME).iso
+	qemu-system-$(ARCH) \
+		-M pc \
+		-accel hvf \
+		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
+		-cdrom $(IMAGE_NAME).iso \
+		-m 2G -serial stdio -no-shutdown -no-reboot
+
 .PHONY: run
 run: run-$(ARCH)
 
@@ -32,7 +41,7 @@ run-hdd: run-hdd-$(ARCH)
 .PHONY: run-x86_64
 run-x86_64: edk2-ovmf $(IMAGE_NAME).iso
 	qemu-system-$(ARCH) \
-		-M q35 \
+		-M pc \
 		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
 		-cdrom $(IMAGE_NAME).iso \
 		$(QEMUFLAGS)

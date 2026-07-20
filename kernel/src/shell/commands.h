@@ -13,7 +13,6 @@ void cmd_meminfo(void);
 void cmd_ascii(void);
 void cmd_dmesg(void);
 void cmd_drawtest(void);
-void cmd_ray(void);
 void cmd_pixel(int x, int y);
 void cmd_line(int x0, int y0, int x1, int y1);
 void cmd_rect(int x, int y, int w, int h);
