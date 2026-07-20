@@ -42,7 +42,9 @@ IRQ_STUB_DECL(44) IRQ_STUB_DECL(45) IRQ_STUB_DECL(46) IRQ_STUB_DECL(47)
 typedef void (*irq_handler_t)(void);
 static irq_handler_t irq_handlers[IDT_ENTRIES] = {0};
 
-void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip);
+enum { R15=0, R14, R13, R12, R11, R10, R9, R8, RBP, RDI, RSI, RDX, RCX, RBX, RAX };
+
+void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, uint64_t *regs);
 
 void irq_register(int num, irq_handler_t handler) {
     if (num >= 0 && num < IDT_ENTRIES) {
@@ -51,16 +53,9 @@ void irq_register(int num, irq_handler_t handler) {
     }
 }
 
-void irq_dispatcher(uint64_t irq_num, uint64_t error_code, uint64_t rip) {
-    /* Vectors 0-31 are CPU exceptions, not maskable IRQs. If one of these
-     * fires and nothing is registered for it, falling through and doing
-     * nothing means we iretq straight back into the SAME faulting
-     * instruction (faults don't advance RIP) -> infinite silent re-fault
-     * loop, CPU pegged forever, no message, everything else (PIC/PIT
-     * ticks included) stops dead. Route them to the real panic handler
-     * instead. */
+void irq_dispatcher(uint64_t irq_num, uint64_t error_code, uint64_t rip, uint64_t *regs) {
     if (irq_num < 32) {
-        exception_fatal(irq_num, error_code, rip);
+        exception_fatal(irq_num, error_code, rip, regs);
         return;
     }
 
@@ -70,32 +65,63 @@ void irq_dispatcher(uint64_t irq_num, uint64_t error_code, uint64_t rip) {
     }
 }
 
-void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip) {
+static const char *exception_name(uint64_t vec) {
+    static const char *names[32] = {
+        "#DE Divide Error", "#DB Debug", "NMI", "#BP Breakpoint",
+        "#OF Overflow", "#BR Bound Range", "#UD Invalid Opcode", "#NM Device N/A",
+        "#DF Double Fault", "Coprocessor Seg Overrun", "#TS Invalid TSS", "#NP Segment Not Present",
+        "#SS Stack Fault", "#GP General Protection", "#PF Page Fault", "",
+        "#MF x87 FP Error", "#AC Alignment Check", "#MC Machine Check", "#XF SIMD FP Error",
+        "", "#CP Control Protection", "", "",
+        "", "", "", "",
+        "", "#VE Virtualization", "#SX Security", ""
+    };
+    return (vec < 32 && names[vec][0]) ? names[vec] : "Unknown";
+}
+
+static void reg_line(const char *name, uint64_t val) {
+    terminal_print("  "); terminal_print(name); terminal_print_hex(val); terminal_println("");
+}
+
+void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, uint64_t *regs) {
     uint64_t cr2;
     asm volatile("movq %%cr2, %0" : "=r"(cr2));
 
     terminal_set_fg(0xFF0000);
     terminal_println("\n=== FATAL EXCEPTION ===");
-    terminal_print("vector: "); terminal_print_int((uint32_t)exception_num); terminal_println("");
+    terminal_print("vector "); terminal_print_int((uint32_t)exception_num);
+    terminal_print(" - "); terminal_println(exception_name(exception_num));
     terminal_print("error code: "); terminal_print_hex(error_code); terminal_println("");
-    terminal_print("RIP: "); terminal_print_hex(rip); terminal_println("");
+    terminal_print("RIP:        "); terminal_print_hex(rip); terminal_println("");
     if (exception_num == 14) { terminal_print("CR2 (fault addr): "); terminal_print_hex(cr2); terminal_println(""); }
-    terminal_println("System halted");
+
+    terminal_println("\n-- registers --");
+    reg_line("RAX: ", regs[RAX]); reg_line("RBX: ", regs[RBX]);
+    reg_line("RCX: ", regs[RCX]); reg_line("RDX: ", regs[RDX]);
+    reg_line("RSI: ", regs[RSI]); reg_line("RDI: ", regs[RDI]);
+    reg_line("RBP: ", regs[RBP]);
+    reg_line("R8:  ", regs[R8]);  reg_line("R9:  ", regs[R9]);
+    reg_line("R10: ", regs[R10]); reg_line("R11: ", regs[R11]);
+    reg_line("R12: ", regs[R12]); reg_line("R13: ", regs[R13]);
+    reg_line("R14: ", regs[R14]); reg_line("R15: ", regs[R15]);
+
+    terminal_println("\nSystem halted");
 
     dmesg("[idt] fatal exception vector=");
     dmesg_int((uint32_t)exception_num);
-    dmesg(" err=");
+    dmesg(" (");
+    dmesg(exception_name(exception_num));
+    dmesg(") err=");
     dmesg_hex(error_code);
     dmesg(" rip=");
     dmesg_hex(rip);
+    dmesg(" rax=");
+    dmesg_hex(regs[RAX]);
     dmesg("\n");
 
     asm volatile("cli; 1: hlt; jmp 1b");
 }
 
-/* NOTE: in a real 64-bit IDT gate, the byte we call "always0" here is
- * actually the IST field (bits 0-2 select which TSS IST stack to use;
- * 0 means "don't switch stacks, keep using whatever RSP already is"). */
 void idt_set_ist(int num, uint8_t ist) {
     if (num >= 0 && num < IDT_ENTRIES) {
         idt[num].always0 = ist & 0x07;
@@ -125,6 +151,7 @@ __attribute__((naked)) static void isr_common(void) {
         "movq 120(%%rsp), %%rdi;"
         "movq 128(%%rsp), %%rsi;"
         "movq 136(%%rsp), %%rdx;"
+        "movq %%rsp, %%rcx;"     
         "call irq_dispatcher;"
         
         "popq %%r15; popq %%r14; popq %%r13; popq %%r12;"
@@ -138,22 +165,12 @@ __attribute__((naked)) static void isr_common(void) {
     );
 }
 
-/* isr0 (#DE) and isr6 (#UD) get NO error code from the CPU, so we push a
- * dummy $0 ourselves to keep the stack layout uniform for isr_common.
- * isr8 (#DF), isr13 (#GP), isr14 (#PF) DO get a real error code pushed
- * by the CPU automatically -- pushing another dummy $0 on top of that
- * shifts every later field on the stack by one slot, so isr_common ends
- * up reading the real error code where it expects RIP (and the dummy 0
- * where it expects the error code). Only push the vector for these. */
 __attribute__((naked)) static void isr0(void)  { asm volatile("pushq $0; pushq $0;  jmp isr_common"); }
 __attribute__((naked)) static void isr6(void)  { asm volatile("pushq $0; pushq $6;  jmp isr_common"); }
 __attribute__((naked)) static void isr8(void)  { asm volatile("pushq $8;  jmp isr_common"); }
 __attribute__((naked)) static void isr13(void) { asm volatile("pushq $13; jmp isr_common"); }
 __attribute__((naked)) static void isr14(void) { asm volatile("pushq $14; jmp isr_common"); }
 
-/* IRQ0-15 land on vectors 32-47 (after the PIC remap). CPU pushes no
- * error code for these, so we push a dummy 0 ourselves to keep the
- * same stack layout isr_common expects. */
 #define IRQ_STUB(vec) \
     __attribute__((naked)) static void isr##vec(void) { \
         asm volatile("pushq $0; pushq $" #vec "; jmp isr_common"); \
@@ -182,10 +199,6 @@ void idt_init(void) {
     IRQ_GATE(44) IRQ_GATE(45) IRQ_GATE(46) IRQ_GATE(47)
     #undef IRQ_GATE
 
-    /* Double Fault always runs on IST1: if the fault happened because the
-     * kernel stack itself is trashed, handling it on the same (broken)
-     * stack just turns it into a silent Triple Fault / reset instead of
-     * a message on screen. Requires gdt_init() to have run already. */
     idt_set_ist(8, 1);
 
     idt_ptr.limit = sizeof(idt_entry_t) * IDT_ENTRIES - 1;

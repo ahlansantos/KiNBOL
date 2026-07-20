@@ -52,7 +52,7 @@ static pagemap_t kernel_pagemap = NULL;
 int vmm_map(pagemap_t pm, uint64_t virt, uint64_t phys, uint64_t flags) {
     if (!pm) return -1;
 
-    uint64_t *pml4 = (uint64_t *)pm; /* pm is already virtual (see vmm_current/kernel_pagemap) */
+    uint64_t *pml4 = (uint64_t *)pm; 
     uint64_t *pdpt = get_or_create(&pml4[pml4_idx(virt)], flags);
     if (!pdpt) return -1;
 
@@ -223,12 +223,4 @@ void vmm_init(void) {
     uint64_t *apic_pd = (uint64_t *)phys_to_virt(apic_pdpt[apic_pdpt_i] & ~0xFFFULL);
     apic_pd[apic_pd_i] = apic_phys | VMM_PRESENT | VMM_WRITE | VMM_HUGE;
 
-    /* NOTE: kernel_pagemap built above is NOT switched to - it only maps
-     * the HHDM range + that one APIC page, and is missing the kernel's
-     * own higher-half code/data/stack mapping (VMM_KERNEL_BASE). Loading
-     * it into CR3 as-is instantly faults on the next instruction fetch
-     * with nowhere for the fault handler itself to run -> triple fault.
-     * We stay on Limine's own page tables (which already map the kernel
-     * image correctly) and just punch in the extra MMIO pages we need
-     * via vmm_map() on vmm_current() instead - see lapic.c/ioapic.c. */
 }
