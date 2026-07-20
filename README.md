@@ -1,166 +1,177 @@
-# KiNBOL - this Kernel is Not Based On Linux
-> *"I'm doing a (free) operating system (just a hobby, won't be big and professional like linux)"*
-> -> inspired by Linus Torvalds, 1991
+# KiNBOL
+> **this Kernel is Not Based On Linux**
 
-KiNBOL (formerly FreeARS) is a hobby x86_64 kernel written from scratch.
-UEFI boot via Limine, framebuffer output, and a growing low-level system layer.
-FreeARS Boot code can still be found!
+> *"I'm doing a (free) operating system (just a hobby, won't be big and professional like Linux)."*
+>
+> — Linus Torvalds, 1991
 
-**Current version:** 0.06.1
+A hobby x86_64 operating system written completely from scratch.
 
-**Branch:** `x86_64-uefi` (active development)
+<p align="left">
+<img src="https://img.shields.io/badge/version-0.06.2-blue">
+<img src="https://img.shields.io/badge/x86__64-Architecture-success">
+<img src="https://img.shields.io/badge/UEFI-Limine-green">
+<img src="https://img.shields.io/badge/status-Active_Development-orange">
+<img src="https://img.shields.io/badge/language-C11-blue">
+</p>
 
----
+KiNBOL (formerly **FreeARS**) is an educational operating system developed from scratch for the x86_64 architecture.
+
+Initially created as a simple framebuffer kernel, it has evolved into a modern UEFI kernel featuring memory management, interrupt handling, storage abstractions and the foundations for multitasking.
+
+## Current Status
+
+| Version | 0.06.2 |
+|---------|---------|
+| Architecture | x86_64 |
+| Boot | UEFI + Limine |
+| Branch | `x86_64-uefi` |
+| State | Active Development |
+
+## Highlights
+
+- UEFI Boot
+- x86_64 Long Mode
+- GDT + TSS
+- IDT
+- PIC Remapping
+- APIC
+- IOAPIC
+- LAPIC Timer
+- IRQ0 Timer Interrupts
+- Physical Memory Manager
+- Heap Allocator
+- VFS
+- Ramdisk
+- RTC
+- Shell
+- Software Renderer
+- Raycasting Demo
 
 ## Screenshots
 
-*28/04/26 -> IT BOOTED!!! 64-bit mode (QEMU) after hours of bugs!*
+### Raycasting (Removed, as 0f 0.06.2 - You can still implement it by yourself tho)
 
-*30/04/26 -> Booted on a baremetal-like VM (VirtualBox)!*
-
-*31/04/26 -> UEFI + Limine + TSC working!!!*
-
-*31/04/26 -> Bare metal on real hardware working! Posted on my tiktok. @theloneahlan*
-
-*01/05/26 -> PMM + heap working! Tested up to 32GB RAM.*
-
-*01/05/26 -> Shell + ATA disk detection added.*
-
-*03/05/26 -> VFS, ramdisk, dmesg, heap improvements, new Spleen font!*
-
-*04/05/26 -> Intial software render + Raycast game!*
-
-### KiNBOL 0.06.1 - Raycast!!
 ![KiNBOL](pictures/raycast.png)
 
-### KiNBOL 0.06.1 - Fastfetch and some test!
+### Fastfetch
+
 ![KiNBOL](pictures/KiNBOL-0.06.1-dump1.png)
+
 ![KiNBOL](pictures/KiNBOL-0.06.1-dump2.png)
 
+## What's New — 0.06.2
 
----
+### Interrupt Subsystem
 
-## What's new in 0.06.1
+- GDT
+- TSS
+- IDT
+- PIC Remapping
+- APIC
+- IOAPIC
+- LAPIC Timer
+- IRQ0 finally working 🎉
 
-* **Command History** -> Commands are now saved! kb.c.
-* **Spleen 8x16 bitmap font** -> much cleaner terminal output
-* **VFS (Virtual File System)** -> `/dev/null`, `/dev/zero`, `/dev/random`, `/dev/tty`, `/dev/ram0`
-* **Ramdisk** -> in-memory filesystem, create/read/delete files at runtime
-* **dmesg** -> kernel ring buffer log (4KB circular), records all boot events
-* **Heap improvements** -> `kcalloc`, `krealloc`, magic number corruption detection, bidirectional coalescing, usage statistics
-* **Memory debug tools** -> `hexdump`, `peek`, `poke` with automatic physical→virtual address conversion
-* **`calc`** -> expression calculator with correct precedence, hex support, bitwise operators
-* **`meminfo`** -> detailed memory map + heap statistics
-* **`ascii`** -> ASCII table
-* **Blinking cursor** in the terminal (callback-based, keyboard driver integrated)
-* **RTC driver** -> `date` command shows real time
+This is one of the biggest milestones of KiNBOL so far.
 
----
+For months, **IRQ0 simply refused to work**. After countless debugging sessions, the entire interrupt subsystem is finally operational.
 
-## Features
+This unlocks:
 
-* UEFI boot via Limine
-* x86_64 long mode kernel
-* Framebuffer terminal with **Spleen 8x16** bitmap font
-* PS/2 keyboard input with blinking cursor
-* TSC-based timing (calibrated via PIT)
-* CPUID CPU detection
-* RAM detection via Limine memmap
-* IDT + exception handling
-* Serial debug output
-* Physical Memory Manager (PMM) -> bitmap allocator
-* Heap allocator with corruption detection and coalescing
-* Virtual File System (VFS) with device nodes
-* In-memory ramdisk (RAM-backed file storage)
-* Kernel log ring buffer (dmesg)
-* RTC real-time clock driver
+- Scheduler
+- Multitasking
+- Time slicing
+- Accurate sleep()
+- System clock
+- Better hardware support
 
----
+## Existing Features
 
-## Shell commands
+### Boot
 
-| Command                    | Description                              |
-| -------------------------- | ---------------------------------------- |
-| `help`                     | Show available commands                  |
-| `clear`                    | Clear screen                             |
-| `uname`                    | Kernel version info                      |
-| `echo <text>`              | Print text                               |
-| `sleep <ms>`               | Busy-wait delay (TSC)                    |
-| `ticks`                    | Uptime counter                           |
-| `fastfetch`                | System overview                          |
-| `date`                     | Show real-time clock                     |
-| `crash`                    | Trigger exception (test)                 |
-| `reboot`                   | Reboot system                            |
-| `memtest`                  | PMM + heap allocator test                |
-| `meminfo`                  | Memory map + heap statistics             |
-| `hexdump <addr> <len>`     | Hex dump of memory region                |
-| `peek <addr>`              | Read 8 bytes from address                |
-| `poke <addr> <val>`        | Write 32-bit value to address            |
-| `calc <expr>`              | Calculator (`+−*/% & \| ^ << >> ~`)      |
-| `ascii`                    | ASCII table                              |
-| `dmesg`                    | Show kernel log                          |
-| `vfsls`                    | List VFS device nodes (`/dev/*`)         |
-| `vfsread <dev>`            | Read from VFS device                     |
-| `vfswrite <dev> <data>`    | Write to VFS device                      |
-| `ramls`                    | List ramdisk files                       |
-| `ramcat <file>`            | Read ramdisk file                        |
-| `ramwrite <file> <text>`   | Write ramdisk file                       |
-| `ramdel <file>`            | Delete ramdisk file                      |
-| `raminfo`                  | Ramdisk usage info                       |
-| `anim`                     | Spinner animation (timing test)          |
+- UEFI
+- Limine
 
----
+### CPU
 
-## Storage
+- CPUID
+- GDT
+- TSS
+- IDT
+- Exceptions
+- Interrupts
+- APIC
+- IOAPIC
+- LAPIC Timer
 
-* **Ramdisk** -> fully functional in-memory filesystem
-* **VFS** -> `/dev/null`, `/dev/zero`, `/dev/random`, `/dev/tty`, `/dev/ram0`
-* No persistent disk filesystem yet (planned for next versions!)
+### Memory
 
----
+- PMM
+- Heap
+- Heap statistics
+- Memory debugger
 
-## Bootloader history
+### Storage
 
-| Version     | Bootloader | Mode |
-| ---------   | ---------- | ---- |
-| 0.01–0.03   | GRUB       | BIOS |
-| 0.04–0.06.1 | Limine     | UEFI |
+- VFS
+- Ramdisk
 
----
+### Drivers
 
-## Version history
+- PS/2 Keyboard
+- RTC
+- Serial
+- Framebuffer
 
-| Version    | Description                                                              |
-| ---------- | ------------------------------------------------------------------------ |
-| 0.01       | 32-bit VESA kernel                                                       |
-| 0.02       | 64-bit early shell                                                       |
-| 0.03       | Framebuffer + CPUID                                                      |
-| 0.04       | UEFI + Limine + TSC                                                      |
-| 0.05       | PMM + heap + keyboard driver                                             |
-| 0.06       | Shell + command system + RTC + Fat32 and ATA (removed on .1)             |
-| **0.06.1** | **Spleen font + VFS + ramdisk + dmesg + heap improvements + debug tools**|
+### Shell
 
----
+- Fastfetch
+- Calculator
+- dmesg
+- Memory tools
+- 20+ commands
 
-## Next steps
+## Roadmap
 
-* [ ] Virtual memory manager (paging)
-* [ ] FAT32 filesystem on real disk
-* [ ] APIC timer (replace TSC sleep)
-* [ ] Scheduler (basic multitasking)
-* [ ] Syscalls
-* [ ] User mode (ring 3)
+- [ ] Paging
+- [ ] Virtual Memory Manager
+- [ ] Scheduler
+- [ ] Multitasking
+- [ ] Syscalls
+- [ ] Ring 3
+- [ ] ELF Loader
+- [ ] FAT32
+- [ ] AHCI
 
----
+## Version History
 
-## Notes
+| Version | Description |
+|----------|-------------|
+| 0.01 | First framebuffer kernel |
+| 0.02 | 64-bit mode |
+| 0.03 | Framebuffer improvements |
+| 0.04 | UEFI + Limine |
+| 0.05 | PMM + Heap |
+| 0.06 | Shell + Drivers |
+| 0.06.1 | VFS + Ramdisk + dmesg |
+| **0.06.2** | **Modern interrupt subsystem (GDT, TSS, IDT, APIC, IOAPIC, LAPIC, IRQ0)** |
 
-* Fully kernel-mode only (no user processes yet)
-* Designed purely for learning OS development
-* Tested on QEMU, VirtualBox, and real hardware!
+## Philosophy
 
----
+KiNBOL exists purely as a learning project.
+
+Every subsystem is written from scratch to better understand how modern operating systems actually work.
+Being fr, Claude.ai helped me build the APIC, LAPIC and IOAPIC. Sorry guys, I surrendered to AI.
+
+## Tested On
+
+- ✅ QEMU
+- ✅ VirtualBox
+- ✅ Real Hardware
 
 ## License
 
-Do whatever you want. It's a hobby.
+Do whatever you want.
+
+It's a hobby.
