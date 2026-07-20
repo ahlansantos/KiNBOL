@@ -57,7 +57,7 @@ Initially created as a simple framebuffer kernel, it has evolved into a modern U
 
 ### Fastfetch
 
-![KiNBOL](pictures/KiNBOL-0.07-dump.png)
+![KiNBOL](pictures/KiNBOL-0.07-dump1.png)
 
 ## What's New - 0.07
 
