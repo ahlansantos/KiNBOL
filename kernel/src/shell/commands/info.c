@@ -46,7 +46,7 @@ void cmd_fastfetch(void) {
     terminal_set_fg(0xDDDDDD);
     terminal_print("  Shell:    ");
     terminal_set_fg(0x88CC88);
-    terminal_println("kinsh 1");
+    terminal_println("kinsh 2");
 
     terminal_set_fg(0xDDDDDD);
     terminal_print("  VFS:      ");

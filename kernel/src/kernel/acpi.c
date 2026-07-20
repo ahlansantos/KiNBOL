@@ -2,9 +2,6 @@
 #include "dmesg.h"
 #include <stddef.h>
 
-/* Physical memory is reachable at hhdm_offset + phys once vmm_init() has
- * run (Limine's HHDM maps all usable + reserved RAM, which covers ACPI
- * tables since they live in memory the firmware marked reserved/ACPI). */
 extern uint64_t hhdm_offset;
 #define PHYS(addr) ((void *)(hhdm_offset + (uint64_t)(addr)))
 
@@ -16,7 +13,6 @@ typedef struct {
     char     oemid[6];
     uint8_t  revision;
     uint32_t rsdt_address;
-    /* ACPI 2.0+ only - only valid if revision >= 2 */
     uint32_t length;
     uint64_t xsdt_address;
     uint8_t  extended_checksum;
@@ -48,7 +44,7 @@ typedef struct {
     madt_entry_hdr_t hdr;
     uint8_t  acpi_processor_id;
     uint8_t  apic_id;
-    uint32_t flags; /* bit0 = enabled */
+    uint32_t flags;
 } __attribute__((packed)) madt_lapic_t;
 
 typedef struct {
@@ -72,6 +68,26 @@ typedef struct {
     uint16_t reserved;
     uint64_t lapic_address;
 } __attribute__((packed)) madt_lapic_override_t;
+
+typedef struct {
+    sdt_header_t hdr;
+    uint32_t firmware_ctrl;
+    uint32_t dsdt;
+    uint8_t  _pad0;
+    uint8_t  preferred_pm_profile;
+    uint16_t sci_int;
+    uint32_t smi_cmd;
+    uint8_t  acpi_enable;
+    uint8_t  acpi_disable;
+    uint8_t  s4bios_req;
+    uint8_t  pstate_cnt;
+    uint32_t pm1a_evt_blk;
+    uint32_t pm1b_evt_blk;
+    uint32_t pm1a_cnt_blk;
+    uint32_t pm1b_cnt_blk;
+} __attribute__((packed)) fadt_t;
+
+static fadt_t *g_fadt = NULL;
 
 static bool checksum_ok(const void *table, uint32_t len) {
     uint8_t sum = 0;
@@ -115,20 +131,16 @@ static void parse_madt(madt_t *madt) {
 
     while (p < end) {
         madt_entry_hdr_t *eh = (madt_entry_hdr_t *)p;
-        if (eh->length == 0) break; /* malformed table guard */
+        if (eh->length == 0) break;
 
         switch (eh->type) {
-            case 0: { /* Processor Local APIC */
+            case 0: {
                 madt_lapic_t *e = (madt_lapic_t *)p;
-                if ((e->flags & 1) && acpi_info.bsp_lapic_id == 0) {
-                    /* First enabled CPU we see; good enough as BSP id
-                     * pre-SMP. (Real SMP bring-up should instead read
-                     * the LAPIC ID register directly on the BSP.) */
+                if ((e->flags & 1) && acpi_info.bsp_lapic_id == 0)
                     acpi_info.bsp_lapic_id = e->apic_id;
-                }
                 break;
             }
-            case 1: { /* I/O APIC */
+            case 1: {
                 madt_ioapic_t *e = (madt_ioapic_t *)p;
                 if (acpi_info.ioapic_count < ACPI_MAX_IOAPICS) {
                     acpi_ioapic_t *io = &acpi_info.ioapics[acpi_info.ioapic_count++];
@@ -139,7 +151,7 @@ static void parse_madt(madt_t *madt) {
                 }
                 break;
             }
-            case 2: { /* Interrupt Source Override */
+            case 2: {
                 madt_iso_t *e = (madt_iso_t *)p;
                 if (acpi_info.iso_count < ACPI_MAX_ISOS) {
                     acpi_iso_t *iso = &acpi_info.isos[acpi_info.iso_count++];
@@ -150,27 +162,24 @@ static void parse_madt(madt_t *madt) {
                 }
                 break;
             }
-            case 5: { /* Local APIC Address Override (64-bit) */
+            case 5: {
                 madt_lapic_override_t *e = (madt_lapic_override_t *)p;
                 acpi_info.lapic_phys_addr = e->lapic_address;
                 break;
             }
-            default:
-                break;
+            default: break;
         }
-
         p += eh->length;
     }
 }
 
 void acpi_init(void *rsdp_ptr) {
     if (!rsdp_ptr) {
-        dmesg("[acpi] no RSDP from bootloader - cannot use APIC\n");
+        dmesg("[acpi] no RSDP from bootloader\n");
         return;
     }
 
     rsdp_t *rsdp = (rsdp_t *)rsdp_ptr;
-
     if (rsdp->signature[0] != 'R' || rsdp->signature[1] != 'S' ||
         rsdp->signature[2] != 'D' || rsdp->signature[3] != ' ') {
         dmesg("[acpi] bad RSDP signature\n");
@@ -181,7 +190,7 @@ void acpi_init(void *rsdp_ptr) {
     bool is_xsdt = false;
 
     if (rsdp->revision >= 2 && rsdp->xsdt_address) {
-        root = (sdt_header_t *)PHYS(rsdp->xsdt_address);
+        root    = (sdt_header_t *)PHYS(rsdp->xsdt_address);
         is_xsdt = true;
     } else {
         root = (sdt_header_t *)PHYS(rsdp->rsdt_address);
@@ -193,21 +202,20 @@ void acpi_init(void *rsdp_ptr) {
     }
 
     sdt_header_t *madt_hdr = find_table(root, is_xsdt, "APIC");
-    if (!madt_hdr) {
-        dmesg("[acpi] no MADT present\n");
+    if (!madt_hdr || !checksum_ok(madt_hdr, madt_hdr->length)) {
+        dmesg("[acpi] no valid MADT\n");
         return;
     }
-    if (!checksum_ok(madt_hdr, madt_hdr->length)) {
-        dmesg("[acpi] MADT checksum failed\n");
-        return;
-    }
-
     parse_madt((madt_t *)madt_hdr);
 
     if (acpi_info.ioapic_count == 0 || acpi_info.lapic_phys_addr == 0) {
-        dmesg("[acpi] MADT present but no usable LAPIC/IOAPIC entries\n");
+        dmesg("[acpi] MADT present but no usable LAPIC/IOAPIC\n");
         return;
     }
+
+    sdt_header_t *fadt_hdr = find_table(root, is_xsdt, "FACP");
+    if (fadt_hdr && checksum_ok(fadt_hdr, fadt_hdr->length))
+        g_fadt = (fadt_t *)fadt_hdr;
 
     acpi_info.valid = true;
     dmesg("[acpi] MADT parsed OK\n");
@@ -220,19 +228,13 @@ uint32_t acpi_isa_irq_to_gsi(uint8_t isa_irq, uint16_t *out_flags) {
             return acpi_info.isos[i].gsi;
         }
     }
-    if (out_flags) *out_flags = 0; /* conforms to bus (active-high, edge) */
-    return isa_irq; /* identity mapped, the common case */
+    if (out_flags) *out_flags = 0;
+    return isa_irq;
 }
 
 bool acpi_gsi_to_ioapic(uint32_t gsi, acpi_ioapic_t **out_ioapic, uint32_t *out_pin) {
     for (int i = 0; i < acpi_info.ioapic_count; i++) {
         acpi_ioapic_t *io = &acpi_info.ioapics[i];
-        /* Each IOAPIC covers a contiguous GSI range starting at gsi_base;
-         * without a redirection-table-size field handy we assume 24
-         * inputs (the near-universal case) unless another IOAPIC's base
-         * says otherwise. Good enough for single-IOAPIC desktop/laptop
-         * boards and QEMU; a multi-IOAPIC server board would need the
-         * MAX REDIRECTION ENTRY register read to be fully correct. */
         uint32_t span = 24;
         for (int j = 0; j < acpi_info.ioapic_count; j++) {
             if (j != i && acpi_info.ioapics[j].gsi_base > io->gsi_base) {
@@ -247,4 +249,64 @@ bool acpi_gsi_to_ioapic(uint32_t gsi, acpi_ioapic_t **out_ioapic, uint32_t *out_
         }
     }
     return false;
+}
+
+static inline void outw_p(uint16_t port, uint16_t val) {
+    asm volatile("outw %0, %1" :: "a"(val), "Nd"(port));
+}
+
+static int find_s5(uint8_t *data, uint32_t len, uint8_t *typa, uint8_t *typb) {
+    for (uint32_t i = 0; i + 7 < len; i++) {
+        if (data[i]   != 0x08)  continue;
+        if (data[i+1] != '_' || data[i+2] != 'S' ||
+            data[i+3] != '5' || data[i+4] != '_') continue;
+
+        uint32_t j = i + 5;
+        if (j >= len) break;
+        if (data[j] == 0x5C) j++; 
+        if (data[j] != 0x12) continue; 
+        j++;
+        if (j >= len) break;
+
+        uint8_t pl = data[j++];
+        j += (pl >> 6);
+        j++;
+        if (j + 2 >= len) break;
+
+        if (data[j] == 0x0A) j++;
+        *typa = data[j++];
+        if (data[j] == 0x0A) j++;
+        *typb = data[j];
+        return 1;
+    }
+    return 0;
+}
+
+void acpi_poweroff(void) {
+    if (!acpi_info.valid || !g_fadt) {
+        dmesg("[acpi] poweroff: no FADT cached\n");
+        return;
+    }
+
+    sdt_header_t *dsdt = (sdt_header_t *)PHYS((uint64_t)g_fadt->dsdt);
+    uint8_t *body      = (uint8_t *)dsdt + sizeof(sdt_header_t);
+    uint32_t body_len  = dsdt->length - (uint32_t)sizeof(sdt_header_t);
+
+    uint8_t slp_typa = 0, slp_typb = 0;
+    if (!find_s5(body, body_len, &slp_typa, &slp_typb)) {
+        dmesg("[acpi] poweroff: _S5_ not found\n");
+        return;
+    }
+
+    uint16_t pm1a = (uint16_t)g_fadt->pm1a_cnt_blk;
+    uint16_t pm1b = (uint16_t)g_fadt->pm1b_cnt_blk;
+    uint16_t va   = (uint16_t)((slp_typa << 10) | (1 << 13));
+    uint16_t vb   = (uint16_t)((slp_typb << 10) | (1 << 13));
+
+    dmesg("[acpi] writing S5 to PM1_CNT\n");
+    asm volatile("cli");
+    outw_p(pm1a, va);
+    if (pm1b) outw_p(pm1b, vb);
+
+    for (;;) asm volatile("hlt");
 }

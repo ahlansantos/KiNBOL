@@ -7,6 +7,7 @@ void cmd_crash(void);
 void cmd_fastfetch(void);
 void cmd_memtest(void);
 void cmd_reboot(void);
+void cmd_shutdown(void);
 void cmd_anim(void);
 void cmd_date(void);
 void cmd_meminfo(void);
