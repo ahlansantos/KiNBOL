@@ -69,7 +69,7 @@ static void print_banner(void) {
     terminal_println("");
 
     terminal_set_fg(0x88CC88);
-    terminal_println("  KiNBOL 0.06.1");
+    terminal_println("  KiNBOL 0.07");
     terminal_set_fg(0xAAAAAA);
     terminal_println("  this Kernel is Not Based On Linux");
     terminal_println("");
@@ -81,8 +81,14 @@ static void print_banner(void) {
 
     terminal_set_fg(0xDDDDDD); terminal_print("  RAM:         ");
     terminal_set_fg(0x88CC88);
-    if (total_ram >= 1073741824) { terminal_print_int(total_ram / 1073741824); terminal_println(" GB"); }
-    else                         { terminal_print_int(total_ram / 1048576);    terminal_println(" MB"); }
+    if (total_ram >= 1073741824) {
+        uint64_t whole = total_ram / 1073741824;
+        uint64_t tenths = (total_ram % 1073741824) * 10 / 1073741824;
+        terminal_print_int((uint32_t)whole); terminal_print(".");
+        terminal_print_int((uint32_t)tenths); terminal_println(" GB");
+    } else {
+        terminal_print_int((uint32_t)(total_ram / 1048576)); terminal_println(" MB");
+    }
 
     terminal_set_fg(0xDDDDDD); terminal_print("  PMM:         ");
     terminal_set_fg(0x88CC88);
@@ -110,17 +116,8 @@ static void timer_isr(void) {
 
 void kmain(void) {
 
-    /* Must run before anything below calls dmesg(): dmesg_init() zeroes
-     * the ring buffer (head/count/seq). It used to be called further
-     * down, AFTER gdt_init() and three other dmesg() calls had already
-     * written into the buffer - so the very first thing dmesg_init()
-     * did was erase those lines (the "[gdt] ..." message included)
-     * before the user ever got a chance to see them via `dmesg`. */
     dmesg_init();
 
-    /* Must be the very first init call that runs: everything else (IDT's
-     * IST1 for Double Fault, TSS, later user mode) depends on our own
-     * GDT being loaded instead of whatever Limine handed us. */
     gdt_init();
 
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) hcf();
@@ -136,7 +133,7 @@ void kmain(void) {
     dmesg("[pre-boot] terminal init\n");
     bare_init(fbi);
     dmesg("[pre-boot] baregl init\n");
-    dmesg("[boot] FreeARS Base boot init, KiNBOL 0.06.1 starting\n");
+    dmesg("[boot] FreeARS Base boot init, KiNBOL 0.07 starting\n");
 
     hhdm_offset = hhdm_request.response->offset;
     for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {
@@ -153,47 +150,24 @@ void kmain(void) {
     vmm_init();
     dmesg("[vmm] OK\n");
 
-    /* tsc_calibrate() only ever polls PIT *ports* directly (never an
-     * interrupt), so it's safe and correct to run this before we've
-     * decided how (or whether) interrupts get delivered at all. */
     tsc_calibrate();
     idt_init();
 
     acpi_init(rsdp_request.response ? rsdp_request.response->address : NULL);
 
     if (acpi_info.valid) {
-        /* Disable the legacy 8259 for good; flip IMCR to APIC routing
-         * only if this board actually has a dual-8259 wired to LINT0
-         * (MADT PCAT_COMPAT flag) - writing it unconditionally would be
-         * a no-op on boards without one, but skipping it on boards that
-         * need it is exactly what silently ate every IRQ0 tick before. */
+
         pic_disable(acpi_info.legacy_pic_present);
 
         lapic_init();
         ioapic_init();
 
         irq_register(TIMER_VECTOR, timer_isr);
-        /* This is a request, not a guarantee - under plain QEMU TCG
-         * (no hardware accel) the host won't deliver exactly this many
-         * interrupts/sec (calibration itself is exact; verified via
-         * [lapic] calib/reload dmesg output - the loss is host-side
-         * delivery, and it varies with host load, so no fixed fudge
-         * factor here would ever be reliable - see main.c history).
-         * That's fine: TSC (uptime_ms()/sleep_ms()) is the authoritative
-         * clock for anything that needs to know real elapsed time. This
-         * timer's only real job is to be a "check if it's time to
-         * preempt" heartbeat for the scheduler, where exact Hz doesn't
-         * matter - only rough regularity does. For real timing
-         * precision (not just scheduler heartbeats), run under
-         * `make run-hvf` instead of `make run`. */
-        lapic_timer_init(1000, TIMER_VECTOR); /* 1000 Hz, self-calibrated via TSC */
+
+        lapic_timer_init(1000, TIMER_VECTOR); 
 
         dmesg("[boot] LAPIC/IOAPIC timer online\n");
     } else {
-        /* No usable MADT (unexpected on real UEFI hardware, but keep the
-         * kernel bootable instead of hard-failing): no periodic tick,
-         * uptime_ms()/sleep_ms() still work fine since those are pure
-         * TSC polling and don't depend on this at all. */
         pic_disable(false);
         dmesg("[boot] no ACPI/MADT - running without a periodic timer\n");
     }

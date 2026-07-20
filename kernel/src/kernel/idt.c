@@ -42,6 +42,9 @@ IRQ_STUB_DECL(44) IRQ_STUB_DECL(45) IRQ_STUB_DECL(46) IRQ_STUB_DECL(47)
 typedef void (*irq_handler_t)(void);
 static irq_handler_t irq_handlers[IDT_ENTRIES] = {0};
 
+/* regs[] mirrors isr_common's push order, read back to front: r15 was
+ * pushed last (lowest address / regs[0]) ... rax was pushed first
+ * (highest address / regs[14]). One flat block, no new struct needed. */
 enum { R15=0, R14, R13, R12, R11, R10, R9, R8, RBP, RDI, RSI, RDX, RCX, RBX, RAX };
 
 void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, uint64_t *regs);
@@ -54,6 +57,13 @@ void irq_register(int num, irq_handler_t handler) {
 }
 
 void irq_dispatcher(uint64_t irq_num, uint64_t error_code, uint64_t rip, uint64_t *regs) {
+    /* Vectors 0-31 are CPU exceptions, not maskable IRQs. If one of these
+     * fires and nothing is registered for it, falling through and doing
+     * nothing means we iretq straight back into the SAME faulting
+     * instruction (faults don't advance RIP) -> infinite silent re-fault
+     * loop, CPU pegged forever, no message, everything else (PIC/PIT
+     * ticks included) stops dead. Route them to the real panic handler
+     * instead. */
     if (irq_num < 32) {
         exception_fatal(irq_num, error_code, rip, regs);
         return;
@@ -65,6 +75,8 @@ void irq_dispatcher(uint64_t irq_num, uint64_t error_code, uint64_t rip, uint64_
     }
 }
 
+/* Name lookup for the 32 CPU-exception vectors, so a panic reads
+ * "#GP General Protection" instead of just "vector: 13". */
 static const char *exception_name(uint64_t vec) {
     static const char *names[32] = {
         "#DE Divide Error", "#DB Debug", "NMI", "#BP Breakpoint",
@@ -122,6 +134,9 @@ void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, 
     asm volatile("cli; 1: hlt; jmp 1b");
 }
 
+/* NOTE: in a real 64-bit IDT gate, the byte we call "always0" here is
+ * actually the IST field (bits 0-2 select which TSS IST stack to use;
+ * 0 means "don't switch stacks, keep using whatever RSP already is"). */
 void idt_set_ist(int num, uint8_t ist) {
     if (num >= 0 && num < IDT_ENTRIES) {
         idt[num].always0 = ist & 0x07;
@@ -151,7 +166,7 @@ __attribute__((naked)) static void isr_common(void) {
         "movq 120(%%rsp), %%rdi;"
         "movq 128(%%rsp), %%rsi;"
         "movq 136(%%rsp), %%rdx;"
-        "movq %%rsp, %%rcx;"     
+        "movq %%rsp, %%rcx;"       /* 4th arg: base of the 15 GPRs just pushed */
         "call irq_dispatcher;"
         
         "popq %%r15; popq %%r14; popq %%r13; popq %%r12;"
@@ -165,12 +180,22 @@ __attribute__((naked)) static void isr_common(void) {
     );
 }
 
+/* isr0 (#DE) and isr6 (#UD) get NO error code from the CPU, so we push a
+ * dummy $0 ourselves to keep the stack layout uniform for isr_common.
+ * isr8 (#DF), isr13 (#GP), isr14 (#PF) DO get a real error code pushed
+ * by the CPU automatically -- pushing another dummy $0 on top of that
+ * shifts every later field on the stack by one slot, so isr_common ends
+ * up reading the real error code where it expects RIP (and the dummy 0
+ * where it expects the error code). Only push the vector for these. */
 __attribute__((naked)) static void isr0(void)  { asm volatile("pushq $0; pushq $0;  jmp isr_common"); }
 __attribute__((naked)) static void isr6(void)  { asm volatile("pushq $0; pushq $6;  jmp isr_common"); }
 __attribute__((naked)) static void isr8(void)  { asm volatile("pushq $8;  jmp isr_common"); }
 __attribute__((naked)) static void isr13(void) { asm volatile("pushq $13; jmp isr_common"); }
 __attribute__((naked)) static void isr14(void) { asm volatile("pushq $14; jmp isr_common"); }
 
+/* IRQ0-15 land on vectors 32-47 (after the PIC remap). CPU pushes no
+ * error code for these, so we push a dummy 0 ourselves to keep the
+ * same stack layout isr_common expects. */
 #define IRQ_STUB(vec) \
     __attribute__((naked)) static void isr##vec(void) { \
         asm volatile("pushq $0; pushq $" #vec "; jmp isr_common"); \
@@ -199,6 +224,10 @@ void idt_init(void) {
     IRQ_GATE(44) IRQ_GATE(45) IRQ_GATE(46) IRQ_GATE(47)
     #undef IRQ_GATE
 
+    /* Double Fault always runs on IST1: if the fault happened because the
+     * kernel stack itself is trashed, handling it on the same (broken)
+     * stack just turns it into a silent Triple Fault / reset instead of
+     * a message on screen. Requires gdt_init() to have run already. */
     idt_set_ist(8, 1);
 
     idt_ptr.limit = sizeof(idt_entry_t) * IDT_ENTRIES - 1;

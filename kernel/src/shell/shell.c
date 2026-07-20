@@ -37,7 +37,7 @@ void shell_run(void) {
 
         if      (!sh_strcmp(in, "help"))      cmd_help();
         else if (!sh_strcmp(in, "clear"))     terminal_clear();
-        else if (!sh_strcmp(in, "uname"))   { terminal_set_fg(0x00FF00); terminal_println("  KiNBOL 0.06.1 x86_64-uefi Limine"); }
+        else if (!sh_strcmp(in, "uname"))   { terminal_set_fg(0x00FF00); terminal_println("  KiNBOL 0.07 x86_64-uefi Limine"); }
         else if (sh_startswith(in, "echo ")){ terminal_set_fg(0x00FF00); terminal_print("  "); terminal_println(in + 5); }
         else if (!sh_strcmp(in, "ticks"))     cmd_ticks();
         else if (sh_startswith(in, "sleep ")) cmd_sleep(in + 6);

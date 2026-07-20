@@ -23,7 +23,7 @@ void cmd_fastfetch(void) {
     terminal_println("");
 
     terminal_set_fg(0x88CC88);
-    terminal_println("  KiNBOL 0.06.1");
+    terminal_println("  KiNBOL 0.07");
     terminal_set_fg(0xAAAAAA);
     terminal_println("  this Kernel is Not Based On Linux");
     terminal_println("");
@@ -36,7 +36,7 @@ void cmd_fastfetch(void) {
     terminal_set_fg(0xDDDDDD);
     terminal_print("  OS:       ");
     terminal_set_fg(0x88CC88);
-    terminal_println("KiNBOL 0.06.1");
+    terminal_println("KiNBOL 0.07");
 
     terminal_set_fg(0xDDDDDD);
     terminal_print("  Kernel:   ");
