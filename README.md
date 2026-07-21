@@ -97,6 +97,8 @@ make run
 
 ## 📖 History & Philosophy
 
+**KiNBOL** is the modern successor to **FreeARS**, a project that originally started as a basic 32-bit kernel and later saw an early 64-bit prototype booted via GRUB. FreeARS served as a foundational learning ground but has since been officially deprecated and archived. KiNBOL represents a complete architectural reboot, applying those lessons to build a cleaner, modular x86_64 UEFI system using Limine.
+
 KiNBOL exists purely as a learning project. Every subsystem is written from scratch to better understand how modern operating systems actually work.
 
 > [!IMPORTANT]
