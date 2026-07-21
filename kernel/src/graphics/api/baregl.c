@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 /*
  * BareGL, a tiny software-only graphics library built from scratch (no
  * real GPU driver involved). Draws into a back buffer in RAM and then
  * flips it to the real framebuffer. Provides pixels, filled/outlined
  * rectangles, lines, circles, and bitmap blitting.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 /* BareGL (SR) 0.2.1! */
 #include "baregl.h"
 #include "../../mm/heap.h"

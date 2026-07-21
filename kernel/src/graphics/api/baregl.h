@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Header for BareGL: every drawing primitive plus small helpers like rgb()
  * and screen width/height.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 /* BareGL (SW) Headers 0.2.1 */
 #pragma once
 #include <stdint.h>

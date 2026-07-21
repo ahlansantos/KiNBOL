@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * The 'calc' shell command: takes an expression, evaluates it with
  * calc_expr(), and prints the result both in hex and in decimal.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"

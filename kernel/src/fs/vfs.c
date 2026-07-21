@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
  * Virtual File System layer.
  * Sits between the shell/kernel and the real device or file drivers,
@@ -5,6 +6,8 @@
  * directly. Nodes (files, directories, char/block devices) are kept in
  * a fixed array and looked up by name. Ships with a default /dev/null.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "vfs.h"
 #include "../kernel/dmesg.h"
 #include <stdint.h>

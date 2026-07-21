@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Shell commands related to graphics, most likely small tests for the BareGL
  * primitives run straight from the terminal.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"

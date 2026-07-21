@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 /*
  * Header for the serial driver: init, putc, string print, and hex print.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stdint.h>
 

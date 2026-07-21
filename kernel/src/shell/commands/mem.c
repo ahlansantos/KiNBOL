@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 /*
  * Memory shell command: reports PMM/heap state, free pages, usage, and so on.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"

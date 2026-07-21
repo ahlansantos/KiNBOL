@@ -1,8 +1,11 @@
+<<<<<<< HEAD
 /*
  * Driver for the CMOS Real Time Clock. Reads the time and date registers
  * through ports 0x70/0x71 (they come back in BCD) and converts them to normal
  * binary values.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "rtc.h"
 #include <stdint.h>
 

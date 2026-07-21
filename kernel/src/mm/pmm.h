@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Header for the PMM: init from the Limine memmap, allocate/free a physical
  * page, and convert physical to virtual through the HHDM.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stdint.h>
 #include <stddef.h>

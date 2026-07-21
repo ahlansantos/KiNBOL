@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Header for the IOAPIC: init (masks every pin), routing an ISA IRQ to the
  * right vector, and masking/unmasking a specific GSI.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #ifndef IOAPIC_H
 #define IOAPIC_H
 

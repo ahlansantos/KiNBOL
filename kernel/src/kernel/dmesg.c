@@ -1,8 +1,11 @@
+<<<<<<< HEAD
 /*
  * Linux-dmesg-style kernel log buffer. Stores kernel messages in a buffer
  * and mirrors them to the serial port in real time, so the log can still
  * be read even if the screen never comes up or freezes.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "dmesg.h"
 #include "../drivers/serial.h"
 #include <stdint.h>

@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 /*
  * PS/2 mouse driver (the auxiliary device on the 8042 controller). Sends the
  * init command sequence, enables packet streaming, and turns the raw 3-byte
  * packets into x/y position and button state. Marked WONT WORK in the
  * original source, meaning it is not working correctly yet.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 // WONT WORK
 #include "mouse.h"
 #include "../graphics/api/baregl.h"

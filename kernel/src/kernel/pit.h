@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Header for the legacy PIT: init, uptime in ms, and tsc_hz, which other
  * modules use for calibration.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stdint.h>
 

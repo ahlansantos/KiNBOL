@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 /*
  * Header for the ACPI parser: the acpi_info_t struct holding everything
  * pulled out of the MADT (LAPIC address, list of IOAPICs, interrupt
  * source overrides), plus the public functions (init, poweroff, and the
  * ISA IRQ -> GSI -> IOAPIC/pin lookups).
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #ifndef ACPI_H
 #define ACPI_H
 

@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Header for the RTC driver. Defines rtc_time_t: second, minute, hour, day,
  * month, year.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stdint.h>
 

@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Header for the LAPIC: init, EOI, get_id, and periodic timer init (frequency
  * plus the interrupt vector to fire).
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #ifndef LAPIC_H
 #define LAPIC_H
 

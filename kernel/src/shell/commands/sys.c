@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * System-level shell commands, most likely reboot, poweroff, and uptime,
  * wired straight into the corresponding kernel functions.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"

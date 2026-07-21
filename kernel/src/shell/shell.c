@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 /*
  * The KiNBOL interactive shell. Reads a line at a time through
  * keyboard_readline, does simple parsing into a command plus arguments,
  * and dispatches to the registered command table (calc, fs, gfx, info,
  * mem, sys, util).
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "shell.h"
 #include "commands.h"
 #include "../graphics/terminal.h"

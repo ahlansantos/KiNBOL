@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
  * Driver for the per-CPU Local APIC. Enables the LAPIC through the
  * IA32_APIC_BASE MSR, sends EOI after every interrupt, and, most
@@ -5,6 +6,8 @@
  * (which replaced the PIT/IRQ0 as the system's tick source). This is
  * where the TSC-based calibration work happened.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "lapic.h"
 #include "acpi.h"
 #include "pit.h"

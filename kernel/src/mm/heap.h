@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Header for the heap: kmalloc/kfree and heap init on top of physical pages
  * from the PMM.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stddef.h>
 #include <stdint.h>

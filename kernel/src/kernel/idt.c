@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
  * The heart of interrupt and exception handling in KiNBOL. Builds a
  * 256-entry IDT, defines the assembly stubs (isr_common plus the special
@@ -11,6 +12,8 @@
  * zero on top of the CPU's real error code, which shifted every field
  * isr_common reads afterward by one slot.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>

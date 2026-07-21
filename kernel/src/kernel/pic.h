@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 /*
  * Header for the legacy PIC driver: remap and disable.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #ifndef PIC_H
 #define PIC_H
 

@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 /*
  * Kernel heap allocator, basically malloc/free, built on a doubly linked
  * list of blocks (block_t) with first-fit search and splitting a block
  * when there is extra room left over. Every block carries a magic number
  * so corruption or double frees can be caught.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 #include "heap.h"
 #include "pmm.h"
 #include <stddef.h>

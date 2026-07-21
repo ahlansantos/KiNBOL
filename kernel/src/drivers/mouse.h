@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 /*
  * Header for the mouse driver. Defines mouse_state_t (position plus button
  * flags) and the init/isr/draw functions. Also marked WONT WORK.
  */
+=======
+>>>>>>> origin/x86_64-uefi
 // WONT WORK
 #ifndef MOUSE_H
 #define MOUSE_H
