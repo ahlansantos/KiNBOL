@@ -1,6 +1,5 @@
 <div align="center">
-  <!-- Se tiver uma logo oficial depois, substitua a tag <h1> pela <img> do BoredOS -->
-  <h1>KiNBOL</h1>
+<h1>KiNBOL</h1>
   
   <h3>this Kernel is Not Based On Linux</h3>
 
@@ -18,7 +17,7 @@
 ---
 
 > *"I'm doing a (free) operating system (just a hobby, won't be big and professional like Linux)."*  
-> — Linus Torvalds, 1991
+> - Linus Torvalds, 1991
 
 **KiNBOL** (formerly **FreeARS**) is an educational operating system developed completely from scratch for the x86_64 architecture. Initially created as a simple framebuffer kernel, it has evolved into a modern UEFI kernel featuring memory management, interrupt handling, storage abstractions, and the foundations for cooperative multitasking.
 
@@ -27,19 +26,19 @@
 ## 🚀 Features
 
 ### Kernel and Architecture
-- **Long Mode (x86_64)** — Full 64-bit operation.
-- **Modern Interrupts** — GDT, TSS, IDT, PIC Remapping, ACPI parsing.
-- **Advanced APIC** — Full support for APIC, IOAPIC, and TSC-calibrated LAPIC Timers (IRQ0 finally working!).
-- **Memory Management** — Physical Memory Manager (PMM), Virtual Memory Manager (VMM/Paging) stabilized, and Heap Allocator.
-- **Task Scheduler** — Cooperative multitasking foundation (`task_create`, `sched_yield`, `task_exit`) with strict SysV ABI alignment and context isolation.
+- **Long Mode (x86_64)** > Full 64-bit operation.
+- **Modern Interrupts** > GDT, TSS, IDT, PIC Remapping, ACPI parsing.
+- **Advanced APIC** > Full support for APIC, IOAPIC, and TSC-calibrated LAPIC Timers (IRQ0 finally working!).
+- **Memory Management** > Physical Memory Manager (PMM), Virtual Memory Manager (VMM/Paging) stabilized, and Heap Allocator.
+- **Task Scheduler** > Cooperative multitasking foundation (`task_create`, `sched_yield`, `task_exit`) with strict SysV ABI alignment and context isolation.
 
 ### Storage & Filesystems
-- **VFS** — Virtual File System abstraction.
-- **Ramdisk** — In-memory temporary storage.
+- **VFS** > Virtual File System abstraction.
+- **Ramdisk** > In-memory temporary storage.
 
 ### Graphics & Display
-- **BareGL & Software Renderer** — 1080p boot resolution, scalable font cell (8x16 up to 64x128).
-- **Terminal** — Unified keyboard and shell input path, fixed blinking cursor, and PS/2 buffer flushing.
+- **BareGL & Software Renderer** > 1080p boot resolution, scalable font cell (8x16 up to 64x128).
+- **Terminal** > Unified keyboard and shell input path, fixed blinking cursor, and PS/2 buffer flushing.
 
 ### Shell & Applications (kinSH 2)
 | Category | Commands / Tools |
