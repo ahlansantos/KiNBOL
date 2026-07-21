@@ -10,6 +10,7 @@
 #include "../../kernel/dmesg.h"
 #include "../../kernel/pit.h"
 #include "../../kernel/acpi.h"
+#include "../../kernel/sched.h"
 
 #define MAX_SLEEP_MS 3600000
 
@@ -36,6 +37,7 @@ void cmd_help(void) {
     terminal_println("  date         current date / time");
     terminal_println("  ticks        uptime ticks");
     terminal_println("  dmesg        kernel log");
+    terminal_println("  ps           process status");
     terminal_println("  reboot       reboot system");
     terminal_println("  shutdown     power off (ACPI S5)");
     terminal_println("  crash        trigger kernel panic");
@@ -220,4 +222,34 @@ void cmd_dmesg(void) {
     terminal_print("\n  --- ");
     terminal_print_int(dmesg_len());
     terminal_println(" bytes ---\n");
+}
+
+static void test_task_entry(void *arg) {
+    (void)arg;
+    for (int i = 0; i < 5; i++) {
+        dmesg("[test_task] running\n");
+        sched_yield();
+    }
+    task_exit();
+}
+
+void cmd_schedtest(void) {
+    terminal_set_fg(COLOR_HIGHLIGHT);
+    terminal_println("  Creating test task...");
+    
+    task_t *t = task_create("test", test_task_entry, NULL);
+    if (!t) {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  Failed to create task.");
+        return;
+    }
+    
+    // As the scheduler is cooperative and the shell spins in keyboard_readline,
+    // we yield here until the task finishes. This tests context switching safely.
+    while (t->state != TASK_DEAD) {
+        sched_yield();
+    }
+    
+    terminal_set_fg(COLOR_SUCCESS);
+    terminal_println("  Task finished successfully.");
 }

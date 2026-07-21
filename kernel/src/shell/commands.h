@@ -40,3 +40,5 @@ void cmd_peek(const char *addr_str);
 void cmd_poke(const char *addr_str, const char *val_str);
 void cmd_vfsread(const char *dev);
 void cmd_vfswrite(const char *dev, const char *data);
+void cmd_ps(void);
+void cmd_schedtest(void);

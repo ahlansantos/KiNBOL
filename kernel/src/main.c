@@ -29,7 +29,9 @@
 #include "mm/heap.h"
 #include "fs/vfs.h"
 #include "fs/ramdisk.h"
+#include "kernel/sched.h"
 #include "shell/shell.h"
+
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
@@ -181,6 +183,8 @@ void kmain(void) {
 
     ramdisk_init();
     vfs_init();
+
+    sched_init();
 
     keyboard_init();
 

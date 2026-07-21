@@ -117,6 +117,13 @@ infrastructure instead of legacy PIC/PIT, the fix that finally stuck.
   font cell (8x16 → up to 64x128), instead of being stuck at native
   size. `scale 1` goes back to normal.
 
+### Scheduler & Multitasking Foundation
+
+- A cooperative task scheduler is now online (`task_create`, `sched_yield`, `task_exit`).
+- Properly handles x86_64 SysV ABI stack alignment and callee-saved registers during context switch.
+- Fixed critical bugs related to loading virtual addresses into physical-only registers (`CR3` triple fault).
+- Robust handling of task destruction (`NULL` pointer deference on task exit).
+
 ### Misc
 
 - Fixed RAM display truncating to a flat GB instead of showing one
@@ -184,8 +191,8 @@ This unlocks:
 
 - [x] Paging
 - [x] Virtual Memory Manager
-- [ ] Scheduler
-- [ ] Multitasking
+- [x] Scheduler (Cooperative foundation stabilized)
+- [ ] Multitasking (Preemption pending)
 - [ ] Syscalls
 - [ ] Ring 3
 - [ ] ELF Loader
