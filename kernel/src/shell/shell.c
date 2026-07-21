@@ -2,7 +2,7 @@
  * The KiNBOL interactive shell. Reads a line at a time through
  * keyboard_readline, does simple parsing into a command plus arguments,
  * and dispatches to the registered command table (calc, fs, gfx, info,
- * mem, sys, util).
+ * mem, sys, util). No tab-completion.
  */
 #include "shell.h"
 #include "commands.h"
@@ -31,147 +31,6 @@ static int parse_int(const char **p) {
     return neg ? -val : val;
 }
 
-static const char *CMD_LIST[] = {
-    "help", "clear", "uname", "echo ", "sleep ", "date", "ticks",
-    "crash", "fastfetch", "memtest", "reboot", "shutdown", "anim",
-    "dmesg", "meminfo", "vminfo",
-    "hexdump ", "peek ", "poke ",
-    "ramls", "ramcat ", "ramwrite ", "ramdel ", "raminfo",
-    "vfsls", "vfsread ", "vfswrite ",
-    "drawtest", "clearfb", "baregl status",
-    "pixel ", "line ", "rect ", "fillrect ", "circle ",
-    "calc ", "ascii",
-    NULL
-};
-
-static int tab_complete(char *buf, int len) {
-    if (len == 0) return -1;
-
-    const char *matches[64];
-    int         nmatch = 0;
-
-    for (int i = 0; CMD_LIST[i]; i++) {
-        if (sh_startswith(CMD_LIST[i], buf)) {  
-            int ok = 1;
-            for (int j = 0; j < len; j++) {
-                if (CMD_LIST[i][j] != buf[j]) { ok = 0; break; }
-            }
-            if (ok && nmatch < 64) matches[nmatch++] = CMD_LIST[i];
-        }
-    }
-
-    if (nmatch == 0) return -1; 
-
-    if (nmatch == 1) {
-        int i = 0;
-        while (matches[0][i]) { buf[i] = matches[0][i]; i++; }
-        buf[i] = '\0';
-        return i;
-    }
-
-    int common = len;
-    while (1) {
-        char c = matches[0][common];
-        if (!c) break;
-        int same = 1;
-        for (int i = 1; i < nmatch; i++)
-            if (matches[i][common] != c) { same = 0; break; }
-        if (!same) break;
-        common++;
-    }
-
-    terminal_println("");
-    terminal_set_fg(COLOR_DIM);
-    for (int i = 0; i < nmatch; i++) {
-        terminal_print("  ");
-        terminal_println(matches[i]);
-    }
-
-    terminal_set_fg(COLOR_PROMPT);
-    terminal_print("[kernel@KiNBOL] ~ $ ");
-    terminal_set_fg(COLOR_CMD);
-    for (int i = 0; i < common; i++) { buf[i] = matches[0][i]; terminal_putchar(buf[i]); }
-    buf[common] = '\0';
-    return common;
-}
-
-
-static void shell_readline(char *buf, int max) {
-    extern uint8_t inb_kb(void);  
-
-    static const char lo[] = {
-        0,0,'1','2','3','4','5','6','7','8','9','0','-','=','\b','\t',
-        'q','w','e','r','t','y','u','i','o','p','[',']','\n',0,
-        'a','s','d','f','g','h','j','k','l',';','\'','`',0,'\\',
-        'z','x','c','v','b','n','m',',','.','/',0,'*',0,' '
-    };
-    static const char up[] = {
-        0,0,'!','@','#','$','%','^','&','*','(',')','_','+','\b','\t',
-        'Q','W','E','R','T','Y','U','I','O','P','{','}','\n',0,
-        'A','S','D','F','G','H','J','K','L',':','"','~',0,'|',
-        'Z','X','C','V','B','N','M','<','>','?',0,'*',0,' '
-    };
-
-    int len = 0, shift = 0, extended = 0;
-    buf[0] = '\0';
-
-    while (len < max - 1) {
-        uint8_t status;
-        do { asm volatile("inb $0x64, %0" : "=a"(status)); } while (!(status & 1));
-        uint8_t sc;
-        asm volatile("inb $0x60, %0" : "=a"(sc));
-
-        if (sc == 0xE0) { extended = 1; continue; }
-        if (extended)   { extended = 0; continue; } 
-
-        if (sc & 0x80) {
-            uint8_t rel = sc & 0x7F;
-            if (rel == 0x2A || rel == 0x36) shift = 0;
-            continue;
-        }
-
-        if (sc == 0x2A || sc == 0x36) { shift = 1; continue; }
-        if (sc == 0x3A) { /* caps lock - ignore */ continue; }
-
-        if (sc == 0x0F) { 
-            int newlen = tab_complete(buf, len);
-            if (newlen > len) {
-                terminal_set_fg(COLOR_CMD);
-                for (int i = len; i < newlen; i++) terminal_putchar(buf[i]);
-                len = newlen;
-            }
-            continue;
-        }
-
-        if (sc == 0x1C) {
-            buf[len] = '\0';
-            terminal_println("");
-            return;
-        }
-
-        if (sc == 0x0E) {
-            if (len > 0) {
-                len--;
-                buf[len] = '\0';
-                terminal_putchar('\b');
-            }
-            continue;
-        }
-
-        if (sc < sizeof(lo)) {
-            char c = shift ? up[sc] : lo[sc];
-            if (c && c != '\t' && c != '\b') {
-                buf[len++] = c;
-                buf[len]   = '\0';
-                terminal_set_fg(COLOR_CMD);
-                terminal_putchar(c);
-            }
-        }
-    }
-    buf[len] = '\0';
-    terminal_println("");
-}
-
 void shell_run(void) {
     char in[256];
 
@@ -180,7 +39,7 @@ void shell_run(void) {
         terminal_print("[kernel@KiNBOL] ~ $ ");
         terminal_set_fg(COLOR_CMD);
 
-        shell_readline(in, 256);
+        keyboard_readline(in, 256);
 
         terminal_set_fg(COLOR_BODY);
 
@@ -277,12 +136,15 @@ void shell_run(void) {
             int x=parse_int(&p),y=parse_int(&p),r=parse_int(&p);
             cmd_circle(x, y, r);
         }
+        else if (sh_startswith(in, "scale ")) {
+            cmd_scale(in + 6);
+        }
         else if (in[0]) {
             terminal_set_fg(COLOR_ERROR);
             terminal_print("  command not found: ");
             terminal_println(in);
             terminal_set_fg(COLOR_DIM);
-            terminal_println("  Try 'help' or press Tab.");
+            terminal_println("  Try 'help'.");
         }
     }
 }

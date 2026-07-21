@@ -77,7 +77,7 @@ This is the biggest milestone in KiNBOL's history so far.
 For months, **IRQ0 simply refused to work**. Turned out OVMF/HPET in legacy
 replacement mode was hijacking it via the I/O APIC. Rather than patch
 around that, the entire timer path was rebuilt on modern APIC/IOAPIC
-infrastructure instead of legacy PIC/PIT — the fix that finally stuck.
+infrastructure instead of legacy PIC/PIT, the fix that finally stuck.
 
 ### Paging / VMM Stabilized
 
@@ -89,12 +89,33 @@ infrastructure instead of legacy PIC/PIT — the fix that finally stuck.
 
 - Panics now dump all 15 general-purpose registers, not just RIP + error
   code + CR2
-- 32-entry exception name table — a panic reads `vector 13 - #GP General
+- 32-entry exception name table, a panic reads `vector 13 - #GP General
   Protection` instead of a bare number
 - Fixed a stack-corruption bug in the IDT exception stubs where an extra
   dummy error code was pushed on top of the CPU's real one for
   error-code vectors (#DF/#GP/#PF), shifting every field the dispatcher
   read afterward
+
+### Shell / Input Cleanup
+
+- The shell used to have its own copy-pasted line-reading loop
+  (`shell_readline`), duplicated from, and slowly diverging from, the
+  `keyboard_readline` driver function. They've been merged: the keyboard
+  driver (`drivers/keyboard.c`) is now the single source of truth for
+  reading a line, and the shell just calls into it.
+- Fixed the blinking cursor, which had silently stopped working because
+  it was only ever wired up in the (unused) driver copy of the
+  readline loop, not the one the shell actually called.
+- Added `keyboard_init()`, which flushes any stale bytes sitting in the
+  PS/2 controller's output buffer at boot (leftovers from BIOS/UEFI
+  self-test) before the shell starts reading input.
+- **Removed tab-completion.** It was flaky (only worked reliably a while
+  after boot / after another command had already run) and wasn't worth
+  the complexity it added to the input loop. May come back later, done
+  properly.
+- **Added `scale <1-8>`** - resizes the whole terminal by scaling the
+  font cell (8x16 → up to 64x128), instead of being stuck at native
+  size. `scale 1` goes back to normal.
 
 ### Misc
 
@@ -156,6 +177,7 @@ This unlocks:
 - Calculator
 - dmesg
 - Memory tools
+- Resizable terminal (`scale`)
 - 20+ commands
 
 ## Roadmap
@@ -169,6 +191,7 @@ This unlocks:
 - [ ] ELF Loader
 - [ ] FAT32
 - [ ] AHCI
+- [ ] Tab-completion, done properly
 
 ## Version History
 
@@ -181,7 +204,7 @@ This unlocks:
 | 0.05 | PMM + Heap |
 | 0.06 | Shell + Drivers |
 | 0.06.1 | VFS + Ramdisk + dmesg |
-| **0.07** | **Modern interrupt subsystem (GDT, TSS, IDT, ACPI, APIC, IOAPIC, LAPIC, IRQ0), paging/VMM stabilized, full register dump + named exceptions on panic, RAM display fix, 1080p boot resolution + Mouse Tests + kinSH 2** |
+| **0.07** | **Modern interrupt subsystem (GDT, TSS, IDT, ACPI, APIC, IOAPIC, LAPIC, IRQ0), paging/VMM stabilized, full register dump + named exceptions on panic, RAM display fix, 1080p boot resolution + Mouse Tests + kinSH 2, unified keyboard/shell input path with a fixed blinking cursor, PS/2 buffer flush on boot, tab-completion removed, `scale` command added** |
 
 ## Philosophy
 

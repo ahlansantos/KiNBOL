@@ -182,6 +182,8 @@ void kmain(void) {
     ramdisk_init();
     vfs_init();
 
+    keyboard_init();
+
     asm volatile("sti");
     uint64_t rflags;
     asm volatile("pushfq; popq %0" : "=r"(rflags));

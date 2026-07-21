@@ -48,6 +48,24 @@ void cmd_circle(int x, int y, int r) {
     bare_flip();
 }
 
+void cmd_scale(const char *arg) {
+    while (*arg == ' ') arg++;
+    if (*arg < '1' || *arg > '8' || arg[1] != '\0') {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  Usage: scale <1-8>  (1 = normal size)");
+        return;
+    }
+    uint32_t s = (uint32_t)(*arg - '0');
+    terminal_set_scale(s);
+    terminal_clear();
+    terminal_set_fg(COLOR_SUCCESS);
+    terminal_print("  Terminal scale set to ");
+    terminal_print_int(s);
+    terminal_print("x");
+    terminal_println("");
+    terminal_set_fg(COLOR_BODY);
+}
+
 void cmd_clearfb(void) {
     bare_clear(bare_rgb(0, 0, 0));
     bare_flip();

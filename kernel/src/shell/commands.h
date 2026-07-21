@@ -24,6 +24,7 @@ void cmd_line(int x0, int y0, int x1, int y1);
 void cmd_rect(int x, int y, int w, int h);
 void cmd_fillrect(int x, int y, int w, int h);
 void cmd_circle(int x, int y, int r);
+void cmd_scale(const char *arg);
 void cmd_clearfb(void);
 void cmd_baregl_status(void);
 void cmd_vfsls(void);

@@ -1,4 +1,3 @@
-
 /*
  * System-level shell commands, most likely reboot, poweroff, and uptime,
  * wired straight into the corresponding kernel functions.
@@ -80,6 +79,7 @@ void cmd_help(void) {
     terminal_println("  fillrect <x> <y> <w> <h>");
     terminal_println("  circle <x> <y> <r>");
     terminal_println("  clearfb                 clear framebuffer");
+    terminal_println("  scale <1-8>             resize terminal font");
 
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Utilities");
@@ -89,8 +89,6 @@ void cmd_help(void) {
     terminal_println("  calc <expr>   calculator (hex, +-*/&|^~)");
     terminal_println("  ascii         ASCII table");
     terminal_println("  anim          animation test\n");
-    terminal_set_fg(COLOR_DIM);
-    terminal_println("  Tip: press Tab to auto-complete commands.\n");
 }
 
 void cmd_ticks(void) {

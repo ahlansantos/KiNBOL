@@ -2,11 +2,14 @@
  * PS/2 keyboard driver. Reads raw scancodes from port 0x60 and converts them
  * to ASCII using the lo/hi lookup tables (normal and shifted). Also
  * implements keyboard_readline, a polling-based line input function with
- * backspace and arrow key support, no IRQ needed.
+ * backspace, arrow key history, and a blinking cursor (plugged in via
+ * keyboard_set_cursor_cb, so this file stays shell-agnostic). No IRQ
+ * needed. Tab is intentionally ignored (no completion).
  */
 
 #include <stdint.h>
 #include "keyboard.h"
+#include "../kernel/pit.h"
 extern void terminal_putchar(char c);
 
 static inline uint8_t inb(uint16_t port) {
@@ -22,6 +25,19 @@ static inline uint64_t kb_rdtsc(void) {
 
 static void (*cursor_cb)(int visible) = 0;
 void keyboard_set_cursor_cb(void (*cb)(int visible)) { cursor_cb = cb; }
+
+/* The PS/2 controller can have stale bytes sitting in its output buffer
+ * right after boot (BIOS/UEFI self-test, USB legacy keyboard emulation
+ * flushing its own synthetic scancodes, etc). If we start reading before
+ * that settles, the first real keypresses - Tab included - can get lost
+ * in the noise. Drain whatever's pending before we ever trust the buffer. */
+void keyboard_init(void) {
+    int guard = 0;
+    while ((inb(0x64) & 1) && guard < 256) {
+        (void)inb(0x60);
+        guard++;
+    }
+}
 
 static const char lo[] = {
     0,0,'1','2','3','4','5','6','7','8','9','0','-','=','\b','\t',
@@ -56,7 +72,7 @@ static void hist_add(const char *buf) {
 void keyboard_readline(char *buf, int max) {
     int i = 0, shift = 0, caps = 0;
     int hist_pos = hist_head;
-    uint64_t blink_period = 500000000ULL;
+    uint64_t blink_period = tsc_hz ? (tsc_hz / 2) : 500000000ULL; /* ~500ms */
     uint64_t last_blink   = kb_rdtsc();
     int      cursor_vis   = 1;
     int      extended     = 0;
@@ -118,6 +134,7 @@ void keyboard_readline(char *buf, int max) {
             goto next;
         }
 
+        if (sc == 0x0F) { goto next; } /* ignore Tab, no completion */
         if (sc == 0x2A || sc == 0x36) { shift = 1; goto next; }
         if (sc == 0xAA || sc == 0xB6) { shift = 0; goto next; }
         if (sc == 0x3A) { caps = !caps; goto next; }
