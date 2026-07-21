@@ -1,10 +1,7 @@
-<<<<<<< HEAD
 /*
  * Shell commands for working with files (ls, cat, and similar), talking to
  * the ramdisk/VFS layer.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"

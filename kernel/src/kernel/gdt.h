@@ -1,11 +1,8 @@
-<<<<<<< HEAD
 /*
  * Header for the GDT: gdt_init and tss_set_ist, which sets up the
  * alternate IST stack used for critical interrupts like the double
  * fault.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #ifndef GDT_H
 #define GDT_H
 

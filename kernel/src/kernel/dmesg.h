@@ -1,10 +1,7 @@
-<<<<<<< HEAD
 /*
  * Header for dmesg: string/int/hex log functions used across almost every
  * module in the kernel to record what's happening.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stdint.h>
 

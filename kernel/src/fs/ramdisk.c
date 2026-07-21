@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*
  * A very small in-memory filesystem.
  * It keeps a fixed-size array of ramfile_t entries, each one just a name,
@@ -6,8 +5,6 @@
  * There are no directories and nothing is persisted; everything here is
  * lost on shutdown or reboot.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "ramdisk.h"
 #include "../mm/heap.h"
 #include <stdint.h>

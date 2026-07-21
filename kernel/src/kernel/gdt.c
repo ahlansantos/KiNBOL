@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*
  * Builds the GDT (Global Descriptor Table) with the classic 5 descriptors
  * (null, kernel code, kernel data, user code, user data for a future
@@ -6,8 +5,6 @@
  * double faults, so the double fault handler doesn't run on top of a
  * kernel stack that might itself be the thing that's corrupted.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include <stdint.h>
 #include <stddef.h>
 

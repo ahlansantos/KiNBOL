@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*
  * ACPI table parser. Finds the RSDP handed over by the bootloader, follows
  * it to the RSDT or XSDT, locates the MADT (Multiple APIC Description
@@ -8,8 +7,6 @@
  * an ACPI poweroff (the _S5_ method) by writing directly to the PM1_CNT
  * register.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "acpi.h"
 #include "dmesg.h"
 #include <stddef.h>

@@ -1,11 +1,8 @@
-<<<<<<< HEAD
 /*
  * Header for the VFS: node type flags (FILE, DIRECTORY, CHARDEV, BLOCKDEV,
  * PIPE, SYMLINK, MOUNTPT) and the vfs_node_t struct with its read/write
  * function pointers.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stdint.h>
 #include <stddef.h>

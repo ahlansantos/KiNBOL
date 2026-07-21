@@ -1,12 +1,10 @@
-<<<<<<< HEAD
 /*
  * Kernel entry point (kmain), called by the Limine bootloader once it has
  * handed over the framebuffer, memory map, HHDM offset, and RSDP. From
  * here the boot sequence runs: terminal, PMM, VMM, GDT, IDT, ACPI,
  * LAPIC/IOAPIC, drivers, and finally the shell.
  */
-=======
->>>>>>> origin/x86_64-uefi
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>

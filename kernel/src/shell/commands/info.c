@@ -1,10 +1,8 @@
-<<<<<<< HEAD
 /*
  * The 'info' shell command: prints system information, version, detected
  * hardware, and so on.
  */
-=======
->>>>>>> origin/x86_64-uefi
+
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"

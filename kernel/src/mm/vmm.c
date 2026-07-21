@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*
  * Virtual Memory Manager. Builds and walks the x86-64 page tables by hand
  * (PML4 -> PDPT -> PD -> PT). Handles mapping/unmapping pages, creating a
@@ -7,8 +6,6 @@
  * offset and is used everywhere to convert between physical and virtual
  * addresses without walking the tables.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "vmm.h"
 #include "pmm.h"
 #include <stdint.h>

@@ -1,9 +1,6 @@
-<<<<<<< HEAD
 /*
  * Header for the ramdisk: the ramfile_t struct and the MAX_RAMFILES limit.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stdint.h>
 

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*
  * Physical Memory Manager. Uses a bitmap, one bit per 4KB physical page,
  * to track which pages are free or in use, built from the memory map
@@ -6,8 +5,6 @@
  * allocates physical memory sits on, including the VMM itself, which
  * uses it to get pages for new page tables.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "pmm.h"
 #include <stddef.h>
 #include <stdint.h>

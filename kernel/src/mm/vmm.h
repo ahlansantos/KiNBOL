@@ -1,10 +1,8 @@
-<<<<<<< HEAD
 /*
  * Header for the VMM: page flags (PRESENT, WRITE, USER, NX, HUGE), the
  * pagemap_t type, and the mapping/address-space-switching functions.
  */
-=======
->>>>>>> origin/x86_64-uefi
+
 #pragma once
 #include <stdint.h>
 #include <stddef.h>

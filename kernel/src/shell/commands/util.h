@@ -1,10 +1,7 @@
-<<<<<<< HEAD
 /*
  * Header for shell utilities: tick count, simple string length, and the
  * standardized header print used by several commands.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #pragma once
 
 #include <stdint.h>

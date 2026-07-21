@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*
  * Text terminal that draws straight into the Limine framebuffer, one
  * character at a time, using the bitmap font. Keeps track of cursor
@@ -6,8 +5,6 @@
  * print functions used everywhere else in the kernel (print, println,
  * print_int, print_hex).
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "terminal.h"
 #include "../graphics/font.h"
 #include <stdint.h>

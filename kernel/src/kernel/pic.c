@@ -1,12 +1,9 @@
-<<<<<<< HEAD
 /*
  * Driver for the legacy 8259 PIC (the old interrupt controller). All it
  * does now is remap the vectors and then permanently disable the chip
  * through the IMCR, since KiNBOL moved over to APIC. Kept around mostly
  * as history and as a fallback reference.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "pic.h"
 #include "dmesg.h"
 

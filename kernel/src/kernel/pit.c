@@ -1,12 +1,9 @@
-<<<<<<< HEAD
 /*
  * Driver for the 8253/8254 PIT (Programmable Interval Timer), the legacy
  * timer that used to drive IRQ0. It stopped being the system's tick
  * source after the move to the LAPIC timer, but it still gets used for
  * other things, like measuring elapsed time before the TSC is calibrated.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "pit.h"
 #include "dmesg.h"
 #include <stdint.h>

@@ -1,11 +1,8 @@
-<<<<<<< HEAD
 /*
  * Shared header for every shell command: the color constants used in
  * output (COLOR_HEADER, COLOR_BODY, etc) and the prototypes for each
  * command (calc, fs, gfx, info, mem, sys).
  */
-=======
->>>>>>> origin/x86_64-uefi
 #pragma once
 
 void cmd_help(void);

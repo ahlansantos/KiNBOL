@@ -1,10 +1,7 @@
-<<<<<<< HEAD
 /*
  * Header for the terminal: init, color setters, char/string/number output,
  * and cursor control.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #pragma once
 #include <stdint.h>
 #include <limine.h>

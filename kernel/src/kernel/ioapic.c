@@ -1,12 +1,10 @@
-<<<<<<< HEAD
+
 /*
  * Driver for the I/O APIC. Reads and writes the redirection table
  * (IOREDTBL) to decide, for every external IRQ pin (keyboard, PIT, etc),
  * which vector it should fire, which LAPIC it should be delivered to,
  * and its polarity/trigger mode. This replaces the old PIC remapping.
  */
-=======
->>>>>>> origin/x86_64-uefi
 #include "ioapic.h"
 #include "acpi.h"
 #include "dmesg.h"

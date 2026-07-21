@@ -1,12 +1,10 @@
-<<<<<<< HEAD
 /*
  * PS/2 keyboard driver. Reads raw scancodes from port 0x60 and converts them
  * to ASCII using the lo/hi lookup tables (normal and shifted). Also
  * implements keyboard_readline, a polling-based line input function with
  * backspace and arrow key support, no IRQ needed.
  */
-=======
->>>>>>> origin/x86_64-uefi
+
 #include <stdint.h>
 #include "keyboard.h"
 extern void terminal_putchar(char c);
