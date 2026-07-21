@@ -87,7 +87,7 @@ void cmd_fastfetch(void) {
     terminal_set_fg(0xDDDDDD);
     terminal_print("  BareGL:   ");
     terminal_set_fg(0x88CC88);
-    terminal_println("0.2 (SR)");
+    terminal_println("0.2.1 (SR)");
 
     terminal_set_fg(0xDDDDDD);
     terminal_print("  CPU:      ");
