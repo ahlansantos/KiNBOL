@@ -4,7 +4,7 @@
   
   <h3>this Kernel is Not Based On Linux</h3>
 
-  [![License](https://img.shields.io/badge/License-Do_whatever_you_want-blue.svg)](LICENSE)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
   ![Platform: x86_64](https://img.shields.io/badge/Platform-x86_64-lightgrey)
   ![Bootloader: Limine](https://img.shields.io/badge/Bootloader-Limine-green)
   ![Status: Active Development](https://img.shields.io/badge/Status-Active_Development-orange)
@@ -97,7 +97,7 @@ make run
 
 ## 📖 History & Philosophy
 
-**KiNBOL** is the modern successor to **FreeARS**, a project that originally started as a basic 32-bit kernel and later saw an early 64-bit prototype booted via GRUB. FreeARS served as a foundational learning ground but has since been officially deprecated and archived. KiNBOL represents a complete architectural reboot, applying those lessons to build a cleaner, modular x86_64 UEFI system using Limine.
+**KiNBOL** is the modern successor to **FreeARS**, a project that originally started as a basic 32-bit kernel and later saw an early 64-bit prototype booted via GRUB. (You can find it on the 32bit-legacy branch!) FreeARS served as a foundational learning ground but has since been officially deprecated and archived. KiNBOL represents a complete architectural reboot, applying those lessons to build a cleaner, modular x86_64 UEFI system using Limine.
 
 KiNBOL exists purely as a learning project. Every subsystem is written from scratch to better understand how modern operating systems actually work.
 
@@ -110,4 +110,7 @@ KiNBOL exists purely as a learning project. Every subsystem is written from scra
 
 ## ⚖️ License
 
-Do whatever you want. It's a hobby.
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
+
+> [!IMPORTANT]
+> You can do whatever you want with this code, as long as you include the original copyright notice and give credit. It's a hobby project, enjoy!
