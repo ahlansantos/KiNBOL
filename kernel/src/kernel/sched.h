@@ -28,6 +28,7 @@ typedef struct task {
     uint32_t       id;           /* Process ID (PID) */
     char           name[32];     /* Task name for debugging/ps */
     task_state_t   state;        /* Current state */
+    void          *phys_stack;   /* Physical address of the stack page */
     void          *kernel_stack; /* Allocated stack memory base pointer */
     size_t         stack_size;   /* Stack size in bytes */
     task_entry_t   entry;        /* Function entry point */
@@ -53,6 +54,12 @@ task_t *sched_current(void);
 
 /* Terminate the current task */
 void task_exit(void);
+
+/* Destroy a dead task and free its resources */
+void task_destroy(task_t *task);
+
+/* Reaper function to clean up dead tasks */
+void task_reaper(void);
 
 /* Internal entry trampoline for new tasks */
 void task_entry_wrapper(task_entry_t entry, void *arg);

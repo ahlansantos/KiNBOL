@@ -11,6 +11,8 @@
 #include "../../kernel/pit.h"
 #include "../../kernel/acpi.h"
 #include "../../kernel/sched.h"
+#include "../../mm/pmm.h"
+#include "../../mm/heap.h"
 
 #define MAX_SLEEP_MS 3600000
 
@@ -235,21 +237,58 @@ static void test_task_entry(void *arg) {
 
 void cmd_schedtest(void) {
     terminal_set_fg(COLOR_HIGHLIGHT);
-    terminal_println("  Creating test task...");
+    terminal_println("  Running Scheduler Test...");
     
-    task_t *t = task_create("test", test_task_entry, NULL);
-    if (!t) {
-        terminal_set_fg(COLOR_ERROR);
-        terminal_println("  Failed to create task.");
-        return;
+    uint64_t free_pages_before = pmm_get_free_page_count();
+    uint32_t heap_free_before = kmalloc_free_space();
+    
+    terminal_set_fg(COLOR_BODY);
+    terminal_print("  Before: Pages free: ");
+    terminal_print_int((uint32_t)free_pages_before);
+    terminal_print(" | Heap free: ");
+    terminal_print_int(heap_free_before);
+    terminal_println(" bytes");
+
+    task_t *tasks[5];
+    for (int i = 0; i < 5; i++) {
+        char name[8] = "test0";
+        name[4] += i;
+        tasks[i] = task_create(name, test_task_entry, NULL);
+        if (!tasks[i]) {
+            terminal_set_fg(COLOR_ERROR);
+            terminal_println("  Failed to create task.");
+            return;
+        }
     }
     
-    // As the scheduler is cooperative and the shell spins in keyboard_readline,
-    // we yield here until the task finishes. This tests context switching safely.
-    while (t->state != TASK_DEAD) {
+    // Yield until all tasks finish
+    for (int i = 0; i < 5; i++) {
+        while (tasks[i]->state != TASK_DEAD) {
+            sched_yield();
+        }
+    }
+    
+    // Yield a few more times so the idle task gets scheduled and the reaper runs
+    for (int i = 0; i < 20; i++) {
         sched_yield();
     }
     
+    uint64_t free_pages_after = pmm_get_free_page_count();
+    uint32_t heap_free_after = kmalloc_free_space();
+    
+    terminal_set_fg(COLOR_BODY);
+    terminal_print("  After:  Pages free: ");
+    terminal_print_int((uint32_t)free_pages_after);
+    terminal_print(" | Heap free: ");
+    terminal_print_int(heap_free_after);
+    terminal_println(" bytes");
+
     terminal_set_fg(COLOR_SUCCESS);
-    terminal_println("  Task finished successfully.");
+    if (free_pages_after == free_pages_before && heap_free_after == heap_free_before) {
+        terminal_println("  [PASS] Task cleanup");
+        terminal_println("  [PASS] No memory leak");
+    } else {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  [FAIL] Memory leak detected!");
+    }
 }

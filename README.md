@@ -23,6 +23,17 @@
 
 ---
 
+## 📸 Screenshots
+
+<div align="center">
+  <img src="pictures/KiNBOL-0.07.1-dump1.png" alt="KiNBOL Shell" width="800"/>
+</div>
+
+> [!NOTE]
+> These screenshots reflect MAIN-RELEASE / LTS versions. As KiNBOL is under active development, the visual interface may not perfectly match the most recent commit.
+
+---
+
 ## 🚀 Features
 
 ### Kernel and Architecture
@@ -84,7 +95,7 @@ make run
 - [x] Paging & Virtual Memory Manager
 - [x] ACPI, APIC, and IOAPIC
 - [x] Cooperative Scheduler Foundation
-- [ ] Task Exit Garbage Collection (Reaper)
+- [x] Task Exit Garbage Collection (Reaper)
 - [ ] Multitasking & Preemption (LAPIC Timer)
 - [ ] Syscalls
 - [ ] Ring 3 (User Mode)

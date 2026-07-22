@@ -36,6 +36,7 @@ static void sched_strcpy(char *dst, const char *src, size_t max_len) {
 static void idle_task_entry(void *arg) {
     (void)arg;
     while (1) {
+        task_reaper();
         asm volatile("hlt");
         sched_yield();
     }
@@ -96,6 +97,7 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
 
     task->id           = next_pid++;
     task->state        = TASK_READY;
+    task->phys_stack   = phys_stack;
     task->kernel_stack = stack;
     task->stack_size   = PAGE_SIZE;
     task->entry        = entry;
@@ -219,15 +221,13 @@ void task_exit(void) {
     dmesg(" ('");
     dmesg(current_task->name);
     dmesg("')\n");
+    dmesg("[sched] PID ");
+    dmesg_int(current_task->id);
+    dmesg(" marked DEAD\n");
 
     current_task->state = TASK_DEAD;
 
-    /* Remove dead task from list */
-    task_t *dead = current_task;
-    task_list_remove(dead);
-
-    /* Note: In a full OS, dead task memory is freed by a reaper thread or parent process.
-       For now, we yield away and the dead task will never be scheduled again. */
+    /* Note: Dead tasks are now cleaned up by the task reaper in the idle task. */
     sched_yield();
 
     /* Should never reach here */
@@ -236,4 +236,41 @@ void task_exit(void) {
 
 task_t *task_get_head(void) {
     return head_task;
+}
+
+void task_destroy(task_t *task) {
+    if (!task) return;
+    pmm_free_page(task->phys_stack);
+    kfree(task);
+}
+
+void task_reaper(void) {
+    bool cleaned_any = false;
+restart:
+    if (!head_task) {
+        if (cleaned_any) dmesg("[reaper] cleanup complete\n");
+        return;
+    }
+
+    task_t *iter = head_task;
+
+    do {
+        task_t *next = iter->next;
+        if (iter->state == TASK_DEAD && iter != current_task) {
+            dmesg("[reaper] destroying PID ");
+            dmesg_int(iter->id);
+            dmesg("\n");
+            
+            task_list_remove(iter);
+            task_destroy(iter);
+            cleaned_any = true;
+            
+            goto restart; 
+        }
+        iter = next;
+    } while (iter && iter != head_task);
+    
+    if (cleaned_any) {
+        dmesg("[reaper] cleanup complete\n");
+    }
 }
