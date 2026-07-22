@@ -7,6 +7,7 @@
   ![Platform: x86_64](https://img.shields.io/badge/Platform-x86_64-lightgrey)
   ![Bootloader: Limine](https://img.shields.io/badge/Bootloader-Limine-green)
   ![Status: Active Development](https://img.shields.io/badge/Status-Active_Development-orange)
+  ![LTS: Supported (Ring 0)](https://img.shields.io/badge/LTS-Supported_(Ring_0)-blueviolet)
 
   <br />
 
@@ -41,7 +42,7 @@
 - **Modern Interrupts** > GDT, TSS, IDT, PIC Remapping, ACPI parsing.
 - **Advanced APIC** > Full support for APIC, IOAPIC, and TSC-calibrated LAPIC Timers (IRQ0 finally working!).
 - **Memory Management** > Physical Memory Manager (PMM), Virtual Memory Manager (VMM/Paging) stabilized, and Heap Allocator.
-- **Task Scheduler** > Cooperative multitasking foundation (`task_create`, `sched_yield`, `task_exit`) with strict SysV ABI alignment and context isolation.
+- **Task Scheduler** > Cooperative multitasking foundation with strict SysV ABI alignment, context isolation, and a Smart Sleep system (using `TASK_BLOCKED`) that eliminates busy-waiting.
 
 ### Storage & Filesystems
 - **VFS** > Virtual File System abstraction.
@@ -61,7 +62,7 @@
 | **Utilities** | `calc`, `ascii`, `anim` |
 
 > [!NOTE]
-> Tab-completion has been temporarily removed in 0.07 to simplify the input loop. It will return in a future update once properly refactored.
+> Tab-completion has been temporarily removed in 0.07.1 LTS to simplify the input loop. It will return in a future update once properly refactored.
 
 ---
 
@@ -96,6 +97,7 @@ make run
 - [x] ACPI, APIC, and IOAPIC
 - [x] Cooperative Scheduler Foundation
 - [x] Task Exit Garbage Collection (Reaper)
+- [x] Smart Task Sleep & Blocked States
 - [ ] Multitasking & Preemption (LAPIC Timer)
 - [ ] Syscalls
 - [ ] Ring 3 (User Mode)
@@ -112,7 +114,7 @@ make run
 KiNBOL exists purely as a learning project. Every subsystem is written from scratch to better understand how modern operating systems actually work.
 
 > [!IMPORTANT]
-> The transition to 0.07 marks the biggest milestone in KiNBOL's history. The legacy PIC/PIT was entirely replaced with modern APIC/IOAPIC infrastructure after months of IRQ0 hijacking issues from OVMF/HPET. 
+> The transition to 0.07.1 LTS marks the biggest milestone in KiNBOL's history. It is a fully supported Long Term Support version for Ring 0 (Kernel Mode). With the legacy PIC/PIT replaced by a modern APIC/IOAPIC infrastructure and the introduction of a Smart Sleep Scheduler (`TASK_BLOCKED`), this is our most stable and advanced core architecture yet.
 
 *PS: Being fr, Claude.ai helped me build the APIC, LAPIC, and IOAPIC. Sorry guys, I surrendered to AI.*
 

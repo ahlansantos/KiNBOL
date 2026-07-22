@@ -47,7 +47,7 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "clear"))     terminal_clear();
         else if (!sh_strcmp(in, "uname")) {
             terminal_set_fg(COLOR_SUCCESS);
-            terminal_println("  KiNBOL 0.07 x86_64-uefi Limine");
+            terminal_println("  KiNBOL 0.07.1 LTS x86_64-uefi Limine");
         }
         else if (sh_startswith(in, "echo ")) {
             terminal_set_fg(COLOR_SUCCESS);
@@ -66,6 +66,7 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "ascii"))       cmd_ascii();
         else if (!sh_strcmp(in, "dmesg"))       cmd_dmesg();
         else if (!sh_strcmp(in, "ps"))          cmd_ps();
+        else if (!sh_strcmp(in, "top"))         cmd_top();
         else if (!sh_strcmp(in, "schedtest"))   cmd_schedtest();
         else if (!sh_strcmp(in, "sleeptest"))   cmd_sleeptest();
         else if (!sh_strcmp(in, "drawtest"))    cmd_drawtest();

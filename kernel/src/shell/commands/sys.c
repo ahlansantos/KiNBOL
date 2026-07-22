@@ -13,6 +13,7 @@
 #include "../../kernel/sched.h"
 #include "../../mm/pmm.h"
 #include "../../mm/heap.h"
+#include "../../drivers/keyboard.h"
 
 #define MAX_SLEEP_MS 3600000
 
@@ -350,4 +351,89 @@ void cmd_sleeptest(void) {
     
     terminal_set_fg(COLOR_SUCCESS);
     terminal_println("  Sleeptest finished.");
+}
+
+void cmd_top(void) {
+    terminal_set_fg(COLOR_HIGHLIGHT);
+    terminal_println("  Starting TOP... Press 'q' to exit.");
+    sleep_ms(1000);
+    
+    while (1) {
+        keyboard_update();
+        if (keyboard_held(0x10)) { // Scancode 0x10 is 'Q'/'q' on PS/2 QWERTY
+            break;
+        }
+
+        terminal_clear();
+        terminal_set_fg(COLOR_HEADER);
+        terminal_println("\n  KiNBOL TOP - Process Monitor");
+        terminal_set_fg(COLOR_DIM);
+        terminal_println("  --------------------------------------------------");
+        terminal_set_fg(COLOR_ACCENT);
+        terminal_println("  PID    STATE       WAKE (ms)    NAME");
+        terminal_set_fg(COLOR_DIM);
+        terminal_println("  --------------------------------------------------");
+        
+        task_t *head = task_get_head();
+        if (head) {
+            task_t *iter = head;
+            do {
+                terminal_set_fg(COLOR_BODY);
+                terminal_print("  ");
+                if (iter->id < 10) terminal_print(" ");
+                terminal_print_int(iter->id);
+                terminal_print("     ");
+                
+                if (iter->state == TASK_RUNNING) {
+                    terminal_set_fg(COLOR_SUCCESS);
+                    terminal_print("RUNNING    ");
+                } else if (iter->state == TASK_READY) {
+                    terminal_set_fg(COLOR_BODY);
+                    terminal_print("READY      ");
+                } else if (iter->state == TASK_BLOCKED) {
+                    terminal_set_fg(COLOR_WARNING);
+                    terminal_print("BLOCKED    ");
+                } else if (iter->state == TASK_DEAD) {
+                    terminal_set_fg(COLOR_ERROR);
+                    terminal_print("DEAD       ");
+                }
+                
+                terminal_set_fg(COLOR_DIM);
+                if (iter->wake_time_ms > 0) {
+                    terminal_print_int((uint32_t)iter->wake_time_ms);
+                } else {
+                    terminal_print("-");
+                }
+                
+                int wake_len = 1;
+                uint32_t val = (uint32_t)iter->wake_time_ms;
+                if (val > 0) {
+                    wake_len = 0;
+                    while (val > 0) { val /= 10; wake_len++; }
+                }
+                for (int i = 0; i < 13 - wake_len; i++) terminal_print(" ");
+                
+                terminal_set_fg(COLOR_HIGHLIGHT);
+                terminal_print(iter->name);
+                terminal_println("");
+                
+                iter = iter->next;
+            } while (iter && iter != head);
+        }
+        
+        terminal_set_fg(COLOR_DIM);
+        terminal_println("  --------------------------------------------------");
+        terminal_set_fg(COLOR_BODY);
+        terminal_print("  Uptime: ");
+        terminal_print_int((uint32_t)(uptime_ms() / 1000));
+        terminal_println(" s");
+        
+        for (int i = 0; i < 10; i++) {
+            keyboard_update();
+            if (keyboard_held(0x10)) goto exit_top;
+            sleep_ms(100);
+        }
+    }
+exit_top:
+    terminal_clear();
 }
