@@ -6,6 +6,7 @@
  */
 #include "pit.h"
 #include "dmesg.h"
+#include "sched.h"
 #include <stdint.h>
 
 uint64_t tsc_hz   = 0;
@@ -64,6 +65,22 @@ uint64_t uptime_ms(void) {
 }
 
 void sleep_ms(uint32_t ms) {
+    task_t *curr = sched_current();
+    if (curr) {
+        uint64_t wake = uptime_ms() + ms;
+        curr->wake_time_ms = wake;
+        curr->state = TASK_BLOCKED;
+        
+        dmesg("[sched] task ");
+        dmesg_int(curr->id);
+        dmesg(" blocked until tick ");
+        dmesg_int((uint32_t)wake);
+        dmesg("\n");
+        
+        sched_yield();
+        return;
+    }
+
     uint64_t end = rdtsc() + (tsc_hz * (uint64_t)ms) / 1000ULL;
     while (rdtsc() < end) asm volatile("pause");
 }

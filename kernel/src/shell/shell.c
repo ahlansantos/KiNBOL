@@ -67,6 +67,7 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "dmesg"))       cmd_dmesg();
         else if (!sh_strcmp(in, "ps"))          cmd_ps();
         else if (!sh_strcmp(in, "schedtest"))   cmd_schedtest();
+        else if (!sh_strcmp(in, "sleeptest"))   cmd_sleeptest();
         else if (!sh_strcmp(in, "drawtest"))    cmd_drawtest();
         else if (!sh_strcmp(in, "clearfb"))     cmd_clearfb();
         else if (!sh_strcmp(in, "vfsls"))       cmd_vfsls();

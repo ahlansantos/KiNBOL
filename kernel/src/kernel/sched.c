@@ -12,6 +12,7 @@
 #include "../mm/pmm.h"
 #include "../mm/vmm.h"
 #include "../drivers/serial.h"
+#include "pit.h"
 
 
 extern void task_entry_trampoline(void);
@@ -129,11 +130,11 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
 
     task_list_insert(task);
 
-    dmesg("[sched] created task '");
-    dmesg(task->name);
-    dmesg("' pid=");
+    dmesg("[sched] task ");
     dmesg_int(task->id);
-    dmesg("\n");
+    dmesg(" ('");
+    dmesg(task->name);
+    dmesg("') created\n");
 
     return task;
 }
@@ -167,6 +168,8 @@ task_t *sched_current(void) {
 
 void sched_schedule(void) {
     if (!current_task || !head_task) return;
+
+    sched_update_blocked_tasks();
 
     task_t *start = current_task->next ? current_task : head_task;
     task_t *next  = start->next;
@@ -216,14 +219,11 @@ void sched_yield(void) {
 void task_exit(void) {
     if (!current_task) return;
 
-    dmesg("[sched] task exited pid=");
+    dmesg("[sched] task ");
     dmesg_int(current_task->id);
     dmesg(" ('");
     dmesg(current_task->name);
-    dmesg("')\n");
-    dmesg("[sched] PID ");
-    dmesg_int(current_task->id);
-    dmesg(" marked DEAD\n");
+    dmesg("') exited\n");
 
     current_task->state = TASK_DEAD;
 
@@ -257,9 +257,9 @@ restart:
     do {
         task_t *next = iter->next;
         if (iter->state == TASK_DEAD && iter != current_task) {
-            dmesg("[reaper] destroying PID ");
+            dmesg("[reaper] task ");
             dmesg_int(iter->id);
-            dmesg("\n");
+            dmesg(" destroyed\n");
             
             task_list_remove(iter);
             task_destroy(iter);
@@ -273,4 +273,23 @@ restart:
     if (cleaned_any) {
         dmesg("[reaper] cleanup complete\n");
     }
+}
+
+void sched_update_blocked_tasks(void) {
+    if (!head_task) return;
+    
+    uint64_t now = uptime_ms();
+    task_t *iter = head_task;
+    do {
+        if (iter->state == TASK_BLOCKED && iter->wake_time_ms > 0) {
+            if (now >= iter->wake_time_ms) {
+                iter->state = TASK_READY;
+                iter->wake_time_ms = 0;
+                dmesg("[sched] task ");
+                dmesg_int(iter->id);
+                dmesg(" woke up\n");
+            }
+        }
+        iter = iter->next;
+    } while (iter && iter != head_task);
 }

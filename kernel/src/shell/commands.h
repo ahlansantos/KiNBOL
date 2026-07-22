@@ -42,3 +42,4 @@ void cmd_vfsread(const char *dev);
 void cmd_vfswrite(const char *dev, const char *data);
 void cmd_ps(void);
 void cmd_schedtest(void);
+void cmd_sleeptest(void);

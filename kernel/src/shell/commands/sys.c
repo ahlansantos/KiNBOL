@@ -292,3 +292,62 @@ void cmd_schedtest(void) {
         terminal_println("  [FAIL] Memory leak detected!");
     }
 }
+
+static void sleeptest_task_A(void *arg) {
+    (void)arg;
+    terminal_set_fg(COLOR_HIGHLIGHT);
+    terminal_println("[A] before sleep");
+    
+    sleep_ms(1000);
+    
+    terminal_set_fg(COLOR_SUCCESS);
+    terminal_println("[A] after sleep");
+    task_exit();
+}
+
+static void sleeptest_task_B(void *arg) {
+    (void)arg;
+    for (int i = 0; i < 5; i++) {
+        terminal_set_fg(COLOR_BODY);
+        terminal_println("[B] running");
+        sleep_ms(200);
+    }
+    task_exit();
+}
+
+static void sleeptest_task_multi(void *arg) {
+    uint32_t delay = (uint32_t)(uint64_t)arg;
+    sleep_ms(delay);
+    terminal_set_fg(COLOR_SUCCESS);
+    terminal_print("Task woke up after ");
+    terminal_print_int(delay);
+    terminal_println("ms");
+    task_exit();
+}
+
+void cmd_sleeptest(void) {
+    terminal_set_fg(COLOR_HIGHLIGHT);
+    terminal_println("  Starting Sleeptest...");
+    
+    task_t *tA = task_create("sleep_A", sleeptest_task_A, NULL);
+    task_t *tB = task_create("sleep_B", sleeptest_task_B, NULL);
+    task_t *tm1 = task_create("multi_1", sleeptest_task_multi, (void*)(uint64_t)1000);
+    task_t *tm2 = task_create("multi_2", sleeptest_task_multi, (void*)(uint64_t)2000);
+    task_t *tm3 = task_create("multi_3", sleeptest_task_multi, (void*)(uint64_t)3000);
+    
+    if (!tA || !tB || !tm1 || !tm2 || !tm3) {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  Failed to create tasks.");
+        return;
+    }
+    
+    while (tA->state != TASK_DEAD || tB->state != TASK_DEAD || 
+           tm1->state != TASK_DEAD || tm2->state != TASK_DEAD || tm3->state != TASK_DEAD) {
+        sched_yield();
+    }
+    
+    for (int i=0; i<10; i++) sched_yield();
+    
+    terminal_set_fg(COLOR_SUCCESS);
+    terminal_println("  Sleeptest finished.");
+}
