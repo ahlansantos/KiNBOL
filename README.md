@@ -32,14 +32,14 @@ Most things here are written from scratch, and a lot of documentation.
 | PMM (freelist) | ✅ dynamic HHDM |
 | VMM (4-level paging) | ✅ pagemap created |
 | Heap (first-fit + coalesce) | ✅ 16-byte aligned |
-| Spinlock / Big Kernel Lock | ✅ lock xchg + BKL (foundation for preemption) |
+| Spinlock / Big Kernel Lock | ✅ lock xchg + BKL, active since `sched_init()` |
 | Scheduler | ✅ cooperative, sleep/wake, task reaper |
 | preemption (LAPIC timer) | ⏳ timer tick works, scheduler is still cooperative-only |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
 | framebuffer (1080p) | ✅ text terminal |
-| shell | ✅ commands + history |
+| shell | ✅ commands + history + tab completion (subcommands) |
 
-> scheduling is cooperative: tasks give up the CPU voluntarily (`sleep_ms`, `task_exit`, explicit yield). the LAPIC timer is up and firing, it just isn't hooked into the scheduler yet - a task that never yields will hog the CPU forever. real preemption is next on the list, but it needs basic kernel locking first (see roadmap), since blindly forcing a context switch mid-operation on unprotected shared state is a fast way to corrupt the terminal/heap.
+> scheduling is cooperative: tasks give up the CPU voluntarily (`sleep_ms`, `task_exit`, explicit yield). the LAPIC timer is up and firing, it just isn't hooked into the scheduler yet - a task that never yields will hog the CPU forever. real preemption is next on the list. the Big Kernel Lock is now in place as the locking foundation for that work, since blindly forcing a context switch mid-operation on unprotected shared state is a fast way to corrupt the terminal/heap.
 
 ---
 
@@ -60,20 +60,19 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 
 | category | commands |
 |---|---|
-| system | `ps`, `dmesg`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear` |
+| system | `ps`, `dmesg`, `dmesg --clear`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear` |
 | memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
 | filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`, `vfsread`, `vfswrite` |
 | graphics | `clearfb`, `scale` |
 | scheduler | `schedtest`, `sleeptest`, `top` |
+| debug | `crash de`, `crash ud`, `crash pf`, `crash gp` — deterministic faults for exercising the exception dump (no UB; `crash gp` triggers via `wrmsr`) |
 | utilities | `calc`, `ascii`, `anim` |
-
-> tab-completion is not currently available.
 
 ---
 
 ## ⚠️ baregl is deprecated
 
-most of baregl is broken or unmaintained. only `clearfb` and `scale` are safe to use right now. everything else (`pixel`, `line`, `rect`, `circle`, `drawtest`) is legacy code from 0.05/0.06 and may crash.
+most of baregl is broken or unmaintained. only `clearfb` and `scale` are safe to use right now. everything else (`pixel`, `line`, `rect`, `circle`, `drawtest`) is legacy code from 0.05/0.06 and may crash. In the future GPipe 1 will replace BareGL.
 
 **if you're hacking on graphics, use the terminal framebuffer directly. baregl will either get fixed or removed in a future version.**
 
@@ -85,7 +84,7 @@ most of baregl is broken or unmaintained. only `clearfb` and `scale` are safe to
 - [x] ACPI, APIC, IOAPIC
 - [x] cooperative scheduler
 - [x] task reaper + sleep
-- [ ] kernel locks (big-kernel-lock)
+- [x] kernel locks (big-kernel-lock)
 - [ ] preemptive scheduling (needs locks above first)
 - [ ] syscalls
 - [ ] ring 3
