@@ -6,7 +6,7 @@ x86_64 · UEFI · Limine · Ring 0 only
 
 ---
 
-<img src="pictures/KiNBOL-0.07.1-dump1.png" alt="KiNBOL 0.07.1 screenshot" width="800"/>
+<img src="pictures/KiNBoL-0.07.1-LTS-dump1.png" alt="KiNBOL 0.07.1 screenshot" width="800"/>
 
 *be advised: this screenshot may not correspond to the newest commit. things move fast around here.*
 
