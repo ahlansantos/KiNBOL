@@ -1,12 +1,18 @@
 # KiNBOL
 
-**this Kernel is Not Based On Linux**
+> **this Kernel is Not Based On Linux**
 
 x86_64 · UEFI · Limine · Ring 0 only
 
 ---
 
-## What is this
+<img src="pictures/KiNBOL-0.07.1-dump1.png" alt="KiNBOL 0.07.1 screenshot" width="800"/>
+
+*be advised: this screenshot may not correspond to the newest commit. things move fast around here.*
+
+---
+
+## what is this
 
 KiNBOL is a hobby OS I'm building from scratch to learn how operating systems actually work. It started as a simple framebuffer kernel and grew into something with memory management, interrupts, a scheduler, and a shell.
 
@@ -14,77 +20,83 @@ Most things here are written from scratch, and a lot of documentation.
 
 ---
 
-## Current state
+## current state
 
-- 64-bit long mode, UEFI boot via Limine
-- GDT, TSS, IDT, APIC, IOAPIC, ACPI
-- Physical + virtual memory management
-- Cooperative scheduler with task sleep/wake
-- Simple VFS + ramdisk
-- Framebuffer graphics (1080p)
-- Shell with basic commands
+| subsystem | status |
+|---|---|
+| UEFI boot (Limine) | ✅ 64-bit long mode |
+| GDT + TSS | ✅ user segments + RSP0 |
+| IDT + exceptions | ✅ page fault, GP, etc. |
+| PIC → LAPIC/IOAPIC | ✅ PIC disabled, IOAPIC active |
+| ACPI (poweroff) | ✅ S5 shutdown |
+| PMM (freelist) | ✅ dynamic HHDM |
+| VMM (4-level paging) | ✅ pagemap created |
+| Heap (first-fit + coalesce) | ✅ 16-byte aligned |
+| Scheduler | ✅ cooperative + sleep/wake + reaper |
+| **preemption (LAPIC timer)** | ✅ **active since 0.07!** |
+| VFS + ramdisk | ✅ /dev nodes + in-memory fs |
+| framebuffer (1080p) | ✅ text terminal |
+| shell | ✅ commands + history |
+
+> **yes, it has preemption.** the LAPIC timer fires IRQ every 10ms and the scheduler can preempt tasks. there are no kernel locks yet (big-kernel-lock is on the roadmap), so technically it's "educational preemption", but it works.
 
 ---
 
-## Building
+## building
 
 ```bash
-make
-make run
+make            # build the ISO
+make TOOLCHAIN=llvm run        # build + run in QEMU (UEFI)
 ```
 
-Requires: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtools`
+needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtools`
+
+> [DEPRECATED WONT WORK] macOS with HVF acceleration: `make run-hvf`
 
 ---
 
-## Commands
+## shell commands
 
-| Category | Commands |
-|----------|----------|
-| System | `ps`, `dmesg`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch` |
-| Memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
-| Filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`, `vfsread`, `vfswrite` |
-| Graphics | `clearfb`, `scale` |
-| Scheduler tests | `schedtest`, `sleeptest` |
-| Utilities | `calc`, `ascii`, `anim` |
+| category | commands |
+|---|---|
+| system | `ps`, `dmesg`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear` |
+| memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
+| filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`, `vfsread`, `vfswrite` |
+| graphics | `clearfb`, `scale` |
+| scheduler | `schedtest`, `sleeptest`, `top` |
+| utilities | `calc`, `ascii`, `anim` |
 
-> Tab-completion is temporarily disabled in 0.07.1. It'll come back.
-
----
-
-## Graphics note
-
-BareGL is deprecated. Most of its functions are broken or unmaintained. Only `clearfb` and `scale` are safe to use right now. Everything else (`pixel`, `line`, `rect`, `circle`, `drawtest`) is legacy code from 0.05/0.06 and may crash.
+> tab-completion is disabled in 0.07.1. it'll come back.
 
 ---
 
-## Recent changes
+## ⚠️ baregl is deprecated
 
-- **Dynamic HHDM**: VMM now maps all physical memory (not just 4GB) based on the memory map. Fixes page faults on systems with >4GB RAM.
-- **16-byte heap alignment**: kmalloc now returns 16-byte aligned pointers for SysV ABI compliance.
-- **16KB task stacks**: Scheduler tasks now get 16KB stacks (4 contiguous pages) instead of 4KB. Prevents stack overflow in deep call chains.
-- **BareGL deprecated**: All graphics commands except `clearfb` and `scale` are deprecated. The old BareGL drawing functions (`pixel`, `line`, `rect`, `circle`, `drawtest`) are removed from the shell.
+most of baregl is broken or unmaintained. only `clearfb` and `scale` are safe to use right now. everything else (`pixel`, `line`, `rect`, `circle`, `drawtest`) is legacy code from 0.05/0.06 and may crash.
+
+**if you're hacking on graphics, use the terminal framebuffer directly. baregl will either get fixed or removed in a future version.**
 
 ---
 
-## Roadmap
+## roadmap
 
-- [x] Paging & VMM
+- [x] paging & VMM
 - [x] ACPI, APIC, IOAPIC
-- [x] Cooperative scheduler
-- [x] Task reaper + sleep
-- [ ] Preemption (LAPIC timer)
-- [ ] Syscalls
-- [ ] Ring 3
+- [x] cooperative scheduler
+- [x] task reaper + sleep
+- [x] **preemption (LAPIC timer)**
+- [ ] kernel locks (big-kernel-lock)
+- [ ] syscalls
+- [ ] ring 3
 - [ ] ELF loader
 - [ ] FAT32
 - [ ] AHCI/SATA
 
 ---
 
-## License
+## license
 
-MIT. Do whatever you want, just keep the copyright notice.
+MIT. do whatever you want, just keep the copyright notice.
 
 ---
 
