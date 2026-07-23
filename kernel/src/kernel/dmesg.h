@@ -1,11 +1,7 @@
-/*
- * Header for dmesg: string/int/hex log functions used across almost every
- * module in the kernel to record what's happening.
- */
 #pragma once
 #include <stdint.h>
 
-#define DMESG_BUF_SIZE 4096  
+#define DMESG_BUF_SIZE 4096
 
 void dmesg_init(void);
 

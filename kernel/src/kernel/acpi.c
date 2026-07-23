@@ -1,12 +1,3 @@
-/*
- * ACPI table parser. Finds the RSDP handed over by the bootloader, follows
- * it to the RSDT or XSDT, locates the MADT (Multiple APIC Description
- * Table), and pulls out of it the LAPIC address, the list of IOAPICs,
- * and the Interrupt Source Overrides (ISA IRQ -> GSI remapping with
- * custom polarity/trigger). Also knows how to find the FADT and perform
- * an ACPI poweroff (the _S5_ method) by writing directly to the PM1_CNT
- * register.
- */
 #include "acpi.h"
 #include "dmesg.h"
 #include <stddef.h>
@@ -272,8 +263,8 @@ static int find_s5(uint8_t *data, uint32_t len, uint8_t *typa, uint8_t *typb) {
 
         uint32_t j = i + 5;
         if (j >= len) break;
-        if (data[j] == 0x5C) j++; 
-        if (data[j] != 0x12) continue; 
+        if (data[j] == 0x5C) j++;
+        if (data[j] != 0x12) continue;
         j++;
         if (j >= len) break;
 

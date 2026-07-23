@@ -1,8 +1,3 @@
-/*
- * Linux-dmesg-style kernel log buffer. Stores kernel messages in a buffer
- * and mirrors them to the serial port in real time, so the log can still
- * be read even if the screen never comes up or freezes.
- */
 #include "dmesg.h"
 #include "../drivers/serial.h"
 #include <stdint.h>
@@ -21,7 +16,7 @@ static void dmesg_putc(char c) {
     buf[head] = c;
     head = (head + 1) % DMESG_BUF_SIZE;
     if (count < DMESG_BUF_SIZE) count++;
-    serial_putc(c); /* live mirror - readable in qemu.log even after a halt/reset */
+    serial_putc(c);
 }
 
 void dmesg(const char *msg) {

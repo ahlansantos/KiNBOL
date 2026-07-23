@@ -1,5 +1,3 @@
-
-
 #include "sched.h"
 #include "dmesg.h"
 #include "lock.h"
@@ -9,10 +7,7 @@
 #include "../drivers/serial.h"
 #include "pit.h"
 
-/* 16 KB stacks (4 contiguous pages) via HHDM. Needs phys contiguity
- * since there's no VMALLOC region yet — temporary limitation. */
 #define TASK_STACK_PAGES 4
-
 
 extern void task_entry_trampoline(void);
 
@@ -86,9 +81,6 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
         return NULL;
     }
 
-    /* Allocate 16 KB contiguous physical stack (4 pages).
-     * If this fails, the task cannot be created — a 4 KB stack would
-     * overflow with any non-trivial call chain. */
     void *phys_stack = pmm_alloc_pages_contiguous(TASK_STACK_PAGES);
     if (!phys_stack) {
         dmesg("[sched] ERROR: cannot allocate 16 KB contiguous stack for task\n");
@@ -109,24 +101,20 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
     task->cr3          = (uint64_t)vmm_current() - hhdm_offset;
     sched_strcpy(task->name, name ? name : "task", sizeof(task->name));
 
-    /* Set up stack frame according to System V ABI (16-byte alignment) */
     uint64_t *sp = (uint64_t *)((uint8_t *)stack + stack_size);
 
-    /* Align stack pointer to 16 bytes */
     sp = (uint64_t *)((uint64_t)sp & ~0xFULL);
 
-    /* Arguments for task_entry_trampoline */
-    *(--sp) = (uint64_t)arg;                     /* Second pop in trampoline (RSI) */
-    *(--sp) = (uint64_t)entry;                   /* First pop in trampoline (RDI)  */
-    *(--sp) = (uint64_t)task_entry_trampoline;   /* Return address for context_switch 'ret' */
+    *(--sp) = (uint64_t)arg;
+    *(--sp) = (uint64_t)entry;
+    *(--sp) = (uint64_t)task_entry_trampoline;
 
-    /* Saved callee-saved registers popped by context_switch */
-    *(--sp) = 0; /* R15 */
-    *(--sp) = 0; /* R14 */
-    *(--sp) = 0; /* R13 */
-    *(--sp) = 0; /* R12 */
-    *(--sp) = 0; /* RBP */
-    *(--sp) = 0; /* RBX */
+    *(--sp) = 0;
+    *(--sp) = 0;
+    *(--sp) = 0;
+    *(--sp) = 0;
+    *(--sp) = 0;
+    *(--sp) = 0;
 
     task->rsp = (uint64_t)sp;
 
@@ -142,7 +130,7 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
 }
 
 void sched_init(void) {
-    /* Wrap the currently executing kmain thread as PID 0 */
+
     task_t *kmain_task = (task_t *)kmalloc(sizeof(task_t));
     if (!kmain_task) return;
 
@@ -158,11 +146,8 @@ void sched_init(void) {
     task_list_insert(kmain_task);
     current_task = kmain_task;
 
-    /* Create idle task (PID 1) */
     idle_task = task_create("[idle]", idle_task_entry, NULL);
 
-    /* BKL is now live: all shared-state operations must acquire the
-     * Big Kernel Lock before touching PMM, heap, scheduler, etc. */
     bkl_ready = true;
     dmesg("[sched] scheduler online (PID 0 = [kernel], PID 1 = [idle])\n");
 }
@@ -178,13 +163,12 @@ void sched_schedule(void) {
 
     task_t *start = current_task->next ? current_task : head_task;
     task_t *next  = start->next;
-    
+
     if (!next) return;
 
     task_t *iter = next;
     task_t *chosen = NULL;
 
-    /* Find next READY task in round-robin fashion */
     do {
         if (iter != idle_task && iter->state == TASK_READY) {
             chosen = iter;
@@ -193,12 +177,11 @@ void sched_schedule(void) {
         iter = iter->next;
     } while (iter != start);
 
-    /* Fallback to idle_task if no other task is READY */
     if (!chosen) {
         if (idle_task && idle_task->state == TASK_READY) {
             chosen = idle_task;
         } else if (current_task->state == TASK_RUNNING) {
-            return; /* Continue running current task */
+            return;
         } else {
             chosen = idle_task;
         }
@@ -232,10 +215,8 @@ void task_exit(void) {
 
     current_task->state = TASK_DEAD;
 
-    /* Note: Dead tasks are now cleaned up by the task reaper in the idle task. */
     sched_yield();
 
-    /* Should never reach here */
     while (1) asm volatile("hlt");
 }
 
@@ -245,8 +226,7 @@ task_t *task_get_head(void) {
 
 void task_destroy(task_t *task) {
     if (!task) return;
-    /* All task stacks are 16 KB (4 pages). kmain has stack_size=0,
-     * so guard against division by zero. */
+
     uint64_t pages = task->stack_size ? task->stack_size / PAGE_SIZE : TASK_STACK_PAGES;
     pmm_free_pages(task->phys_stack, pages);
     kfree(task);
@@ -268,16 +248,16 @@ restart:
             dmesg("[reaper] task ");
             dmesg_int(iter->id);
             dmesg(" destroyed\n");
-            
+
             task_list_remove(iter);
             task_destroy(iter);
             cleaned_any = true;
-            
-            goto restart; 
+
+            goto restart;
         }
         iter = next;
     } while (iter && iter != head_task);
-    
+
     if (cleaned_any) {
         dmesg("[reaper] cleanup complete\n");
     }
@@ -285,7 +265,7 @@ restart:
 
 void sched_update_blocked_tasks(void) {
     if (!head_task) return;
-    
+
     uint64_t now = uptime_ms();
     task_t *iter = head_task;
     do {

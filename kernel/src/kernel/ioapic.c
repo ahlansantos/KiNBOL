@@ -1,10 +1,3 @@
-
-/*
- * Driver for the I/O APIC. Reads and writes the redirection table
- * (IOREDTBL) to decide, for every external IRQ pin (keyboard, PIT, etc),
- * which vector it should fire, which LAPIC it should be delivered to,
- * and its polarity/trigger mode. This replaces the old PIC remapping.
- */
 #include "ioapic.h"
 #include "acpi.h"
 #include "dmesg.h"
@@ -18,7 +11,7 @@ extern uint64_t hhdm_offset;
 
 #define IOAPICID  0x00
 #define IOAPICVER 0x01
-#define IOREDTBL  0x10 /* + 2*pin gives low dword, +1 gives high dword */
+#define IOREDTBL  0x10
 
 static inline volatile uint32_t *regsel(acpi_ioapic_t *io) {
     return (volatile uint32_t *)(hhdm_offset + io->phys_addr + IOREGSEL);
@@ -39,14 +32,14 @@ static void ioapic_write(acpi_ioapic_t *io, uint8_t reg, uint32_t val) {
 static void set_redirection(acpi_ioapic_t *io, uint32_t pin, uint8_t vector,
                              uint32_t dest_lapic_id, bool active_low,
                              bool level_triggered, bool masked) {
-    uint32_t low = vector;                 /* delivery mode fixed=0, dest mode physical=0 */
+    uint32_t low = vector;
     if (active_low)      low |= (1 << 13);
     if (level_triggered) low |= (1 << 15);
     if (masked)           low |= (1 << 16);
 
     uint32_t high = dest_lapic_id << 24;
 
-    ioapic_write(io, IOREDTBL + 2 * pin + 1, high); /* write high dword first */
+    ioapic_write(io, IOREDTBL + 2 * pin + 1, high);
     ioapic_write(io, IOREDTBL + 2 * pin,     low);
 }
 
@@ -56,17 +49,9 @@ void ioapic_init(void) {
         return;
     }
 
-    /* Mask every pin on every IOAPIC to start from a known-clean state;
-     * individual drivers unmask what they need, same convention as the
-     * old pic_remap(). */
     for (int i = 0; i < acpi_info.ioapic_count; i++) {
         acpi_ioapic_t *io = &acpi_info.ioapics[i];
 
-        /* Same story as the LAPIC: this MMIO page is not mapped by
-         * Limine's own tables, and it's a different physical page per
-         * IOAPIC, so each one needs its own vmm_map() call. IOREGSEL
-         * and IOWIN both sit within the first 0x20 bytes, one page
-         * covers everything. */
         vmm_map(vmm_current(),
                 hhdm_offset + (io->phys_addr & ~0xFFFULL),
                 io->phys_addr & ~0xFFFULL,
@@ -96,7 +81,7 @@ bool ioapic_route_isa_irq(uint8_t isa_irq, uint8_t vector, uint32_t dest_lapic_i
 
     uint16_t polarity = flags & 0x3;
     uint16_t trigger  = (flags >> 2) & 0x3;
-    /* 00 = "conforms to bus spec", which for ISA means active-high/edge */
+
     bool active_low      = (polarity == 0x3);
     bool level_triggered = (trigger  == 0x3);
 

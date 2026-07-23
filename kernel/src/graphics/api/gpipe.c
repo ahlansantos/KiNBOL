@@ -1,5 +1,6 @@
 #include "gpipe.h"
 #include "../../mm/heap.h"
+#include "../../mm/pmm.h"
 #include <stddef.h>
 
 static gpipe_ctx_t *g_default_ctx = NULL;
@@ -36,13 +37,16 @@ gpipe_ctx_t *gpipe_init(struct limine_framebuffer *fb) {
     ctx->width = fb->width;
     ctx->height = fb->height;
     ctx->back_size = (size_t)fb->pitch * fb->height;
+    ctx->back_pages = (ctx->back_size + PAGE_SIZE - 1) / PAGE_SIZE;
     ctx->dirty = (gpipe_rect_t){0, 0, 0, 0};
 
-    ctx->back = kmalloc(ctx->back_size);
-    if (!ctx->back) {
+    void *phys = pmm_alloc_pages_contiguous(ctx->back_pages);
+    if (!phys) {
         kfree(ctx);
         return NULL;
     }
+    ctx->back_phys = phys;
+    ctx->back = (uint32_t *)pmm_phys_to_virt((uint64_t)phys);
 
     for (size_t i = 0; i < ctx->back_size / 4; i++)
         ctx->back[i] = 0;
@@ -57,8 +61,9 @@ void gpipe_shutdown(gpipe_ctx_t *ctx) {
     if (!ctx) return;
 
     if (ctx->back) {
-        kfree_sized(ctx->back, ctx->back_size);
+        pmm_free_pages(ctx->back_phys, ctx->back_pages);
         ctx->back = NULL;
+        ctx->back_phys = NULL;
     }
 
     if (g_default_ctx == ctx)
@@ -106,7 +111,6 @@ void gpipe_mark_dirty(gpipe_ctx_t *ctx, int x, int y, int w, int h) {
         return;
     }
 
-    /* union with existing dirty rect */
     int dx0 = ctx->dirty.x;
     int dy0 = ctx->dirty.y;
     int dx1 = ctx->dirty.x + ctx->dirty.w;

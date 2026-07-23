@@ -1,17 +1,8 @@
-/*
- * Builds the GDT (Global Descriptor Table) with the classic 5 descriptors
- * (null, kernel code, kernel data, user code, user data for a future
- * ring3) plus a TSS descriptor. Also sets up a dedicated IST1 stack for
- * double faults, so the double fault handler doesn't run on top of a
- * kernel stack that might itself be the thing that's corrupted.
- */
 #include <stdint.h>
 #include <stddef.h>
 
 #include "gdt.h"
 #include "dmesg.h"
-
-/* ---- Structures ---------------------------------------------------- */
 
 typedef struct {
     uint16_t limit_low;
@@ -22,7 +13,6 @@ typedef struct {
     uint8_t  base_high;
 } __attribute__((packed)) gdt_entry_t;
 
-/* A 64-bit TSS descriptor takes 16 bytes (two normal GDT slots worth) */
 typedef struct {
     uint16_t length;
     uint16_t base_low;
@@ -52,8 +42,6 @@ typedef struct {
     uint16_t iopb_offset;
 } __attribute__((packed)) tss_t;
 
-/* GDT entries + TSS descriptor MUST be contiguous in memory, so they
- * live inside a single packed table instead of separate statics. */
 typedef struct {
     gdt_entry_t null_entry;
     gdt_entry_t kcode;
@@ -68,16 +56,12 @@ typedef struct {
     uint64_t base;
 } __attribute__((packed)) gdt_ptr_t;
 
-/* ---- Storage --------------------------------------------------------*/
-
 static gdt_table_t gdt_table;
 static gdt_ptr_t   gdt_ptr;
 static tss_t        tss;
 
 #define IST1_STACK_SIZE 8192
 static uint8_t ist1_stack[IST1_STACK_SIZE] __attribute__((aligned(16)));
-
-/* ---- Low level helpers ---------------------------------------------*/
 
 static void gdt_set_entry(gdt_entry_t *e, uint32_t base, uint32_t limit,
                            uint8_t access, uint8_t gran_flags) {
@@ -93,15 +77,13 @@ static void tss_set_descriptor(tss_desc_t *d, uint64_t base, uint32_t limit) {
     d->length     = limit & 0xFFFF;
     d->base_low   = base & 0xFFFF;
     d->base_mid   = (base >> 16) & 0xFF;
-    d->flags1     = 0x89; /* present, DPL0, type=0x9 (64-bit TSS, available) */
+    d->flags1     = 0x89;
     d->flags2     = (uint8_t)((limit >> 16) & 0x0F);
     d->base_high  = (base >> 24) & 0xFF;
     d->base_upper = (uint32_t)(base >> 32);
     d->reserved   = 0;
 }
 
-/* Loads GDTR, reloads every segment register and far-jumps into the new
- * code selector (0x08) so CS actually points at the new GDT entry. */
 __attribute__((naked)) static void gdt_flush(void *ptr) {
     asm volatile(
         "lgdt (%%rdi);"
@@ -129,8 +111,6 @@ __attribute__((naked)) static void tss_flush(uint16_t sel) {
     );
 }
 
-/* ---- Public API -------------------------------------------------- */
-
 void tss_set_ist(int ist_index, uint64_t stack_top) {
     switch (ist_index) {
         case 1: tss.ist1 = stack_top; break;
@@ -148,13 +128,12 @@ void gdt_init(void) {
     for (size_t i = 0; i < sizeof(gdt_table); i++) ((uint8_t *)&gdt_table)[i] = 0;
     for (size_t i = 0; i < sizeof(tss); i++)       ((uint8_t *)&tss)[i] = 0;
 
-    /* null descriptor already zeroed */
-    gdt_set_entry(&gdt_table.kcode, 0, 0xFFFFF, 0x9A, 0xA0); /* 0x08 kernel code, 64-bit, ring0 */
-    gdt_set_entry(&gdt_table.kdata, 0, 0xFFFFF, 0x92, 0xA0); /* 0x10 kernel data, ring0 */
-    gdt_set_entry(&gdt_table.ucode, 0, 0xFFFFF, 0xFA, 0xA0); /* 0x18 user code, ring3 (future use) */
-    gdt_set_entry(&gdt_table.udata, 0, 0xFFFFF, 0xF2, 0xA0); /* 0x20 user data, ring3 (future use) */
+    gdt_set_entry(&gdt_table.kcode, 0, 0xFFFFF, 0x9A, 0xA0);
+    gdt_set_entry(&gdt_table.kdata, 0, 0xFFFFF, 0x92, 0xA0);
+    gdt_set_entry(&gdt_table.ucode, 0, 0xFFFFF, 0xFA, 0xA0);
+    gdt_set_entry(&gdt_table.udata, 0, 0xFFFFF, 0xF2, 0xA0);
 
-    tss.iopb_offset = sizeof(tss_t); /* no IOPB => offset points past the struct */
+    tss.iopb_offset = sizeof(tss_t);
     tss_set_ist(1, (uint64_t)(ist1_stack + IST1_STACK_SIZE));
 
     tss_set_descriptor(&gdt_table.tss, (uint64_t)&tss, sizeof(tss_t) - 1);

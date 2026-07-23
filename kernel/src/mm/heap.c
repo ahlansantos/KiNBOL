@@ -1,4 +1,3 @@
-
 #include "heap.h"
 #include "pmm.h"
 #include <stddef.h>
@@ -6,11 +5,11 @@
 #include <stdbool.h>
 
 typedef struct block {
-    size_t        size;  
+    size_t        size;
     bool          used;
-    uint32_t      magic;  
+    uint32_t      magic;
     struct block *next;
-    struct block *prev;   
+    struct block *prev;
 } block_t;
 
 #define HEAP_MAGIC      0xDEADC0DE
@@ -80,8 +79,7 @@ static void heap_coalesce(block_t *blk) {
 
 void *kmalloc(size_t size) {
     if (size == 0) return NULL;
-    /* 16-byte alignment for SysV ABI. block_t is 32 bytes, so
-     * block + sizeof(block_t) stays aligned if block is page-aligned. */
+
     size = (size + 15) & ~(size_t)15;
 
     if (!free_list) {
@@ -127,12 +125,11 @@ void *kmalloc(size_t size) {
 
 void *kcalloc(size_t num, size_t size) {
     size_t total = num * size;
-    if (num != 0 && total / num != size) return NULL; 
+    if (num != 0 && total / num != size) return NULL;
     void *ptr = kmalloc(total);
     if (ptr) heap_memset(ptr, 0, total);
     return ptr;
 }
-
 
 void *krealloc(void *ptr, size_t size) {
     if (!ptr)    return kmalloc(size);

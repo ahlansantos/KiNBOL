@@ -1,7 +1,3 @@
-/*
- * Header for the terminal: init, color setters, char/string/number output,
- * and cursor control.
- */
 #pragma once
 #include <stdint.h>
 #include <limine.h>

@@ -1,8 +1,3 @@
-/*
- * Driver for the serial port (16550 UART, COM1 at 0x3F8). Mainly used by
- * dmesg to stream kernel log output live to the outside world, handy for
- * debugging with QEMU's -serial stdio.
- */
 #include "serial.h"
 #include <stdint.h>
 

@@ -1,8 +1,3 @@
-/*
- * Header for the IDT (Interrupt Descriptor Table): idt_init, idt_set_gate
- * (points a vector at an assembly stub), and irq_register, used by
- * drivers to hook in their own high-level handlers.
- */
 #ifndef IDT_H
 #define IDT_H
 

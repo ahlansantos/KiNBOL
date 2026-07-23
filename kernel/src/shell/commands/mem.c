@@ -1,6 +1,3 @@
-/*
- * Memory shell command: reports PMM/heap state, free pages, usage, and so on.
- */
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"

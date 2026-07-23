@@ -1,9 +1,3 @@
-/*
- * Helper functions shared between shell commands: getting the current tick
- * count (based on PIT/LAPIC uptime), a simple strlen, and printing a
- * formatted '--- title ---' style header.
- */
-
 #include "util.h"
 #include "../../graphics/terminal.h"
 #include "../../kernel/pit.h"

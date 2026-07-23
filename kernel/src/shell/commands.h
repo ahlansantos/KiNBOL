@@ -1,8 +1,3 @@
-/*
- * Shared header for every shell command: the color constants used in
- * output (COLOR_HEADER, COLOR_BODY, etc) and the prototypes for each
- * command (calc, fs, gfx, info, mem, sys).
- */
 #pragma once
 
 void cmd_help(void);
@@ -20,6 +15,7 @@ void cmd_ascii(void);
 void cmd_dmesg(void);
 void cmd_scale(const char *arg);
 void cmd_clearfb(void);
+void cmd_gpipe(const char *arg);
 void cmd_vfsls(void);
 void cmd_vminfo(void);
 void cmd_ramls(void);

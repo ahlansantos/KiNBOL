@@ -1,14 +1,10 @@
-/*
- * The 'info' shell command: prints system information, version, detected
- * hardware, and so on.
- */
-
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"
 #include "../../fs/vfs.h"
 #include "../../mm/pmm.h"
 #include "../../kernel/pit.h"
+#include "../../graphics/api/gpipe.h"
 #include <limine.h>
 
 extern struct limine_framebuffer *fbi;
@@ -85,9 +81,9 @@ void cmd_fastfetch(void) {
     terminal_println("bpp");
 
     terminal_set_fg(0xDDDDDD);
-    terminal_print("  BareGL:   ");
+    terminal_print("  GPipe:    ");
     terminal_set_fg(0x88CC88);
-    terminal_println("0.2.1 (SR)");
+    terminal_println(GPIPE_VERSION);
 
     terminal_set_fg(0xDDDDDD);
     terminal_print("  CPU:      ");

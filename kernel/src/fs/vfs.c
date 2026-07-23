@@ -1,10 +1,3 @@
-/*
- * Virtual File System layer.
- * Sits between the shell/kernel and the real device or file drivers,
- * giving them one common interface instead of talking to each backend
- * directly. Nodes (files, directories, char/block devices) are kept in
- * a fixed array and looked up by name. Ships with a default /dev/null.
- */
 #include "vfs.h"
 #include "../kernel/dmesg.h"
 #include <stdint.h>
@@ -15,7 +8,7 @@ static int         node_count = 0;
 
 static uint32_t null_read(vfs_node_t *n, uint32_t off, uint32_t len, uint8_t *buf) {
     (void)n; (void)off; (void)len; (void)buf;
-    return 0; 
+    return 0;
 }
 static uint32_t null_write(vfs_node_t *n, uint32_t off, uint32_t len, const uint8_t *buf) {
     (void)n; (void)off; (void)buf;
@@ -117,7 +110,7 @@ static vfs_node_t dev_dmesg_node = {
     .write = dmesg_vfs_write,
 };
 
-#define RAM0_SIZE (64 * 1024) 
+#define RAM0_SIZE (64 * 1024)
 
 typedef struct {
     uint8_t *data;

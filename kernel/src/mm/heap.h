@@ -1,7 +1,3 @@
-/*
- * Header for the heap: kmalloc/kfree and heap init on top of physical pages
- * from the PMM.
- */
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
@@ -9,8 +5,8 @@
 #define PAGE_SIZE 4096
 
 void *kmalloc(size_t size);
-void *kcalloc(size_t num, size_t size); 
-void *krealloc(void *ptr, size_t size); 
+void *kcalloc(size_t num, size_t size);
+void *krealloc(void *ptr, size_t size);
 void  kfree(void *ptr);
 void  kfree_sized(void *ptr, size_t size);
 

@@ -1,4 +1,3 @@
-
 #include "vmm.h"
 #include "pmm.h"
 #include <stdint.h>
@@ -54,7 +53,7 @@ static pagemap_t kernel_pagemap = NULL;
 int vmm_map(pagemap_t pm, uint64_t virt, uint64_t phys, uint64_t flags) {
     if (!pm) return -1;
 
-    uint64_t *pml4 = (uint64_t *)pm; 
+    uint64_t *pml4 = (uint64_t *)pm;
     uint64_t *pdpt = get_or_create(&pml4[pml4_idx(virt)], flags);
     if (!pdpt) return -1;
 
@@ -73,7 +72,7 @@ int vmm_map(pagemap_t pm, uint64_t virt, uint64_t phys, uint64_t flags) {
 void vmm_unmap(pagemap_t pm, uint64_t virt) {
     if (!pm) return;
 
-    uint64_t *pml4 = (uint64_t *)pm; /* pm is already virtual (see vmm_current/kernel_pagemap) */
+    uint64_t *pml4 = (uint64_t *)pm;
     if (!(pml4[pml4_idx(virt)] & VMM_PRESENT)) return;
 
     uint64_t *pdpt = (uint64_t *)phys_to_virt(pml4[pml4_idx(virt)] & ~0xFFFULL);
@@ -91,7 +90,7 @@ void vmm_unmap(pagemap_t pm, uint64_t virt) {
 uint64_t vmm_virt_to_phys(pagemap_t pm, uint64_t virt) {
     if (!pm) return 0;
 
-    uint64_t *pml4 = (uint64_t *)pm; /* pm is already virtual (see vmm_current/kernel_pagemap) */
+    uint64_t *pml4 = (uint64_t *)pm;
     if (!(pml4[pml4_idx(virt)] & VMM_PRESENT)) return 0;
 
     uint64_t *pdpt = (uint64_t *)phys_to_virt(pml4[pml4_idx(virt)] & ~0xFFFULL);
@@ -177,8 +176,6 @@ void vmm_init(void) {
     if (!phys) return;
     kernel_pagemap = (pagemap_t)phys_to_virt(phys);
 
-    /* HHDM covers all physical space from the memory map (MMIO included),
-     * rounded up to 2 MB huge-page boundaries for efficient paging. */
     uint64_t hhdm_bytes = pmm_get_highest_phys();
     hhdm_bytes = (hhdm_bytes + 0x1FFFFF) & ~0x1FFFFFULL;
     uint64_t hhdm_pages = hhdm_bytes / 0x200000ULL;
@@ -210,8 +207,6 @@ void vmm_init(void) {
         pd[pd_i] = phys_addr | VMM_PRESENT | VMM_WRITE | VMM_HUGE;
     }
 
-    /* LAPIC at 0xFEE00000 is already covered by HHDM above, but this
-     * explicit mapping is kept as defense-in-depth. */
     uint64_t apic_phys = 0xFEE00000ULL;
     uint64_t apic_virt = apic_phys + hhdm_offset;
     uint64_t apic_pml4_i = (apic_virt >> 39) & 0x1FF;

@@ -1,7 +1,3 @@
-/*
- * Shell commands for working with files (ls, cat, and similar), talking to
- * the ramdisk/VFS layer.
- */
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"

@@ -1,7 +1,3 @@
-/*
- * Header for the RTC driver. Defines rtc_time_t: second, minute, hour, day,
- * month, year.
- */
 #pragma once
 #include <stdint.h>
 

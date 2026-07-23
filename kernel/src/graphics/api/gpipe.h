@@ -4,17 +4,21 @@
 #include <stdbool.h>
 #include <limine.h>
 
+#define GPIPE_VERSION "1.0"
+
 typedef struct gpipe_rect {
     int x, y, w, h;
 } gpipe_rect_t;
 
 typedef struct gpipe_ctx {
     struct limine_framebuffer *fb;
-    uint32_t *back;     
-    uint32_t  pw;        
+    uint32_t *back;
+    uint32_t  pw;
     uint32_t  width;
     uint32_t  height;
-    size_t    back_size; 
+    size_t    back_size;
+    uint64_t  back_pages;
+    void     *back_phys;
 
     gpipe_rect_t dirty;
 } gpipe_ctx_t;
@@ -26,8 +30,8 @@ gpipe_ctx_t *gpipe_default(void);
 void         gpipe_set_default(gpipe_ctx_t *ctx);
 
 void gpipe_sync_from_fb(gpipe_ctx_t *ctx);
-void gpipe_flip(gpipe_ctx_t *ctx);     
-void gpipe_flip_full(gpipe_ctx_t *ctx); 
+void gpipe_flip(gpipe_ctx_t *ctx);
+void gpipe_flip_full(gpipe_ctx_t *ctx);
 void gpipe_mark_dirty(gpipe_ctx_t *ctx, int x, int y, int w, int h);
 
 int gpipe_width(gpipe_ctx_t *ctx);

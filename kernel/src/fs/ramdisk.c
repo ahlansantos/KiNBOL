@@ -1,10 +1,3 @@
-/*
- * A very small in-memory filesystem.
- * It keeps a fixed-size array of ramfile_t entries, each one just a name,
- * a pointer to its data, and a size. Implements find, create, and delete.
- * There are no directories and nothing is persisted; everything here is
- * lost on shutdown or reboot.
- */
 #include "ramdisk.h"
 #include "../mm/heap.h"
 #include <stdint.h>

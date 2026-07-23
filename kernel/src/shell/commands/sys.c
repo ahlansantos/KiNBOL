@@ -1,8 +1,3 @@
-/*
- * System-level shell commands, most likely reboot, poweroff, and uptime,
- * wired straight into the corresponding kernel functions.
- */
-
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"
@@ -74,14 +69,15 @@ void cmd_help(void) {
     terminal_println("  vfswrite <dev> <txt>   write device");
 
     terminal_set_fg(COLOR_HEADER);
-    terminal_println("\n  Graphics (BareGL - deprecated)");
+    terminal_println("\n  Graphics (GPipe)");
     terminal_set_fg(COLOR_DIM);
     terminal_println("  ------------------------------------------");
     terminal_set_fg(COLOR_BODY);
     terminal_println("  clearfb                 clear framebuffer");
+    terminal_println("  gpipe                   show gpipe banner/version");
+    terminal_println("  gpipe clearfb           clear framebuffer via gpipe");
+    terminal_println("  gpipe drawtest          draw rect/circle/line test");
     terminal_println("  scale <1-8>             resize terminal font");
-    terminal_set_fg(COLOR_WARNING);
-    terminal_println("  (pixel, line, rect, circle, drawtest are deprecated)");
 
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Utilities");
@@ -156,8 +152,7 @@ void cmd_crash(void) {
 void cmd_crash_de(void) {
     terminal_set_fg(COLOR_ERROR);
     terminal_println("  Triggering Divide Error (#DE)...");
-    /* Deterministic: inline assembly to avoid compiler UB.
-     * Use %% to escape register names in extended asm. */
+
     asm volatile("xorl %%eax, %%eax; divl %%eax" : : : "eax", "edx");
     terminal_set_fg(COLOR_WARNING);
     terminal_println("  #DE did not fire (unexpected)");
@@ -183,10 +178,7 @@ void cmd_crash_pf(void) {
 void cmd_crash_gp(void) {
     terminal_set_fg(COLOR_ERROR);
     terminal_println("  Triggering General Protection (#GP)...");
-    /* WRMSR to a reserved/unsupported MSR (0xDEAD) causes #GP(0).
-     * This is deterministic: the CPU checks the MSR index before
-     * attempting any memory access, so it can't silently turn into
-     * a #PF like lgdt with a garbage pointer would. */
+
     asm volatile("movl $0xDEAD, %%ecx; xorl %%eax, %%eax; xorl %%edx, %%edx; wrmsr"
                  : : : "eax", "ecx", "edx");
     terminal_set_fg(COLOR_WARNING);
@@ -295,10 +287,10 @@ static void test_task_entry(void *arg) {
 void cmd_schedtest(void) {
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("  Running Scheduler Test...");
-    
+
     uint64_t free_pages_before = pmm_get_free_page_count();
     uint32_t heap_free_before = kmalloc_free_space();
-    
+
     terminal_set_fg(COLOR_BODY);
     terminal_print("  Before: Pages free: ");
     terminal_print_int((uint32_t)free_pages_before);
@@ -317,22 +309,20 @@ void cmd_schedtest(void) {
             return;
         }
     }
-    
-    // Yield until all tasks finish
+
     for (int i = 0; i < 5; i++) {
         while (tasks[i]->state != TASK_DEAD) {
             sched_yield();
         }
     }
-    
-    // Yield a few more times so the idle task gets scheduled and the reaper runs
+
     for (int i = 0; i < 20; i++) {
         sched_yield();
     }
-    
+
     uint64_t free_pages_after = pmm_get_free_page_count();
     uint32_t heap_free_after = kmalloc_free_space();
-    
+
     terminal_set_fg(COLOR_BODY);
     terminal_print("  After:  Pages free: ");
     terminal_print_int((uint32_t)free_pages_after);
@@ -354,9 +344,9 @@ static void sleeptest_task_A(void *arg) {
     (void)arg;
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("[A] before sleep");
-    
+
     sleep_ms(1000);
-    
+
     terminal_set_fg(COLOR_SUCCESS);
     terminal_println("[A] after sleep");
     task_exit();
@@ -385,26 +375,26 @@ static void sleeptest_task_multi(void *arg) {
 void cmd_sleeptest(void) {
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("  Starting Sleeptest...");
-    
+
     task_t *tA = task_create("sleep_A", sleeptest_task_A, NULL);
     task_t *tB = task_create("sleep_B", sleeptest_task_B, NULL);
     task_t *tm1 = task_create("multi_1", sleeptest_task_multi, (void*)(uint64_t)1000);
     task_t *tm2 = task_create("multi_2", sleeptest_task_multi, (void*)(uint64_t)2000);
     task_t *tm3 = task_create("multi_3", sleeptest_task_multi, (void*)(uint64_t)3000);
-    
+
     if (!tA || !tB || !tm1 || !tm2 || !tm3) {
         terminal_set_fg(COLOR_ERROR);
         terminal_println("  Failed to create tasks.");
         return;
     }
-    
-    while (tA->state != TASK_DEAD || tB->state != TASK_DEAD || 
+
+    while (tA->state != TASK_DEAD || tB->state != TASK_DEAD ||
            tm1->state != TASK_DEAD || tm2->state != TASK_DEAD || tm3->state != TASK_DEAD) {
         sched_yield();
     }
-    
+
     for (int i=0; i<10; i++) sched_yield();
-    
+
     terminal_set_fg(COLOR_SUCCESS);
     terminal_println("  Sleeptest finished.");
 }
@@ -413,10 +403,10 @@ void cmd_top(void) {
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("  Starting TOP... Press 'q' to exit.");
     sleep_ms(1000);
-    
+
     while (1) {
         keyboard_update();
-        if (keyboard_held(0x10)) { // Scancode 0x10 is 'Q'/'q' on PS/2 QWERTY
+        if (keyboard_held(0x10)) {
             break;
         }
 
@@ -429,7 +419,7 @@ void cmd_top(void) {
         terminal_println("  PID    STATE       WAKE (ms)    NAME");
         terminal_set_fg(COLOR_DIM);
         terminal_println("  --------------------------------------------------");
-        
+
         task_t *head = task_get_head();
         if (head) {
             task_t *iter = head;
@@ -439,7 +429,7 @@ void cmd_top(void) {
                 if (iter->id < 10) terminal_print(" ");
                 terminal_print_int(iter->id);
                 terminal_print("     ");
-                
+
                 if (iter->state == TASK_RUNNING) {
                     terminal_set_fg(COLOR_SUCCESS);
                     terminal_print("RUNNING    ");
@@ -453,14 +443,14 @@ void cmd_top(void) {
                     terminal_set_fg(COLOR_ERROR);
                     terminal_print("DEAD       ");
                 }
-                
+
                 terminal_set_fg(COLOR_DIM);
                 if (iter->wake_time_ms > 0) {
                     terminal_print_int((uint32_t)iter->wake_time_ms);
                 } else {
                     terminal_print("-");
                 }
-                
+
                 int wake_len = 1;
                 uint32_t val = (uint32_t)iter->wake_time_ms;
                 if (val > 0) {
@@ -468,22 +458,22 @@ void cmd_top(void) {
                     while (val > 0) { val /= 10; wake_len++; }
                 }
                 for (int i = 0; i < 13 - wake_len; i++) terminal_print(" ");
-                
+
                 terminal_set_fg(COLOR_HIGHLIGHT);
                 terminal_print(iter->name);
                 terminal_println("");
-                
+
                 iter = iter->next;
             } while (iter && iter != head);
         }
-        
+
         terminal_set_fg(COLOR_DIM);
         terminal_println("  --------------------------------------------------");
         terminal_set_fg(COLOR_BODY);
         terminal_print("  Uptime: ");
         terminal_print_int((uint32_t)(uptime_ms() / 1000));
         terminal_println(" s");
-        
+
         for (int i = 0; i < 10; i++) {
             keyboard_update();
             if (keyboard_held(0x10)) goto exit_top;

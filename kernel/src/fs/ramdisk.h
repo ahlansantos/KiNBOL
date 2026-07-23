@@ -1,6 +1,3 @@
-/*
- * Header for the ramdisk: the ramfile_t struct and the MAX_RAMFILES limit.
- */
 #pragma once
 #include <stdint.h>
 

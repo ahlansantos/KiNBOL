@@ -1,9 +1,3 @@
-/*
- * KiNBOL Shell Command: ps (Process Status)
- *
- * Lists all active tasks in the kernel, their PID, state, stack parameters, and entry points.
- */
-
 #include "../commands.h"
 #include "util.h"
 #include "../../graphics/terminal.h"
@@ -36,19 +30,16 @@ void cmd_ps(void) {
     do {
         terminal_set_fg(COLOR_BODY);
 
-        /* PID */
         terminal_print("  ");
         if (curr->id < 10) terminal_print(" ");
         terminal_print_int(curr->id);
         terminal_print("    ");
 
-        /* NAME */
         terminal_print(curr->name);
         size_t len = 0;
         while (curr->name[len]) len++;
         for (size_t i = len; i < 16; i++) terminal_print(" ");
 
-        /* STATE */
         if (curr->state == TASK_RUNNING)      terminal_set_fg(COLOR_SUCCESS);
         else if (curr->state == TASK_READY)   terminal_set_fg(COLOR_ACCENT);
         else                                  terminal_set_fg(COLOR_DIM);
@@ -60,7 +51,6 @@ void cmd_ps(void) {
 
         terminal_set_fg(COLOR_BODY);
 
-        /* STACK BASE & RSP */
         terminal_print_hex((uint64_t)curr->kernel_stack);
         terminal_print("  ");
         terminal_print_hex(curr->rsp);

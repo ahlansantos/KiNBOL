@@ -1,10 +1,3 @@
-/*
- * Text terminal that draws straight into the Limine framebuffer, one
- * character at a time, using the bitmap font. Keeps track of cursor
- * position (gx/gy) and foreground/background color, and exposes the
- * print functions used everywhere else in the kernel (print, println,
- * print_int, print_hex).
- */
 #include "terminal.h"
 #include "../graphics/font.h"
 #include <stdint.h>
@@ -15,7 +8,7 @@ static uint32_t gx   = 8;
 static uint32_t gy   = 8;
 static uint32_t fg   = 0xFFFFFF;
 static uint32_t bg   = 0x101418;
-static uint32_t ts   = 1;   /* terminal font scale, 1 = native 8x16 cell */
+static uint32_t ts   = 1;
 
 #define CELL_W (8u  * ts)
 #define CELL_H (16u * ts)
@@ -33,7 +26,7 @@ uint32_t terminal_get_fg(void)       { return fg;  }
 
 void terminal_set_scale(uint32_t scale) {
     if (scale < 1) scale = 1;
-    if (scale > 8) scale = 8; /* sane ceiling so a typo doesn't wedge the fb */
+    if (scale > 8) scale = 8;
     ts = scale;
     gx = 8; gy = 8;
 }

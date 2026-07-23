@@ -1,6 +1,3 @@
-/*
- * Header for the serial driver: init, putc, string print, and hex print.
- */
 #pragma once
 #include <stdint.h>
 

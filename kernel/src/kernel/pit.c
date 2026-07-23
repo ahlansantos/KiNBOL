@@ -1,9 +1,3 @@
-/*
- * Driver for the 8253/8254 PIT (Programmable Interval Timer), the legacy
- * timer that used to drive IRQ0. It stopped being the system's tick
- * source after the move to the LAPIC timer, but it still gets used for
- * other things, like measuring elapsed time before the TSC is calibrated.
- */
 #include "pit.h"
 #include "dmesg.h"
 #include "sched.h"
@@ -33,17 +27,7 @@ void tsc_calibrate(void) {
     outb(0x43, 0x34); outb(0x40, 0xFF); outb(0x40, 0xFF);
     while (pit_read() < 60000) asm volatile("pause");
     while (pit_read() < 60000) asm volatile("pause");
-    /* 10000 counts (~8.4ms) had the same problem the LAPIC self-cal
-     * window did: short enough that ordinary jitter is a big fraction
-     * of the total, so tsc_hz can come out noticeably too high on some
-     * boots. Since window_ticks in lapic_timer_init is derived directly
-     * from tsc_hz, an inflated tsc_hz there makes that loop run far
-     * longer than the 100ms it thinks it's timing - long enough for the
-     * LAPIC down-counter to hit zero and saturate, which is exactly the
-     * ~1000x-too-slow tick rate just observed. 40000 counts (~33.5ms)
-     * is still safely within one PIT countdown pass (start is <60000
-     * after the guard loops above) but cuts jitter's relative share by
-     * ~4x. */
+
     uint16_t start = pit_read(); uint64_t t0 = rdtsc();
     uint16_t target = start - 40000;
     while (pit_read() > target) asm volatile("pause");
@@ -70,13 +54,13 @@ void sleep_ms(uint32_t ms) {
         uint64_t wake = uptime_ms() + ms;
         curr->wake_time_ms = wake;
         curr->state = TASK_BLOCKED;
-        
+
         dmesg("[sched] task ");
         dmesg_int(curr->id);
         dmesg(" blocked until tick ");
         dmesg_int((uint32_t)wake);
         dmesg("\n");
-        
+
         sched_yield();
         return;
     }

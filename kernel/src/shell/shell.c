@@ -1,9 +1,3 @@
-/*
- * The KiNBOL interactive shell. Reads a line at a time through
- * keyboard_readline, does simple parsing into a command plus arguments,
- * and dispatches to the registered command table (calc, fs, gfx, info,
- * mem, sys, util).
- */
 #include "shell.h"
 #include "commands.h"
 #include "../graphics/terminal.h"
@@ -52,7 +46,7 @@ void shell_run(void) {
             else if (!sh_strcmp(type, "ud"))  cmd_crash_ud();
             else if (!sh_strcmp(type, "pf"))  cmd_crash_pf();
             else if (!sh_strcmp(type, "gp"))  cmd_crash_gp();
-            else cmd_crash(); /* show usage */
+            else cmd_crash();
         }
         else if (!sh_strcmp(in, "crash"))       cmd_crash();
         else if (!sh_strcmp(in, "fastfetch"))   cmd_fastfetch();
@@ -77,6 +71,8 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "schedtest"))   cmd_schedtest();
         else if (!sh_strcmp(in, "sleeptest"))   cmd_sleeptest();
         else if (!sh_strcmp(in, "clearfb"))     cmd_clearfb();
+        else if (!sh_strcmp(in, "gpipe"))        cmd_gpipe("");
+        else if (sh_startswith(in, "gpipe "))    cmd_gpipe(in + 6);
         else if (!sh_strcmp(in, "vfsls"))       cmd_vfsls();
         else if (!sh_strcmp(in, "vminfo"))      cmd_vminfo();
         else if (!sh_strcmp(in, "ramls"))       cmd_ramls();

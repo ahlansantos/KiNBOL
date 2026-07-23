@@ -1,10 +1,3 @@
-/*
- * Kernel entry point (kmain), called by the Limine bootloader once it has
- * handed over the framebuffer, memory map, HHDM offset, and RSDP. From
- * here the boot sequence runs: terminal, PMM, VMM, GDT, IDT, ACPI,
- * LAPIC/IOAPIC, drivers, and finally the shell.
- */
-
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -32,7 +25,6 @@
 #include "fs/ramdisk.h"
 #include "kernel/sched.h"
 #include "shell/shell.h"
-
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
@@ -84,7 +76,6 @@ static void print_banner(void) {
     terminal_println("  this Kernel is Not Based On Linux");
     terminal_println("");
 
-
     terminal_set_fg(0xDDDDDD); terminal_print("  Framebuffer: ");
     terminal_set_fg(0x88CC88);
     terminal_print_int(fbi->width); terminal_print("x"); terminal_print_int(fbi->height); terminal_println("");
@@ -108,9 +99,9 @@ static void print_banner(void) {
     terminal_set_fg(0x88CC88);
     terminal_print_int(vfs_node_count()); terminal_println(" nodes");
 
-    terminal_set_fg(0xDDDDDD); terminal_print("  GPipe:      ");
+    terminal_set_fg(0xDDDDDD); terminal_print("  GPipe:       ");
     terminal_set_fg(0x88CC88);
-    terminal_println("1.0-bin");
+    terminal_println(GPIPE_VERSION);
 
     terminal_println("");
     terminal_set_fg(0xAAAAAA); terminal_println("  Type 'help' for available commands."); terminal_println("");
@@ -141,8 +132,6 @@ void kmain(void) {
     dmesg("[pre-boot] serial init\n");
     terminal_init(fbi);
     dmesg("[pre-boot] terminal init\n");
-    gpipe_init(fbi);
-    dmesg("[pre-boot] gpipe init\n");
     dmesg("[boot] FreeARS Base boot init, KiNBOL 0.07.1 LTS starting\n");
 
     hhdm_offset = hhdm_request.response->offset;
@@ -160,6 +149,11 @@ void kmain(void) {
     vmm_init();
     dmesg("[vmm] OK\n");
 
+    if (!gpipe_init(fbi))
+        dmesg("[pre-boot] gpipe init FAILED (heap/pmm not ready or fbi null)\n");
+    else
+        dmesg("[pre-boot] gpipe init\n");
+
     tsc_calibrate();
     idt_init();
 
@@ -174,7 +168,7 @@ void kmain(void) {
 
         irq_register(TIMER_VECTOR, timer_isr);
 
-        lapic_timer_init(1000, TIMER_VECTOR); 
+        lapic_timer_init(1000, TIMER_VECTOR);
 
         dmesg("[boot] LAPIC/IOAPIC timer online\n");
     } else {

@@ -1,5 +1,3 @@
-/* PMM: physical memory manager. Uses a bitmap (1 bit per 4K page)
- * to track free pages. Built from the Limine memory map entries. */
 #pragma once
 #include <stdint.h>
 #include <stddef.h>

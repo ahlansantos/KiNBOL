@@ -1,12 +1,3 @@
-/*
- * PS/2 keyboard driver. Reads raw scancodes from port 0x60 and converts them
- * to ASCII using the lo/hi lookup tables (normal and shifted). Also
- * implements keyboard_readline, a polling-based line input function with
- * backspace, arrow key history, and a blinking cursor (plugged in via
- * keyboard_set_cursor_cb, so this file stays shell-agnostic). No IRQ
- * needed. Tab is intentionally ignored (no completion).
- */
-
 #include <stdint.h>
 #include "keyboard.h"
 #include "../kernel/pit.h"
@@ -28,27 +19,12 @@ static int (*completion_cb)(char *buf, int max) = 0;
 void keyboard_set_cursor_cb(void (*cb)(int visible)) { cursor_cb = cb; }
 void keyboard_set_completion_cb(int (*cb)(char *buf, int max)) { completion_cb = cb; }
 
-/* Single shared source of truth for "is this key currently held".
- * keyboard_readline() and keyboard_update()/keyboard_held() both pull
- * raw bytes from the same one-byte PS/2 output buffer (port 0x60), so
- * whichever one polls first "steals" that byte from the other. If
- * readline swallows a key's break code (0x80 bit set) while nothing
- * that watches key_state[] ever sees it, key_state[] gets stuck at 1
- * forever - that key then reads as permanently "held" on every future
- * keyboard_held() check. Routing every raw scancode read through this
- * one function keeps key_state in sync no matter which caller actually
- * consumed the byte. */
 static uint8_t key_state[256] = {0};
 static void kb_track_scancode(uint8_t sc) {
     if (sc & 0x80) key_state[sc & 0x7F] = 0;
     else           key_state[sc] = 1;
 }
 
-/* The PS/2 controller can have stale bytes sitting in its output buffer
- * right after boot (BIOS/UEFI self-test, USB legacy keyboard emulation
- * flushing its own synthetic scancodes, etc). If we start reading before
- * that settles, the first real keypresses - Tab included - can get lost
- * in the noise. Drain whatever's pending before we ever trust the buffer. */
 void keyboard_init(void) {
     int guard = 0;
     while ((inb(0x64) & 1) && guard < 256) {
@@ -90,7 +66,7 @@ static void hist_add(const char *buf) {
 void keyboard_readline(char *buf, int max) {
     int i = 0, shift = 0, caps = 0;
     int hist_pos = hist_head;
-    uint64_t blink_period = tsc_hz ? (tsc_hz / 2) : 500000000ULL; /* ~500ms */
+    uint64_t blink_period = tsc_hz ? (tsc_hz / 2) : 500000000ULL;
     uint64_t last_blink   = kb_rdtsc();
     int      cursor_vis   = 1;
     int      extended     = 0;
@@ -154,14 +130,14 @@ void keyboard_readline(char *buf, int max) {
         }
 
         if (sc == 0x0F) {
-            /* Tab key: call completion callback if registered */
+
             if (completion_cb && i > 0) {
                 buf[i] = '\0';
                 int result = completion_cb(buf, max);
                 if (result > 0) {
-                    /* Clear existing line visually */
+
                     while (i > 0) { i--; terminal_putchar('\b'); }
-                    /* Output completed line */
+
                     i = result;
                     for (int j = 0; j < i; j++) {
                         terminal_putchar(buf[j]);

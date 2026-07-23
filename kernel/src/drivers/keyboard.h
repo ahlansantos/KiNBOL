@@ -1,8 +1,3 @@
-/*
- * Public interface for the keyboard driver: line reading, key peek, held-key
- * check, and the scancode constants used by the shell for arrow key
- * navigation and escape.
- */
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 #include <stdint.h>

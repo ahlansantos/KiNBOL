@@ -1,8 +1,3 @@
-/*
- * Header for the VFS: node type flags (FILE, DIRECTORY, CHARDEV, BLOCKDEV,
- * PIPE, SYMLINK, MOUNTPT) and the vfs_node_t struct with its read/write
- * function pointers.
- */
 #pragma once
 #include <stdint.h>
 #include <stddef.h>

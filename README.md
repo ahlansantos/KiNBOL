@@ -36,7 +36,7 @@ Most things here are written from scratch, and a lot of documentation.
 | Scheduler | ✅ cooperative, sleep/wake, task reaper |
 | preemption (LAPIC timer) | ⏳ timer tick works, scheduler is still cooperative-only |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
-| framebuffer (1080p) | ✅ text terminal |
+| framebuffer (1080p) | ✅ text terminal (direct fb) + GPipe 1.0 (back buffer, dirty-rect) |
 | shell | ✅ commands + history + tab completion (subcommands) |
 
 > scheduling is cooperative: tasks give up the CPU voluntarily (`sleep_ms`, `task_exit`, explicit yield). the LAPIC timer is up and firing, it just isn't hooked into the scheduler yet - a task that never yields will hog the CPU forever. real preemption is next on the list. the Big Kernel Lock is now in place as the locking foundation for that work, since blindly forcing a context switch mid-operation on unprotected shared state is a fast way to corrupt the terminal/heap.
@@ -63,20 +63,25 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 | system | `ps`, `dmesg`, `dmesg --clear`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear` |
 | memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
 | filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`, `vfsread`, `vfswrite` |
-| graphics | `clearfb`, `scale` |
+| graphics | `clearfb`, `scale`, `gpipe`, `gpipe clearfb`, `gpipe drawtest` |
 | scheduler | `schedtest`, `sleeptest`, `top` |
 | debug | `crash de`, `crash ud`, `crash pf`, `crash gp` — deterministic faults for exercising the exception dump (no UB; `crash gp` triggers via `wrmsr`) |
 | utilities | `calc`, `ascii`, `anim` |
 
 ---
 
-## ⚠️ baregl is deprecated - GPipe is it modern substitute
+## GPipe replaces BareGL
 
-~~most of baregl is broken or unmaintained. only `clearfb` and `scale` are safe to use right now. everything else (`pixel`, `line`, `rect`, `circle`, `drawtest`) is legacy code from 0.05/0.06 and may crash.~~
-ALL of baregl is now fully deprecated/legacy. Main functions (scale - clearfb) have moved and been improved into GPipe 1. Better than Bare!
+BareGL is fully deprecated, moved to `src/graphics/api/deprecated-legacy/`. GPipe 1.0 is the active graphics API:
 
-~~GPipe is on the way and is going to replace BareGL completely! Currently I am trying to get it better and more secure than BareGL.~~
-Intial GPipe versions are here!
+- explicit context (`gpipe_ctx_t`) instead of hidden global state
+- back buffer allocated straight from the PMM (`pmm_alloc_pages_contiguous`), not the small-block heap
+- dirty-rect flip — `gpipe_flip()` only pushes the region that changed, `gpipe_flip_full()` forces the whole frame
+- full clipping on every primitive (rect/circle/line/bmp)
+
+test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
+
+**known gotcha:** the text terminal writes straight to the real framebuffer, gpipe draws into its own back buffer. they don't know about each other. call `gpipe_sync_from_fb()` before drawing over existing terminal content, or you'll flip stale (usually black) pixels on top of it.
 
 **if you're hacking on graphics, use the terminal framebuffer directly. baregl will either get fixed or removed in a future version.**
 
@@ -89,6 +94,8 @@ Intial GPipe versions are here!
 - [x] cooperative scheduler
 - [x] task reaper + sleep
 - [x] kernel locks (big-kernel-lock)
+- [x] GPipe (BareGL successor): ctx-based, dirty-rect flip, pmm-backed buffer
+- [ ] unify terminal + GPipe into one drawing path (right now they're two independent writers to the same fb)
 - [ ] preemptive scheduling (needs locks above first)
 - [ ] syscalls
 - [ ] ring 3
@@ -104,4 +111,5 @@ MIT. do whatever you want, just keep the copyright notice.
 
 ---
 
-*PS: Claude.ai helped me build the APIC stuff. I'm not sorry.*
+*PS: Claude.ai helped me build the APIC stuff. I'm sorry.*
+*PPS: GPipe's dirty-rect tracking and PMM-backed allocation were also Claude-assisted. still sorry.*
