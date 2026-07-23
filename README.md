@@ -32,13 +32,13 @@ Most things here are written from scratch, and a lot of documentation.
 | PMM (freelist) | ✅ dynamic HHDM |
 | VMM (4-level paging) | ✅ pagemap created |
 | Heap (first-fit + coalesce) | ✅ 16-byte aligned |
-| Scheduler | ✅ cooperative + sleep/wake + reaper |
-| **preemption (LAPIC timer)** | ✅ **active since 0.07!** |
+| Scheduler | ✅ cooperative, sleep/wake, task reaper |
+| preemption (LAPIC timer) | ⏳ timer tick works, scheduler is still cooperative-only |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
 | framebuffer (1080p) | ✅ text terminal |
 | shell | ✅ commands + history |
 
-> **yes, it has preemption.** the LAPIC timer fires IRQ every 10ms and the scheduler can preempt tasks. there are no kernel locks yet (big-kernel-lock is on the roadmap), so technically it's "educational preemption", but it works.
+> scheduling is cooperative: tasks give up the CPU voluntarily (`sleep_ms`, `task_exit`, explicit yield). the LAPIC timer is up and firing, it just isn't hooked into the scheduler yet - a task that never yields will hog the CPU forever. real preemption is next on the list, but it needs basic kernel locking first (see roadmap), since blindly forcing a context switch mid-operation on unprotected shared state is a fast way to corrupt the terminal/heap.
 
 ---
 
@@ -84,8 +84,8 @@ most of baregl is broken or unmaintained. only `clearfb` and `scale` are safe to
 - [x] ACPI, APIC, IOAPIC
 - [x] cooperative scheduler
 - [x] task reaper + sleep
-- [x] **preemption (LAPIC timer)**
 - [ ] kernel locks (big-kernel-lock)
+- [ ] preemptive scheduling (needs locks above first)
 - [ ] syscalls
 - [ ] ring 3
 - [ ] ELF loader
