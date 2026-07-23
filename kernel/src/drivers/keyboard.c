@@ -26,6 +26,22 @@ static inline uint64_t kb_rdtsc(void) {
 static void (*cursor_cb)(int visible) = 0;
 void keyboard_set_cursor_cb(void (*cb)(int visible)) { cursor_cb = cb; }
 
+/* Single shared source of truth for "is this key currently held".
+ * keyboard_readline() and keyboard_update()/keyboard_held() both pull
+ * raw bytes from the same one-byte PS/2 output buffer (port 0x60), so
+ * whichever one polls first "steals" that byte from the other. If
+ * readline swallows a key's break code (0x80 bit set) while nothing
+ * that watches key_state[] ever sees it, key_state[] gets stuck at 1
+ * forever - that key then reads as permanently "held" on every future
+ * keyboard_held() check. Routing every raw scancode read through this
+ * one function keeps key_state in sync no matter which caller actually
+ * consumed the byte. */
+static uint8_t key_state[256] = {0};
+static void kb_track_scancode(uint8_t sc) {
+    if (sc & 0x80) key_state[sc & 0x7F] = 0;
+    else           key_state[sc] = 1;
+}
+
 /* The PS/2 controller can have stale bytes sitting in its output buffer
  * right after boot (BIOS/UEFI self-test, USB legacy keyboard emulation
  * flushing its own synthetic scancodes, etc). If we start reading before
@@ -92,6 +108,7 @@ void keyboard_readline(char *buf, int max) {
         }
         if (cursor_cb) cursor_cb(0);
         uint8_t sc = inb(0x60);
+        kb_track_scancode(sc);
 
         if (sc == 0xE0) { extended = 1; goto next; }
 
@@ -171,16 +188,9 @@ uint8_t keyboard_peek(void) {
     if (!(inb(0x64) & 1)) return 0;
     return inb(0x60);
 }
-static uint8_t key_state[256] = {0};
-
 void keyboard_update(void) {
     while (inb(0x64) & 1) {
-        uint8_t sc = inb(0x60);
-        if (sc & 0x80) {
-            key_state[sc & 0x7F] = 0;
-        } else {
-            key_state[sc] = 1;
-        }
+        kb_track_scancode(inb(0x60));
     }
 }
 
