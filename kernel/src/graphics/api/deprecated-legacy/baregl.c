@@ -1,6 +1,6 @@
 /* most of this is deprecated. only clearfb and scale are safe to use. */
 #include "baregl.h"
-#include "../../mm/heap.h"
+#include "../../../mm/heap.h"
 #include <stdint.h>
 #include <stddef.h>
 

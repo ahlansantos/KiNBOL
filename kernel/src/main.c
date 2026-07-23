@@ -14,7 +14,8 @@
 #include "drivers/keyboard.h"
 #include "drivers/rtc.h"
 #include "graphics/terminal.h"
-#include "graphics/api/baregl.h"
+#include "graphics/api/gpipe.h"
+#include "graphics/api/gpipe_prim.h"
 #include "graphics/font.h"
 #include "kernel/gdt.h"
 #include "kernel/idt.h"
@@ -107,9 +108,9 @@ static void print_banner(void) {
     terminal_set_fg(0x88CC88);
     terminal_print_int(vfs_node_count()); terminal_println(" nodes");
 
-    terminal_set_fg(0xDDDDDD); terminal_print("  BareGL:      ");
+    terminal_set_fg(0xDDDDDD); terminal_print("  GPipe:      ");
     terminal_set_fg(0x88CC88);
-    terminal_println("0.2.1 (SR)");
+    terminal_println("1.0-bin");
 
     terminal_println("");
     terminal_set_fg(0xAAAAAA); terminal_println("  Type 'help' for available commands."); terminal_println("");
@@ -140,8 +141,8 @@ void kmain(void) {
     dmesg("[pre-boot] serial init\n");
     terminal_init(fbi);
     dmesg("[pre-boot] terminal init\n");
-    bare_init(fbi);
-    dmesg("[pre-boot] baregl init\n");
+    gpipe_init(fbi);
+    dmesg("[pre-boot] gpipe init\n");
     dmesg("[boot] FreeARS Base boot init, KiNBOL 0.07.1 LTS starting\n");
 
     hhdm_offset = hhdm_request.response->offset;
