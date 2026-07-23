@@ -1,19 +1,14 @@
-/*
- * Physical Memory Manager. Uses a bitmap, one bit per 4KB physical page,
- * to track which pages are free or in use, built from the memory map
- * handed over by Limine. This is the foundation everything else that
- * allocates physical memory sits on, including the VMM itself, which
- * uses it to get pages for new page tables.
- */
 #include "pmm.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "../drivers/serial.h"
 
-static uint64_t hhdm_off    = 0;
-static uint8_t *bitmap      = NULL;
-static uint64_t total_pages = 0;
-static uint64_t free_pages  = 0;
+static uint64_t hhdm_off      = 0;
+static uint8_t *bitmap        = NULL;
+static uint64_t total_pages   = 0;
+static uint64_t free_pages    = 0;
+static uint64_t highest_phys  = 0;
 
 static inline void bm_set(uint64_t page)   { bitmap[page / 8] |=  (1u << (page % 8)); }
 static inline void bm_clear(uint64_t page) { bitmap[page / 8] &= ~(1u << (page % 8)); }
@@ -34,8 +29,9 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
         serial_print(" len=");   serial_hex(e->length);
         serial_print(" type=");  serial_hex(e->type);
         serial_print("\n");
+        uint64_t end = e->base + e->length;
+        if (end > highest_phys) highest_phys = end;
         if (e->type == LIMINE_MEMMAP_USABLE) {
-            uint64_t end = e->base + e->length;
             if (end > highest) highest = end;
         }
     }
@@ -116,4 +112,41 @@ void pmm_free_page(void *phys) {
 
 uint64_t pmm_get_free_page_count(void) {
     return free_pages;
+}
+
+uint64_t pmm_get_total_pages(void) {
+    return total_pages;
+}
+
+uint64_t pmm_get_highest_phys(void) {
+    return highest_phys;
+}
+
+void *pmm_alloc_pages_contiguous(uint64_t count) {
+    if (count == 0) return NULL;
+
+    uint64_t start = 0x100000 / PAGE_SIZE;
+    for (uint64_t i = start; i <= total_pages - count; i++) {
+        bool free = true;
+        for (uint64_t j = 0; j < count; j++) {
+            if (bm_get(i + j)) { free = false; break; }
+        }
+        if (free) {
+            for (uint64_t j = 0; j < count; j++) bm_set(i + j);
+            free_pages -= count;
+            return (void *)(i * PAGE_SIZE);
+        }
+    }
+    return NULL;
+}
+
+void pmm_free_pages(void *phys, uint64_t count) {
+    uint64_t page = (uint64_t)phys / PAGE_SIZE;
+    for (uint64_t j = 0; j < count; j++) {
+        uint64_t pg = page + j;
+        if (pg < total_pages && bm_get(pg)) {
+            bm_clear(pg);
+            free_pages++;
+        }
+    }
 }

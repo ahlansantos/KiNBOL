@@ -1,15 +1,9 @@
-/*
- * Virtual Memory Manager. Builds and walks the x86-64 page tables by hand
- * (PML4 -> PDPT -> PD -> PT). Handles mapping/unmapping pages, creating a
- * fresh pagemap for a new process, switching CR3, and sets up the HHDM
- * (higher-half direct map), which maps all physical RAM at a fixed
- * offset and is used everywhere to convert between physical and virtual
- * addresses without walking the tables.
- */
+
 #include "vmm.h"
 #include "pmm.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 static inline void write_cr3(uint64_t val) {
     asm volatile("mov %0, %%cr3" :: "r"(val) : "memory");
@@ -183,7 +177,12 @@ void vmm_init(void) {
     if (!phys) return;
     kernel_pagemap = (pagemap_t)phys_to_virt(phys);
 
-    uint64_t hhdm_pages = 0x100000000ULL / 0x200000ULL; 
+    /* HHDM covers all physical space from the memory map (MMIO included),
+     * rounded up to 2 MB huge-page boundaries for efficient paging. */
+    uint64_t hhdm_bytes = pmm_get_highest_phys();
+    hhdm_bytes = (hhdm_bytes + 0x1FFFFF) & ~0x1FFFFFULL;
+    uint64_t hhdm_pages = hhdm_bytes / 0x200000ULL;
+
     uint64_t *pml4 = (uint64_t *)kernel_pagemap;
 
     for (uint64_t i = 0; i < hhdm_pages; i++) {
@@ -211,6 +210,8 @@ void vmm_init(void) {
         pd[pd_i] = phys_addr | VMM_PRESENT | VMM_WRITE | VMM_HUGE;
     }
 
+    /* LAPIC at 0xFEE00000 is already covered by HHDM above, but this
+     * explicit mapping is kept as defense-in-depth. */
     uint64_t apic_phys = 0xFEE00000ULL;
     uint64_t apic_virt = apic_phys + hhdm_offset;
     uint64_t apic_pml4_i = (apic_virt >> 39) & 0x1FF;

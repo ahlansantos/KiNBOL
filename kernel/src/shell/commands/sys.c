@@ -73,18 +73,14 @@ void cmd_help(void) {
     terminal_println("  vfswrite <dev> <txt>   write device");
 
     terminal_set_fg(COLOR_HEADER);
-    terminal_println("\n  Graphics (BareGL)");
+    terminal_println("\n  Graphics (BareGL - deprecated)");
     terminal_set_fg(COLOR_DIM);
     terminal_println("  ------------------------------------------");
     terminal_set_fg(COLOR_BODY);
-    terminal_println("  drawtest                graphics test");
-    terminal_println("  pixel <x> <y>           draw pixel");
-    terminal_println("  line <x0> <y0> <x1> <y1>");
-    terminal_println("  rect <x> <y> <w> <h>");
-    terminal_println("  fillrect <x> <y> <w> <h>");
-    terminal_println("  circle <x> <y> <r>");
     terminal_println("  clearfb                 clear framebuffer");
     terminal_println("  scale <1-8>             resize terminal font");
+    terminal_set_fg(COLOR_WARNING);
+    terminal_println("  (pixel, line, rect, circle, drawtest are deprecated)");
 
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Utilities");

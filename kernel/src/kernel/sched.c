@@ -1,10 +1,4 @@
-/*
- * KiNBOL Task Scheduler & Thread Management
- *
- * Implements cooperative & preemptive process/thread management using a
- * doubly-linked circular task list. Adheres strictly to the 16-byte SysV
- * x86_64 ABI stack alignment for C entry points.
- */
+
 
 #include "sched.h"
 #include "dmesg.h"
@@ -13,6 +7,10 @@
 #include "../mm/vmm.h"
 #include "../drivers/serial.h"
 #include "pit.h"
+
+/* 16 KB stacks (4 contiguous pages) via HHDM. Needs phys contiguity
+ * since there's no VMALLOC region yet — temporary limitation. */
+#define TASK_STACK_PAGES 4
 
 
 extern void task_entry_trampoline(void);
@@ -87,12 +85,16 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
         return NULL;
     }
 
-    void *phys_stack = pmm_alloc_page();
+    /* Allocate 16 KB contiguous physical stack (4 pages).
+     * If this fails, the task cannot be created — a 4 KB stack would
+     * overflow with any non-trivial call chain. */
+    void *phys_stack = pmm_alloc_pages_contiguous(TASK_STACK_PAGES);
     if (!phys_stack) {
-        dmesg("[sched] ERROR: failed to allocate task stack\n");
+        dmesg("[sched] ERROR: cannot allocate 16 KB contiguous stack for task\n");
         kfree(task);
         return NULL;
     }
+    uint64_t stack_size = TASK_STACK_PAGES * PAGE_SIZE;
 
     void *stack = (void *)pmm_phys_to_virt((uint64_t)phys_stack);
 
@@ -100,15 +102,14 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
     task->state        = TASK_READY;
     task->phys_stack   = phys_stack;
     task->kernel_stack = stack;
-    task->stack_size   = PAGE_SIZE;
+    task->stack_size   = stack_size;
     task->entry        = entry;
     task->arg          = arg;
     task->cr3          = (uint64_t)vmm_current() - hhdm_offset;
     sched_strcpy(task->name, name ? name : "task", sizeof(task->name));
 
     /* Set up stack frame according to System V ABI (16-byte alignment) */
-    uint64_t *sp = (uint64_t *)((uint8_t *)stack + PAGE_SIZE);
-
+    uint64_t *sp = (uint64_t *)((uint8_t *)stack + stack_size);
 
     /* Align stack pointer to 16 bytes */
     sp = (uint64_t *)((uint64_t)sp & ~0xFULL);
@@ -240,7 +241,10 @@ task_t *task_get_head(void) {
 
 void task_destroy(task_t *task) {
     if (!task) return;
-    pmm_free_page(task->phys_stack);
+    /* All task stacks are 16 KB (4 pages). kmain has stack_size=0,
+     * so guard against division by zero. */
+    uint64_t pages = task->stack_size ? task->stack_size / PAGE_SIZE : TASK_STACK_PAGES;
+    pmm_free_pages(task->phys_stack, pages);
     kfree(task);
 }
 

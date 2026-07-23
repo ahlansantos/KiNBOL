@@ -69,13 +69,11 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "top"))         cmd_top();
         else if (!sh_strcmp(in, "schedtest"))   cmd_schedtest();
         else if (!sh_strcmp(in, "sleeptest"))   cmd_sleeptest();
-        else if (!sh_strcmp(in, "drawtest"))    cmd_drawtest();
         else if (!sh_strcmp(in, "clearfb"))     cmd_clearfb();
         else if (!sh_strcmp(in, "vfsls"))       cmd_vfsls();
         else if (!sh_strcmp(in, "vminfo"))      cmd_vminfo();
         else if (!sh_strcmp(in, "ramls"))       cmd_ramls();
         else if (!sh_strcmp(in, "raminfo"))     cmd_raminfo();
-        else if (!sh_strcmp(in, "baregl status")) cmd_baregl_status();
         else if (sh_startswith(in, "calc ")) {
             if (in[5]) cmd_calc(in + 5);
             else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: calc <expr>"); }
@@ -115,31 +113,6 @@ void shell_run(void) {
             else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: ramwrite <file> <content>"); }
         }
         else if (sh_startswith(in, "ramdel "))  { char *n = in+7;  if (*n) cmd_ramdel(n);  else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: ramdel <file>"); } }
-        else if (sh_startswith(in, "pixel ")) {
-            const char *p = in + 6;
-            int x = parse_int(&p), y = parse_int(&p);
-            cmd_pixel(x, y);
-        }
-        else if (sh_startswith(in, "line ")) {
-            const char *p = in + 5;
-            int x0=parse_int(&p),y0=parse_int(&p),x1=parse_int(&p),y1=parse_int(&p);
-            cmd_line(x0, y0, x1, y1);
-        }
-        else if (sh_startswith(in, "rect ")) {
-            const char *p = in + 5;
-            int x=parse_int(&p),y=parse_int(&p),w=parse_int(&p),h=parse_int(&p);
-            cmd_rect(x, y, w, h);
-        }
-        else if (sh_startswith(in, "fillrect ")) {
-            const char *p = in + 9;
-            int x=parse_int(&p),y=parse_int(&p),w=parse_int(&p),h=parse_int(&p);
-            cmd_fillrect(x, y, w, h);
-        }
-        else if (sh_startswith(in, "circle ")) {
-            const char *p = in + 7;
-            int x=parse_int(&p),y=parse_int(&p),r=parse_int(&p);
-            cmd_circle(x, y, r);
-        }
         else if (sh_startswith(in, "scale ")) {
             cmd_scale(in + 6);
         }

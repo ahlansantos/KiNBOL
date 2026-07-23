@@ -1,128 +1,91 @@
-<div align="center">
-<h1>KiNBOL</h1>
-  
-  <h3>this Kernel is Not Based On Linux</h3>
+# KiNBOL
 
-  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-  ![Platform: x86_64](https://img.shields.io/badge/Platform-x86_64-lightgrey)
-  ![Bootloader: Limine](https://img.shields.io/badge/Bootloader-Limine-green)
-  ![Status: Active Development](https://img.shields.io/badge/Status-Active_Development-orange)
-  ![LTS: Supported (Ring 0)](https://img.shields.io/badge/LTS-Supported_(Ring_0)-blueviolet)
+**this Kernel is Not Based On Linux**
 
-  <br />
-
-  [Architecture](#architecture) · [Features](#features) · [Building & Running](#building--running) · [Roadmap](#roadmap)
-
-</div>
+x86_64 · UEFI · Limine · Ring 0 only
 
 ---
 
-> *"I'm doing a (free) operating system (just a hobby, won't be big and professional like Linux)."*  
-> - Linus Torvalds, 1991
+## What is this
 
-**KiNBOL** (formerly **FreeARS**) is an educational operating system developed completely from scratch for the x86_64 architecture. Initially created as a simple framebuffer kernel, it has evolved into a modern UEFI kernel featuring memory management, interrupt handling, storage abstractions, and the foundations for cooperative multitasking.
+KiNBOL is a hobby OS I'm building from scratch to learn how operating systems actually work. It started as a simple framebuffer kernel and grew into something with memory management, interrupts, a scheduler, and a shell.
 
----
-
-## 📸 Screenshots
-
-<div align="center">
-  <img src="pictures/KiNBOL-0.07.1-dump1.png" alt="KiNBOL Shell" width="800"/>
-</div>
-
-> [!NOTE]
-> These screenshots reflect MAIN-RELEASE / LTS versions. As KiNBOL is under active development, the visual interface may not perfectly match the most recent commit.
+Everything here is written from scratch - no Linux code, no BSD code, just me and a lot of documentation.
 
 ---
 
-## 🚀 Features
+## Current state
 
-### Kernel and Architecture
-- **Long Mode (x86_64)** > Full 64-bit operation.
-- **Modern Interrupts** > GDT, TSS, IDT, PIC Remapping, ACPI parsing.
-- **Advanced APIC** > Full support for APIC, IOAPIC, and TSC-calibrated LAPIC Timers (IRQ0 finally working!).
-- **Memory Management** > Physical Memory Manager (PMM), Virtual Memory Manager (VMM/Paging) stabilized, and Heap Allocator.
-- **Task Scheduler** > Cooperative multitasking foundation with strict SysV ABI alignment, context isolation, and a Smart Sleep system (using `TASK_BLOCKED`) that eliminates busy-waiting.
-
-### Storage & Filesystems
-- **VFS** > Virtual File System abstraction.
-- **Ramdisk** > In-memory temporary storage.
-
-### Graphics & Display
-- **BareGL & Software Renderer** > 1080p boot resolution, scalable font cell (8x16 up to 64x128).
-- **Terminal** > Unified keyboard and shell input path, fixed blinking cursor, and PS/2 buffer flushing.
-
-### Shell & Applications (kinSH 2)
-| Category | Commands / Tools |
-|----------|--------------|
-| **System** | `ps`, `dmesg`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch` |
-| **Memory** | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
-| **Filesystem** | `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`, `vfsread`, `vfswrite` |
-| **Graphics** | `drawtest`, `clearfb`, `scale`, `pixel`, `line`, `rect`, `circle` |
-| **Utilities** | `calc`, `ascii`, `anim` |
-
-> [!NOTE]
-> Tab-completion has been temporarily removed in 0.07.1 LTS to simplify the input loop. It will return in a future update once properly refactored.
+- 64-bit long mode, UEFI boot via Limine
+- GDT, TSS, IDT, APIC, IOAPIC, ACPI
+- Physical + virtual memory management
+- Cooperative scheduler with task sleep/wake
+- Simple VFS + ramdisk
+- Framebuffer graphics (1080p)
+- Shell with basic commands
 
 ---
 
-## 🏗️ Building & Running
+## Building
 
-KiNBOL uses **Limine** for UEFI boot. You can run it on QEMU, VirtualBox, or Real Hardware.
-
-### Prerequisites
-- `make`, `cc` (target: x86_64-elf), `nasm`, `ld`
-- `qemu-system-x86_64` (for emulation)
-- `xorriso`, `mtools` (for ISO/HDD creation)
-
-### Quick Start
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/KiNBOL.git
-cd KiNBOL
-
-# Build the kernel and run in QEMU
 make
 make run
 ```
 
-> [!WARNING]
-> If you experience triple faults or crashes related to CR3 or NULL pointers, ensure you are running the latest commit, which fixes a critical virtual-to-physical address translation bug in the scheduler.
+Requires: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtools`
 
 ---
 
-## 🗺️ Roadmap
+## Commands
 
-- [x] Paging & Virtual Memory Manager
-- [x] ACPI, APIC, and IOAPIC
-- [x] Cooperative Scheduler Foundation
-- [x] Task Exit Garbage Collection (Reaper)
-- [x] Smart Task Sleep & Blocked States
-- [ ] Multitasking & Preemption (LAPIC Timer)
+| Category | Commands |
+|----------|----------|
+| System | `ps`, `dmesg`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch` |
+| Memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
+| Filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`, `vfsread`, `vfswrite` |
+| Graphics | `clearfb`, `scale` |
+| Scheduler tests | `schedtest`, `sleeptest` |
+| Utilities | `calc`, `ascii`, `anim` |
+
+> Tab-completion is temporarily disabled in 0.07.1. It'll come back.
+
+---
+
+## Graphics note
+
+BareGL is deprecated. Most of its functions are broken or unmaintained. Only `clearfb` and `scale` are safe to use right now. Everything else (`pixel`, `line`, `rect`, `circle`, `drawtest`) is legacy code from 0.05/0.06 and may crash.
+
+---
+
+## Recent changes
+
+- **Dynamic HHDM**: VMM now maps all physical memory (not just 4GB) based on the memory map. Fixes page faults on systems with >4GB RAM.
+- **16-byte heap alignment**: kmalloc now returns 16-byte aligned pointers for SysV ABI compliance.
+- **16KB task stacks**: Scheduler tasks now get 16KB stacks (4 contiguous pages) instead of 4KB. Prevents stack overflow in deep call chains.
+- **BareGL deprecated**: All graphics commands except `clearfb` and `scale` are deprecated. The old BareGL drawing functions (`pixel`, `line`, `rect`, `circle`, `drawtest`) are removed from the shell.
+
+---
+
+## Roadmap
+
+- [x] Paging & VMM
+- [x] ACPI, APIC, IOAPIC
+- [x] Cooperative scheduler
+- [x] Task reaper + sleep
+- [ ] Preemption (LAPIC timer)
 - [ ] Syscalls
-- [ ] Ring 3 (User Mode)
-- [ ] ELF Loader
-- [ ] FAT32 Support
-- [ ] AHCI / SATA Drivers
+- [ ] Ring 3
+- [ ] ELF loader
+- [ ] FAT32
+- [ ] AHCI/SATA
 
 ---
 
-## 📖 History & Philosophy
+## License
 
-**KiNBOL** is the modern successor to **FreeARS**, a project that originally started as a basic 32-bit kernel and later saw an early 64-bit prototype booted via GRUB. (You can find it on the 32bit-legacy branch!) FreeARS served as a foundational learning ground but has since been officially deprecated and archived. KiNBOL represents a complete architectural reboot, applying those lessons to build a cleaner, modular x86_64 UEFI system using Limine.
-
-KiNBOL exists purely as a learning project. Every subsystem is written from scratch to better understand how modern operating systems actually work.
-
-> [!IMPORTANT]
-> The transition to 0.07.1 LTS marks the biggest milestone in KiNBOL's history. It is a fully supported Long Term Support version for Ring 0 (Kernel Mode). With the legacy PIC/PIT replaced by a modern APIC/IOAPIC infrastructure and the introduction of a Smart Sleep Scheduler (`TASK_BLOCKED`), this is our most stable and advanced core architecture yet.
-
-*PS: Being fr, Claude.ai helped me build the APIC, LAPIC, and IOAPIC. Sorry guys, I surrendered to AI.*
+MIT. Do whatever you want, just keep the copyright notice.
 
 ---
 
-## ⚖️ License
-
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
-
-> [!IMPORTANT]
-> You can do whatever you want with this code, as long as you include the original copyright notice and give credit. It's a hobby project, enjoy!
+*PS: Claude.ai helped me build the APIC stuff. I'm not sorry.*

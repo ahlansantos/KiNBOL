@@ -1,9 +1,4 @@
-/*
- * Kernel heap allocator, basically malloc/free, built on a doubly linked
- * list of blocks (block_t) with first-fit search and splitting a block
- * when there is extra room left over. Every block carries a magic number
- * so corruption or double frees can be caught.
- */
+
 #include "heap.h"
 #include "pmm.h"
 #include <stddef.h>
@@ -20,7 +15,7 @@ typedef struct block {
 
 #define HEAP_MAGIC      0xDEADC0DE
 #define HEAP_FREED      0xFEEFEEFE
-#define HEAP_MIN_SPLIT  (sizeof(block_t) + 8)
+#define HEAP_MIN_SPLIT  (sizeof(block_t) + 16)
 
 static block_t *free_list      = NULL;
 static uint32_t g_pages        = 0;
@@ -85,7 +80,9 @@ static void heap_coalesce(block_t *blk) {
 
 void *kmalloc(size_t size) {
     if (size == 0) return NULL;
-    size = (size + 7) & ~(size_t)7;
+    /* 16-byte alignment for SysV ABI. block_t is 32 bytes, so
+     * block + sizeof(block_t) stays aligned if block is page-aligned. */
+    size = (size + 15) & ~(size_t)15;
 
     if (!free_list) {
         free_list = heap_new_page();
