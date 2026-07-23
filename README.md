@@ -72,7 +72,9 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 
 ## ⚠️ baregl is deprecated
 
-most of baregl is broken or unmaintained. only `clearfb` and `scale` are safe to use right now. everything else (`pixel`, `line`, `rect`, `circle`, `drawtest`) is legacy code from 0.05/0.06 and may crash. In the future GPipe 1 will replace BareGL.
+most of baregl is broken or unmaintained. only `clearfb` and `scale` are safe to use right now. everything else (`pixel`, `line`, `rect`, `circle`, `drawtest`) is legacy code from 0.05/0.06 and may crash. 
+GPipe is on the way and is going to replace BareGL completely! Currently I am trying to get it better and more secure than BareGL.
+
 
 **if you're hacking on graphics, use the terminal framebuffer directly. baregl will either get fixed or removed in a future version.**
 
