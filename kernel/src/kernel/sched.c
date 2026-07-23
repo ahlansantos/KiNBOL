@@ -2,6 +2,7 @@
 
 #include "sched.h"
 #include "dmesg.h"
+#include "lock.h"
 #include "../mm/heap.h"
 #include "../mm/pmm.h"
 #include "../mm/vmm.h"
@@ -160,6 +161,9 @@ void sched_init(void) {
     /* Create idle task (PID 1) */
     idle_task = task_create("[idle]", idle_task_entry, NULL);
 
+    /* BKL is now live: all shared-state operations must acquire the
+     * Big Kernel Lock before touching PMM, heap, scheduler, etc. */
+    bkl_ready = true;
     dmesg("[sched] scheduler online (PID 0 = [kernel], PID 1 = [idle])\n");
 }
 

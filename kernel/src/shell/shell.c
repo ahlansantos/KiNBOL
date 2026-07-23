@@ -2,7 +2,7 @@
  * The KiNBOL interactive shell. Reads a line at a time through
  * keyboard_readline, does simple parsing into a command plus arguments,
  * and dispatches to the registered command table (calc, fs, gfx, info,
- * mem, sys, util). No tab-completion.
+ * mem, sys, util).
  */
 #include "shell.h"
 #include "commands.h"
@@ -19,16 +19,6 @@ static int sh_strcmp(const char *a, const char *b) {
 static int sh_startswith(const char *s, const char *p) {
     while (*p) if (*s++ != *p++) return 0;
     return 1;
-}
-
-static int parse_int(const char **p) {
-    int val = 0, neg = 0;
-    while (**p == ' ') (*p)++;
-    if (**p == '-') { neg = 1; (*p)++; }
-    else if (**p == '+') (*p)++;
-    while (**p >= '0' && **p <= '9')
-        val = val * 10 + (*(*p)++ - '0');
-    return neg ? -val : val;
 }
 
 void shell_run(void) {
@@ -55,6 +45,15 @@ void shell_run(void) {
         }
         else if (!sh_strcmp(in, "ticks"))       cmd_ticks();
         else if (sh_startswith(in, "sleep "))   cmd_sleep(in + 6);
+        else if (sh_startswith(in, "crash ")) {
+            const char *type = in + 6;
+            while (*type == ' ') type++;
+            if      (!sh_strcmp(type, "de"))  cmd_crash_de();
+            else if (!sh_strcmp(type, "ud"))  cmd_crash_ud();
+            else if (!sh_strcmp(type, "pf"))  cmd_crash_pf();
+            else if (!sh_strcmp(type, "gp"))  cmd_crash_gp();
+            else cmd_crash(); /* show usage */
+        }
         else if (!sh_strcmp(in, "crash"))       cmd_crash();
         else if (!sh_strcmp(in, "fastfetch"))   cmd_fastfetch();
         else if (!sh_strcmp(in, "memtest"))     cmd_memtest();
@@ -65,6 +64,14 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "meminfo"))     cmd_meminfo();
         else if (!sh_strcmp(in, "ascii"))       cmd_ascii();
         else if (!sh_strcmp(in, "dmesg"))       cmd_dmesg();
+        else if (sh_startswith(in, "dmesg ")) {
+            const char *arg = in + 6;
+            while (*arg == ' ') arg++;
+            if (!sh_strcmp(arg, "--clear") || !sh_strcmp(arg, "clear"))
+                cmd_dmesg_clear();
+            else
+                cmd_dmesg();
+        }
         else if (!sh_strcmp(in, "ps"))          cmd_ps();
         else if (!sh_strcmp(in, "top"))         cmd_top();
         else if (!sh_strcmp(in, "schedtest"))   cmd_schedtest();

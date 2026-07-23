@@ -40,6 +40,7 @@ void cmd_help(void) {
     terminal_println("  date         current date / time");
     terminal_println("  ticks        uptime ticks");
     terminal_println("  dmesg        kernel log");
+    terminal_println("  dmesg --clear  clear kernel log");
     terminal_println("  ps           process status");
     terminal_println("  reboot       reboot system");
     terminal_println("  shutdown     power off (ACPI S5)");
@@ -133,10 +134,63 @@ void cmd_sleep(const char *arg) {
 }
 
 void cmd_crash(void) {
+    terminal_set_fg(COLOR_HEADER);
+    terminal_println("\n  Crash Test Suite");
+    terminal_set_fg(COLOR_DIM);
+    terminal_println("  --------------------------------------------------");
+    terminal_set_fg(COLOR_BODY);
+    terminal_println("  Usage: crash <type>");
+    terminal_println("");
+    terminal_set_fg(COLOR_ACCENT);
+    terminal_println("  Types:");
+    terminal_set_fg(COLOR_BODY);
+    terminal_println("    de   Divide Error (#DE)        - integer division by zero");
+    terminal_println("    ud   Invalid Opcode (#UD)      - execute ud2 instruction");
+    terminal_println("    pf   Page Fault (#PF)          - dereference NULL pointer");
+    terminal_println("    gp   General Protection (#GP)  - execute privileged instruction in ring 3");
+    terminal_set_fg(COLOR_WARNING);
+    terminal_println("\n  WARNING: These will crash the kernel and halt the system.");
+    terminal_println("");
+}
+
+void cmd_crash_de(void) {
     terminal_set_fg(COLOR_ERROR);
-    terminal_println("  Triggering kernel panic...");
-    volatile int a = 10, b = 0, c = a / b;
-    (void)c;
+    terminal_println("  Triggering Divide Error (#DE)...");
+    /* Deterministic: inline assembly to avoid compiler UB.
+     * Use %% to escape register names in extended asm. */
+    asm volatile("xorl %%eax, %%eax; divl %%eax" : : : "eax", "edx");
+    terminal_set_fg(COLOR_WARNING);
+    terminal_println("  #DE did not fire (unexpected)");
+}
+
+void cmd_crash_ud(void) {
+    terminal_set_fg(COLOR_ERROR);
+    terminal_println("  Triggering Invalid Opcode (#UD)...");
+    asm volatile("ud2");
+    terminal_set_fg(COLOR_WARNING);
+    terminal_println("  #UD did not fire (unexpected)");
+}
+
+void cmd_crash_pf(void) {
+    terminal_set_fg(COLOR_ERROR);
+    terminal_println("  Triggering Page Fault (#PF)...");
+    volatile uint64_t *null = (volatile uint64_t *)0;
+    (void)*null;
+    terminal_set_fg(COLOR_WARNING);
+    terminal_println("  #PF did not fire (unexpected)");
+}
+
+void cmd_crash_gp(void) {
+    terminal_set_fg(COLOR_ERROR);
+    terminal_println("  Triggering General Protection (#GP)...");
+    /* WRMSR to a reserved/unsupported MSR (0xDEAD) causes #GP(0).
+     * This is deterministic: the CPU checks the MSR index before
+     * attempting any memory access, so it can't silently turn into
+     * a #PF like lgdt with a garbage pointer would. */
+    asm volatile("movl $0xDEAD, %%ecx; xorl %%eax, %%eax; xorl %%edx, %%edx; wrmsr"
+                 : : : "eax", "ecx", "edx");
+    terminal_set_fg(COLOR_WARNING);
+    terminal_println("  #GP did not fire (unexpected)");
 }
 
 void cmd_reboot(void) {
@@ -221,6 +275,12 @@ void cmd_dmesg(void) {
     terminal_print("\n  --- ");
     terminal_print_int(dmesg_len());
     terminal_println(" bytes ---\n");
+}
+
+void cmd_dmesg_clear(void) {
+    dmesg_clear();
+    terminal_set_fg(COLOR_SUCCESS);
+    terminal_println("  Kernel log cleared.");
 }
 
 static void test_task_entry(void *arg) {

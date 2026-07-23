@@ -37,3 +37,8 @@ void cmd_ps(void);
 void cmd_schedtest(void);
 void cmd_sleeptest(void);
 void cmd_top(void);
+void cmd_crash_de(void);
+void cmd_crash_ud(void);
+void cmd_crash_pf(void);
+void cmd_crash_gp(void);
+void cmd_dmesg_clear(void);

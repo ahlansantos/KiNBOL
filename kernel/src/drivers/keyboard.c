@@ -24,7 +24,9 @@ static inline uint64_t kb_rdtsc(void) {
 }
 
 static void (*cursor_cb)(int visible) = 0;
+static int (*completion_cb)(char *buf, int max) = 0;
 void keyboard_set_cursor_cb(void (*cb)(int visible)) { cursor_cb = cb; }
+void keyboard_set_completion_cb(int (*cb)(char *buf, int max)) { completion_cb = cb; }
 
 /* Single shared source of truth for "is this key currently held".
  * keyboard_readline() and keyboard_update()/keyboard_held() both pull
@@ -151,7 +153,23 @@ void keyboard_readline(char *buf, int max) {
             goto next;
         }
 
-        if (sc == 0x0F) { goto next; } /* ignore Tab, no completion */
+        if (sc == 0x0F) {
+            /* Tab key: call completion callback if registered */
+            if (completion_cb && i > 0) {
+                buf[i] = '\0';
+                int result = completion_cb(buf, max);
+                if (result > 0) {
+                    /* Clear existing line visually */
+                    while (i > 0) { i--; terminal_putchar('\b'); }
+                    /* Output completed line */
+                    i = result;
+                    for (int j = 0; j < i; j++) {
+                        terminal_putchar(buf[j]);
+                    }
+                }
+            }
+            goto next;
+        }
         if (sc == 0x2A || sc == 0x36) { shift = 1; goto next; }
         if (sc == 0xAA || sc == 0xB6) { shift = 0; goto next; }
         if (sc == 0x3A) { caps = !caps; goto next; }

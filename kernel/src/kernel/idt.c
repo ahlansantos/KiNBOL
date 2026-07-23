@@ -112,12 +112,25 @@ void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, 
     uint64_t cr2;
     asm volatile("movq %%cr2, %0" : "=r"(cr2));
 
+    /* CS and RFLAGS sit above the GPRs on the interrupt stack.
+     * regs[0] = R15 (lowest address), so:
+     *   regs[15] = vector number
+     *   regs[16] = error code
+     *   regs[17] = RIP
+     *   regs[18] = CS
+     *   regs[19] = RFLAGS
+     */
+    uint64_t cs_val     = regs[18];
+    uint64_t rflags_val = regs[19];
+
     terminal_set_fg(0xFF0000);
     terminal_println("\n=== FATAL EXCEPTION ===");
     terminal_print("vector "); terminal_print_int((uint32_t)exception_num);
     terminal_print(" - "); terminal_println(exception_name(exception_num));
     terminal_print("error code: "); terminal_print_hex(error_code); terminal_println("");
     terminal_print("RIP:        "); terminal_print_hex(rip); terminal_println("");
+    terminal_print("CS:         "); terminal_print_hex(cs_val); terminal_println("");
+    terminal_print("RFLAGS:     "); terminal_print_hex(rflags_val); terminal_println("");
     if (exception_num == 14) { terminal_print("CR2 (fault addr): "); terminal_print_hex(cr2); terminal_println(""); }
 
     terminal_println("\n-- registers --");

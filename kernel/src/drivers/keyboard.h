@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 void    keyboard_set_cursor_cb(void (*cb)(int visible));
+void    keyboard_set_completion_cb(int (*cb)(char *buf, int max));
 void    keyboard_init(void);
 void    keyboard_readline(char *buf, int max);
 uint8_t keyboard_peek(void);
@@ -19,5 +20,6 @@ void keyboard_update(void);
 #define KEY_DOWN  0x50
 #define KEY_LEFT  0x4B
 #define KEY_RIGHT 0x4D
+#define KEY_TAB   0x0F
 
 #endif

@@ -6,7 +6,7 @@ x86_64 · UEFI · Limine · Ring 0 only
 
 ---
 
-<img src="pictures/KiNBoL-0.07.1-LTS-dump1.png" alt="KiNBOL 0.07.1 screenshot" width="800"/>
+<img src="pictures/KiNBoL-0.07.1-LTS-dump1.png" alt="KiNBOL 0.07.1 (LTS commit) screenshot" width="800"/>
 
 *be advised: this screenshot may not correspond to the newest commit. things move fast around here.*
 
@@ -26,12 +26,13 @@ Most things here are written from scratch, and a lot of documentation.
 |---|---|
 | UEFI boot (Limine) | ✅ 64-bit long mode |
 | GDT + TSS | ✅ user segments + RSP0 |
-| IDT + exceptions | ✅ page fault, GP, etc. |
+| IDT + exceptions | ✅ page fault, GP, etc. + RFLAGS/CS dump |
 | PIC → LAPIC/IOAPIC | ✅ PIC disabled, IOAPIC active |
 | ACPI (poweroff) | ✅ S5 shutdown |
 | PMM (freelist) | ✅ dynamic HHDM |
 | VMM (4-level paging) | ✅ pagemap created |
 | Heap (first-fit + coalesce) | ✅ 16-byte aligned |
+| Spinlock / Big Kernel Lock | ✅ lock xchg + BKL (foundation for preemption) |
 | Scheduler | ✅ cooperative, sleep/wake, task reaper |
 | preemption (LAPIC timer) | ⏳ timer tick works, scheduler is still cooperative-only |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
@@ -66,7 +67,7 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 | scheduler | `schedtest`, `sleeptest`, `top` |
 | utilities | `calc`, `ascii`, `anim` |
 
-> tab-completion is disabled in 0.07.1. it'll come back.
+> tab-completion is not currently available.
 
 ---
 
