@@ -14,7 +14,7 @@ static uint32_t pw   = 0;
 static uint32_t gx   = 8;
 static uint32_t gy   = 8;
 static uint32_t fg   = 0xFFFFFF;
-static uint32_t bg   = 0x00111122;
+static uint32_t bg   = 0x101418;
 static uint32_t ts   = 1;   /* terminal font scale, 1 = native 8x16 cell */
 
 #define CELL_W (8u  * ts)
