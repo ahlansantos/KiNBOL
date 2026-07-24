@@ -2,7 +2,6 @@
 #include "../../mm/heap.h"
 #include "../../mm/pmm.h"
 #include <stddef.h>
-#include <stdlib.h>
 
 static gpipe_ctx_t *g_default_ctx = NULL;
 
@@ -152,85 +151,4 @@ void gpipe_flip_full(gpipe_ctx_t *ctx) {
     if (!ctx || !ctx->fb || !ctx->back) return;
     gpipe_flip_rect(ctx, 0, 0, (int)ctx->width, (int)ctx->height);
     ctx->dirty = (gpipe_rect_t){0, 0, 0, 0};
-}
-
-static void gpipe_set_pixel(gpipe_ctx_t *ctx, int x, int y, uint32_t color) {
-    if (x < 0 || x >= (int)ctx->width || y < 0 || y >= (int)ctx->height) return;
-    ctx->back[y * ctx->pw + x] = color;
-}
-
-void gpipe_rect(gpipe_ctx_t *ctx, int x, int y, int w, int h, uint32_t color) {
-    if (!ctx || w <= 0 || h <= 0) return;
-    for (int row = y; row < y + h; row++) {
-        for (int col = x; col < x + w; col++) {
-            gpipe_set_pixel(ctx, col, row, color);
-        }
-    }
-    gpipe_mark_dirty(ctx, x, y, w, h);
-}
-
-void gpipe_circle(gpipe_ctx_t *ctx, int cx, int cy, int r, uint32_t color) {
-    if (!ctx || r <= 0) return;
-    int x = 0, y = r, d = 3 - 2 * r;
-    while (x <= y) {
-        gpipe_set_pixel(ctx, cx + x, cy + y, color);
-        gpipe_set_pixel(ctx, cx - x, cy + y, color);
-        gpipe_set_pixel(ctx, cx + x, cy - y, color);
-        gpipe_set_pixel(ctx, cx - x, cy - y, color);
-        gpipe_set_pixel(ctx, cx + y, cy + x, color);
-        gpipe_set_pixel(ctx, cx - y, cy + x, color);
-        gpipe_set_pixel(ctx, cx + y, cy - x, color);
-        gpipe_set_pixel(ctx, cx - y, cy - x, color);
-        if (d < 0) {
-            d = d + 4 * x + 6;
-        } else {
-            d = d + 4 * (x - y) + 10;
-            y--;
-        }
-        x++;
-    }
-    gpipe_mark_dirty(ctx, cx - r, cy - r, r * 2, r * 2);
-}
-
-void gpipe_line(gpipe_ctx_t *ctx, int x0, int y0, int x1, int y1, uint32_t color) {
-    if (!ctx) return;
-    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-    int dy = abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-    int err = (dx > dy ? dx : -dy) / 2;
-    while (1) {
-        gpipe_set_pixel(ctx, x0, y0, color);
-        if (x0 == x1 && y0 == y1) break;
-        int e2 = err;
-        if (e2 > -dx) { err -= dy; x0 += sx; }
-        if (e2 < dy) { err += dx; y0 += sy; }
-    }
-    gpipe_mark_dirty(ctx, x0 < x1 ? x0 : x1, y0 < y1 ? y0 : y1, abs(x1 - x0) + 1, abs(y1 - y0) + 1);
-}
-
-void gpipe_text(gpipe_ctx_t *ctx, int x, int y, const char *text, uint32_t color) {
-    if (!ctx || !text) return;
-    extern const unsigned char font[256][16];
-    int start_x = x;
-    for (int i = 0; text[i]; i++) {
-        if (text[i] == '\n') {
-            x = start_x;
-            y += 16;
-            continue;
-        }
-        if (text[i] == '\b') {
-            x -= 8;
-            continue;
-        }
-        const unsigned char *glyph = font[(unsigned char)text[i]];
-        for (int row = 0; row < 16; row++) {
-            uint8_t bits = glyph[row];
-            for (int col = 0; col < 8; col++) {
-                if (bits & (1 << (7 - col))) {
-                    gpipe_set_pixel(ctx, x + col, y + row, color);
-                }
-            }
-        }
-        x += 8;
-    }
-    gpipe_mark_dirty(ctx, start_x, y, x - start_x, 16);
 }

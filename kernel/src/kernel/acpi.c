@@ -310,22 +310,3 @@ void acpi_poweroff(void) {
 
     for (;;) asm volatile("hlt");
 }
-
-void acpi_reboot(void) {
-    if (!acpi_info.valid || !g_fadt) {
-        dmesg("[acpi] reboot: no FADT cached, using keyboard controller\n");
-        outb(0x64, 0xFE);
-        return;
-    }
-
-    uint16_t reset_reg = (uint16_t)g_fadt->pm1a_cnt_blk;
-    if (reset_reg == 0) {
-        dmesg("[acpi] reboot: no reset register, using keyboard controller\n");
-        outb(0x64, 0xFE);
-        return;
-    }
-
-    dmesg("[acpi] reboot via PM1_CNT\n");
-    outw_p(reset_reg, (1 << 10) | (1 << 9));
-    for (;;) asm volatile("hlt");
-}

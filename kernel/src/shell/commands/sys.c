@@ -200,9 +200,7 @@ void cmd_crash_gp(void) {
 void cmd_reboot(void) {
     terminal_set_fg(COLOR_WARNING);
     terminal_println("  Rebooting...");
-    acpi_reboot();
-    terminal_set_fg(COLOR_ERROR);
-    terminal_println("  ACPI reboot failed.");
+    outb(0x64, 0xFE);
 }
 
 void cmd_shutdown(void) {

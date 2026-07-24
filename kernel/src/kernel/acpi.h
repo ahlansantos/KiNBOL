@@ -39,6 +39,5 @@ uint32_t acpi_isa_irq_to_gsi(uint8_t isa_irq, uint16_t *out_flags);
 bool acpi_gsi_to_ioapic(uint32_t gsi, acpi_ioapic_t **out_ioapic, uint32_t *out_pin);
 
 void acpi_poweroff(void);
-void acpi_reboot(void);
 
 #endif

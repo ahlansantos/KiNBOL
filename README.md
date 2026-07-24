@@ -15,12 +15,12 @@ Kernel hobby escrito do zero para aprender como OSes funcionam. Inclui gerenciam
 - ✅ Boot UEFI 64-bit
 - ✅ GDT/TSS com RSP0 por task
 - ✅ IDT + exceções
-- ✅ LAPIC/IOAPIC + ACPI (poweroff + reboot)
+- ✅ LAPIC/IOAPIC + ACPI
 - ✅ PMM + VMM + Heap
 - ✅ Scheduler cooperativo + preempção inteligente
 - ✅ Ring 3 + syscalls (`int 0x80`)
 - ✅ VFS + ramdisk
-- ✅ Terminal + GPipe 1.0 (rect, circle, line, text)
+- ✅ Terminal + GPipe 1.0
 - ✅ Shell com history + tab completion
 
 ## Build
@@ -36,14 +36,12 @@ make TOOLCHAIN=llvm run # build + QEMU
 - **Memória:** `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke`
 - **FS:** `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`
 - **Scheduler:** `schedtest`, `sleeptest`, `top`, `usertest`
-- **Gráficos:** `gpipe`, `gpipe drawtest`, `clearfb`, `scale`
+- **Gráficos:** `gpipe`, `clearfb`, `scale`
 - **Debug:** `crash de/ud/pf/gp`, `dmesg`
 
 ## Roadmap
 
 - [x] Preempção inteligente (user tasks preempted, kernel/shell protected)
-- [x] GPipe primitives (rect, circle, line, text)
-- [x] ACPI reboot
 - [ ] Per-task address spaces
 - [ ] Syscall pointer validation
 - [ ] ELF loader
