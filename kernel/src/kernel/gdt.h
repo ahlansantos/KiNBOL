@@ -12,5 +12,6 @@
 void gdt_init(void);
 
 void tss_set_ist(int ist_index, uint64_t stack_top);
+void tss_set_rsp0(uint64_t stack_top);
 
 #endif

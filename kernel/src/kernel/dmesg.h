@@ -15,4 +15,4 @@ void dmesg_foreach(void (*cb)(char c));
 
 uint32_t dmesg_len(void);
 
-void dmesg_clear(void);
+void dmesg_clear(void); 

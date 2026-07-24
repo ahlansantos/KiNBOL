@@ -39,12 +39,22 @@ IRQ_STUB_DECL(36) IRQ_STUB_DECL(37) IRQ_STUB_DECL(38) IRQ_STUB_DECL(39)
 IRQ_STUB_DECL(40) IRQ_STUB_DECL(41) IRQ_STUB_DECL(42) IRQ_STUB_DECL(43)
 IRQ_STUB_DECL(44) IRQ_STUB_DECL(45) IRQ_STUB_DECL(46) IRQ_STUB_DECL(47)
 
+
+IRQ_STUB_DECL(1)  IRQ_STUB_DECL(2)  IRQ_STUB_DECL(3)  IRQ_STUB_DECL(4)
+IRQ_STUB_DECL(5)  IRQ_STUB_DECL(7)  IRQ_STUB_DECL(9)  IRQ_STUB_DECL(10)
+IRQ_STUB_DECL(11) IRQ_STUB_DECL(12) IRQ_STUB_DECL(15) IRQ_STUB_DECL(16)
+IRQ_STUB_DECL(17) IRQ_STUB_DECL(18) IRQ_STUB_DECL(19) IRQ_STUB_DECL(20)
+IRQ_STUB_DECL(21) IRQ_STUB_DECL(22) IRQ_STUB_DECL(23) IRQ_STUB_DECL(24)
+IRQ_STUB_DECL(25) IRQ_STUB_DECL(26) IRQ_STUB_DECL(27) IRQ_STUB_DECL(28)
+IRQ_STUB_DECL(29) IRQ_STUB_DECL(30) IRQ_STUB_DECL(31)
+
 typedef void (*irq_handler_t)(void);
 static irq_handler_t irq_handlers[IDT_ENTRIES] = {0};
 
 enum { R15=0, R14, R13, R12, R11, R10, R9, R8, RBP, RDI, RSI, RDX, RCX, RBX, RAX };
 
 void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, uint64_t *regs);
+extern void syscall_dispatch(uint64_t *regs);
 
 void irq_register(int num, irq_handler_t handler) {
     if (num >= 0 && num < IDT_ENTRIES) {
@@ -55,12 +65,17 @@ void irq_register(int num, irq_handler_t handler) {
 
 void irq_dispatcher(uint64_t irq_num, uint64_t error_code, uint64_t rip, uint64_t *regs) {
 
+    if (irq_num == 0x80) {
+        syscall_dispatch(regs);
+        return;
+    }
+
     if (irq_num < 32) {
         exception_fatal(irq_num, error_code, rip, regs);
         return;
     }
 
-    if (irq_handlers[irq_num] != NULL) {
+    if (irq_num < IDT_ENTRIES && irq_handlers[irq_num] != NULL) {
         irq_handlers[irq_num]();
         return;
     }
@@ -187,6 +202,33 @@ IRQ_STUB(36) IRQ_STUB(37) IRQ_STUB(38) IRQ_STUB(39)
 IRQ_STUB(40) IRQ_STUB(41) IRQ_STUB(42) IRQ_STUB(43)
 IRQ_STUB(44) IRQ_STUB(45) IRQ_STUB(46) IRQ_STUB(47)
 
+
+#define EXC_STUB_NOERR(vec) \
+    __attribute__((naked)) static void isr##vec(void) { \
+        asm volatile("pushq $0; pushq $" #vec "; jmp isr_common"); \
+    }
+
+
+#define EXC_STUB_ERR(vec) \
+    __attribute__((naked)) static void isr##vec(void) { \
+        asm volatile("pushq $" #vec "; jmp isr_common"); \
+    }
+
+EXC_STUB_NOERR(1)  EXC_STUB_NOERR(2)  EXC_STUB_NOERR(3)  EXC_STUB_NOERR(4)
+EXC_STUB_NOERR(5)  EXC_STUB_NOERR(7)  EXC_STUB_NOERR(9)
+EXC_STUB_NOERR(15) EXC_STUB_NOERR(16) EXC_STUB_NOERR(18) EXC_STUB_NOERR(19)
+EXC_STUB_NOERR(20) EXC_STUB_NOERR(22) EXC_STUB_NOERR(23) EXC_STUB_NOERR(24)
+EXC_STUB_NOERR(25) EXC_STUB_NOERR(26) EXC_STUB_NOERR(27) EXC_STUB_NOERR(28)
+EXC_STUB_NOERR(31)
+
+EXC_STUB_ERR(10) EXC_STUB_ERR(11) EXC_STUB_ERR(12)
+EXC_STUB_ERR(17) EXC_STUB_ERR(21) EXC_STUB_ERR(29) EXC_STUB_ERR(30)
+
+__attribute__((naked)) static void isr128(void) {
+    asm volatile("pushq $0; pushq $0x80; jmp isr_common");
+}
+uint64_t isr128_addr(void) { return (uint64_t)isr128; }
+
 void idt_init(void) {
     for (int i = 0; i < IDT_ENTRIES; i++) {
         idt_set_gate(i, (uint64_t)isr_common, 0x08, 0x8E);
@@ -197,6 +239,16 @@ void idt_init(void) {
     idt_set_gate(8,  (uint64_t)isr8,  0x08, 0x8E);
     idt_set_gate(13, (uint64_t)isr13, 0x08, 0x8E);
     idt_set_gate(14, (uint64_t)isr14, 0x08, 0x8E);
+
+    #define EXC_GATE(vec) idt_set_gate(vec, (uint64_t)isr##vec, 0x08, 0x8E);
+    EXC_GATE(1)  EXC_GATE(2)  EXC_GATE(3)  EXC_GATE(4)
+    EXC_GATE(5)  EXC_GATE(7)  EXC_GATE(9)  EXC_GATE(10)
+    EXC_GATE(11) EXC_GATE(12) EXC_GATE(15) EXC_GATE(16)
+    EXC_GATE(17) EXC_GATE(18) EXC_GATE(19) EXC_GATE(20)
+    EXC_GATE(21) EXC_GATE(22) EXC_GATE(23) EXC_GATE(24)
+    EXC_GATE(25) EXC_GATE(26) EXC_GATE(27) EXC_GATE(28)
+    EXC_GATE(29) EXC_GATE(30) EXC_GATE(31)
+    #undef EXC_GATE
 
     #define IRQ_GATE(vec) idt_set_gate(vec, (uint64_t)isr##vec, 0x08, 0x8E);
     IRQ_GATE(32) IRQ_GATE(33) IRQ_GATE(34) IRQ_GATE(35)

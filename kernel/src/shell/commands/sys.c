@@ -16,6 +16,18 @@ static inline void outb(uint16_t port, uint8_t val) {
     asm volatile("outb %0,%1" :: "a"(val), "Nd"(port));
 }
 
+#include "../../kernel/usermode.h"
+
+void cmd_usertest(void) {
+    task_t *t = usertest_launch();
+    if (!t) {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  Failed to create usertest task.");
+        return;
+    }
+    while (t->state != TASK_DEAD) sched_yield();
+}
+
 void cmd_help(void) {
     terminal_set_fg(COLOR_ACCENT);
     terminal_println("\n  +-------------------------------------------+");

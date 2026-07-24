@@ -12,12 +12,14 @@
 #include "graphics/font.h"
 #include "kernel/gdt.h"
 #include "kernel/idt.h"
+#include "kernel/usermode.h"
 #include "kernel/pic.h"
 #include "kernel/acpi.h"
 #include "kernel/lapic.h"
 #include "kernel/ioapic.h"
 #include "kernel/dmesg.h"
 #include "kernel/pit.h"
+#include "kernel/lock.h"
 #include "mm/pmm.h"
 #include "mm/vmm.h"
 #include "mm/heap.h"
@@ -113,6 +115,13 @@ static void print_banner(void) {
 static void timer_isr(void) {
     pit_tick();
     lapic_eoi();
+
+    if (bkl == 0) {
+        task_t *task = sched_current();
+        if (task && task->name[0] != '[') {
+            sched_schedule();
+        }
+    }
 }
 
 void kmain(void) {
@@ -156,6 +165,7 @@ void kmain(void) {
 
     tsc_calibrate();
     idt_init();
+    syscall_init();
 
     acpi_init(rsdp_request.response ? rsdp_request.response->address : NULL);
 
@@ -168,7 +178,7 @@ void kmain(void) {
 
         irq_register(TIMER_VECTOR, timer_isr);
 
-        lapic_timer_init(1000, TIMER_VECTOR);
+        lapic_timer_init(100, TIMER_VECTOR);
 
         dmesg("[boot] LAPIC/IOAPIC timer online\n");
     } else {
@@ -186,7 +196,6 @@ void kmain(void) {
     asm volatile("sti");
     uint64_t rflags;
     asm volatile("pushfq; popq %0" : "=r"(rflags));
-    char buf[32];
     serial_print("RFLAGS=");
     serial_hex(rflags);
     serial_print("\n");

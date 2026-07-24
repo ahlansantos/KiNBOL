@@ -111,6 +111,10 @@ __attribute__((naked)) static void tss_flush(uint16_t sel) {
     );
 }
 
+void tss_set_rsp0(uint64_t stack_top) {
+    tss.rsp0 = stack_top;
+}
+
 void tss_set_ist(int ist_index, uint64_t stack_top) {
     switch (ist_index) {
         case 1: tss.ist1 = stack_top; break;

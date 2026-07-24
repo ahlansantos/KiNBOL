@@ -26,7 +26,7 @@ all-hdd: $(IMAGE_NAME).hdd
 .PHONY: run-hvf
 run-hvf: edk2-ovmf $(IMAGE_NAME).iso
 	qemu-system-$(ARCH) \
-		-M pc \
+		-M q35 \
 		-accel hvf \
 		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
 		-cdrom $(IMAGE_NAME).iso \

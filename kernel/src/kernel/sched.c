@@ -6,6 +6,7 @@
 #include "../mm/vmm.h"
 #include "../drivers/serial.h"
 #include "pit.h"
+#include "gdt.h"
 
 #define TASK_STACK_PAGES 4
 
@@ -45,6 +46,7 @@ void task_entry_wrapper(task_entry_t entry, void *arg) {
 }
 
 static void task_list_insert(task_t *task) {
+    bkl_acquire();
     if (!head_task) {
         head_task = task;
         task->next = task;
@@ -56,11 +58,13 @@ static void task_list_insert(task_t *task) {
         task->next = head_task;
         head_task->prev = task;
     }
+    bkl_release();
 }
 
 static void task_list_remove(task_t *task) {
     if (!task || !head_task) return;
 
+    bkl_acquire();
     if (task->next == task) {
         head_task = NULL;
     } else {
@@ -72,6 +76,7 @@ static void task_list_remove(task_t *task) {
     }
     task->next = NULL;
     task->prev = NULL;
+    bkl_release();
 }
 
 task_t *task_create(const char *name, task_entry_t entry, void *arg) {
@@ -136,8 +141,18 @@ void sched_init(void) {
 
     kmain_task->id           = next_pid++;
     kmain_task->state        = TASK_RUNNING;
-    kmain_task->kernel_stack = NULL;
-    kmain_task->stack_size   = 0;
+
+    void *kmain_phys_stack = pmm_alloc_pages_contiguous(TASK_STACK_PAGES);
+    if (kmain_phys_stack) {
+        kmain_task->kernel_stack = (void *)pmm_phys_to_virt((uint64_t)kmain_phys_stack);
+        kmain_task->stack_size   = TASK_STACK_PAGES * PAGE_SIZE;
+        tss_set_rsp0((uint64_t)kmain_task->kernel_stack + kmain_task->stack_size);
+    } else {
+        kmain_task->kernel_stack = NULL;
+        kmain_task->stack_size   = 0;
+        dmesg("[sched] WARNING: no RSP0 stack for kmain task, ring3 syscalls will #DF\n");
+    }
+
     kmain_task->entry        = NULL;
     kmain_task->arg          = NULL;
     kmain_task->cr3          = (uint64_t)vmm_current() - hhdm_offset;
@@ -159,12 +174,14 @@ task_t *sched_current(void) {
 void sched_schedule(void) {
     if (!current_task || !head_task) return;
 
+    bkl_acquire();
+
     sched_update_blocked_tasks();
 
     task_t *start = current_task->next ? current_task : head_task;
     task_t *next  = start->next;
 
-    if (!next) return;
+    if (!next) { bkl_release(); return; }
 
     task_t *iter = next;
     task_t *chosen = NULL;
@@ -181,13 +198,14 @@ void sched_schedule(void) {
         if (idle_task && idle_task->state == TASK_READY) {
             chosen = idle_task;
         } else if (current_task->state == TASK_RUNNING) {
+            bkl_release();
             return;
         } else {
             chosen = idle_task;
         }
     }
 
-    if (chosen == current_task) return;
+    if (chosen == current_task) { bkl_release(); return; }
 
     task_t *old_task = current_task;
     if (old_task->state == TASK_RUNNING) {
@@ -197,7 +215,14 @@ void sched_schedule(void) {
     chosen->state  = TASK_RUNNING;
     current_task = chosen;
 
+    if (chosen->kernel_stack)
+        tss_set_rsp0((uint64_t)chosen->kernel_stack + chosen->stack_size);
+
+    bkl_release();
+
+    asm volatile("cli");
     context_switch(&old_task->rsp, chosen->rsp, chosen->cr3);
+    asm volatile("sti");
 }
 
 void sched_yield(void) {
@@ -215,6 +240,7 @@ void task_exit(void) {
 
     current_task->state = TASK_DEAD;
 
+    asm volatile("sti");
     sched_yield();
 
     while (1) asm volatile("hlt");

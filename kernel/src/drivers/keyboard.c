@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "keyboard.h"
 #include "../kernel/pit.h"
+#include "../kernel/sched.h"
 extern void terminal_putchar(char c);
 
 static inline uint8_t inb(uint16_t port) {

@@ -32,19 +32,23 @@ void terminal_set_scale(uint32_t scale) {
 }
 uint32_t terminal_get_scale(void) { return ts; }
 
-static void px(uint32_t x, uint32_t y, uint32_t c) {
-    if (x < fbi->width && y < fbi->height)
-        ((volatile uint32_t *)fbi->address)[y * pw + x] = c;
-}
-
+// Desenho otimizado de caractere direto no ponteiro da VRAM
 static void chr(uint32_t x, uint32_t y, char c, uint32_t cf, uint32_t cb) {
+    if (x + CELL_W > fbi->width || y + CELL_H > fbi->height) return;
+
     const uint8_t *g = font[(unsigned char)c];
+    volatile uint32_t *fb = (volatile uint32_t *)fbi->address;
+
     for (int r = 0; r < 16; r++) {
-        for (int co = 0; co < 8; co++) {
-            uint32_t col = (g[r] & (1 << (7 - co))) ? cf : cb;
-            for (uint32_t dy = 0; dy < ts; dy++)
-                for (uint32_t dx = 0; dx < ts; dx++)
-                    px(x + co * ts + dx, y + r * ts + dy, col);
+        uint8_t row_bits = g[r];
+        for (uint32_t dy = 0; dy < ts; dy++) {
+            uint32_t line_offset = (y + r * ts + dy) * pw + x;
+            for (int co = 0; co < 8; co++) {
+                uint32_t col = (row_bits & (1 << (7 - co))) ? cf : cb;
+                for (uint32_t dx = 0; dx < ts; dx++) {
+                    fb[line_offset + co * ts + dx] = col;
+                }
+            }
         }
     }
 }
@@ -104,16 +108,23 @@ void terminal_print_hex(uint64_t n) {
 }
 
 void terminal_clear(void) {
-    for (uint32_t y = 0; y < fbi->height; y++)
-        for (uint32_t x = 0; x < fbi->width; x++)
-            px(x, y, bg);
-    gx = 8; gy = 8;
+    volatile uint32_t *fb = (volatile uint32_t *)fbi->address;
+    uint32_t total_pixels = pw * fbi->height;
+
+    for (uint32_t i = 0; i < total_pixels; i++) {
+        fb[i] = bg;
+    }
+    gx = 8;
+    gy = 8;
 }
 
 void terminal_cursor_draw(int visible) {
     uint32_t color = visible ? fg : bg;
     uint32_t row_start = 11 * ts;
-    for (uint32_t row = row_start; row < row_start + 2 * ts; row++)
-        for (uint32_t co = 0; co < CELL_W; co++)
-            px(gx + co, gy + row, color);
+    for (uint32_t row = row_start; row < row_start + 2 * ts; row++) {
+        uint32_t line_offset = (gy + row) * pw + gx;
+        for (uint32_t co = 0; co < CELL_W; co++) {
+            ((volatile uint32_t *)fbi->address)[line_offset + co] = color;
+        }
+    }
 }

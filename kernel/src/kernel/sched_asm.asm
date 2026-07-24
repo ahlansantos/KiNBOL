@@ -70,6 +70,10 @@ context_switch:
 ; The initial stack contains: [entry], [arg]
 ;
 task_entry_trampoline:
+    sti        ; a new task never resumes through sched_schedule's own
+               ; post-switch 'sti' (it starts here instead), so without
+               ; this it could inherit IF=0 from whatever context_switch
+               ; happened to interrupt when it was first spawned.
     pop rdi    ; First argument for task_entry_wrapper: task_entry_t entry
     pop rsi    ; Second argument for task_entry_wrapper: void *arg
 
