@@ -39,3 +39,8 @@ int gpipe_height(gpipe_ctx_t *ctx);
 
 uint32_t gpipe_rgb(uint8_t r, uint8_t g, uint8_t b);
 uint32_t gpipe_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+
+void gpipe_rect(gpipe_ctx_t *ctx, int x, int y, int w, int h, uint32_t color);
+void gpipe_circle(gpipe_ctx_t *ctx, int cx, int cy, int r, uint32_t color);
+void gpipe_line(gpipe_ctx_t *ctx, int x0, int y0, int x1, int y1, uint32_t color);
+void gpipe_text(gpipe_ctx_t *ctx, int x, int y, const char *text, uint32_t color);
