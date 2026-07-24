@@ -7,10 +7,10 @@ x86_64 · UEFI · Limine · Ring 0 + Ring 3
 ---
 
 ## 0.07.1-LTS cmd test
-<img src="pictures/KiNBoL-0.07.1-LTS-dump2.png" alt="KiNBOL 0.07.1 (LTS commit) screenshot" width="800"/>
+<img src="pictures/KINBOL-0.07.1-LTS-dump2.png" alt="KiNBOL 0.07.1 (LTS commit) screenshot" width="800"/>
 
 ## 0.07.1-LTS gpipe
-<img src="pictures/KiNBoL-0.07.1-LTS-dump3.png" alt="KiNBOL 0.07.1 (LTS commit) screenshot" width="800"/>
+<img src="pictures/KINBOL-0.07.1-LTS-dump3.png" alt="KiNBOL 0.07.1 (LTS commit) screenshot" width="800"/>
 
 *be advised: this screenshot may not correspond to the newest commit. things move fast around here.*
 
