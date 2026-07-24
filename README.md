@@ -117,3 +117,6 @@ test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 ## license
 
 MIT. do whatever you want, just keep the copyright notice.
+
+
+i really dont know what happened, someone changed the readme and made it portuguese
