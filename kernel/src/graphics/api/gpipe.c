@@ -2,6 +2,7 @@
 #include "../../mm/heap.h"
 #include "../../mm/pmm.h"
 #include <stddef.h>
+#include <stdlib.h>
 
 static gpipe_ctx_t *g_default_ctx = NULL;
 
