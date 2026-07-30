@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#include "../mm/vmm.h"
+
 #define STACK_SIZE 16384
 
 typedef enum {
@@ -27,6 +29,8 @@ typedef struct task {
     size_t         stack_size;
     task_entry_t   entry;
     void          *arg;
+    pagemap_t      pagemap;
+    bool           owns_pagemap;
     struct task   *prev;
     struct task   *next;
 } task_t;
@@ -34,6 +38,8 @@ typedef struct task {
 void sched_init(void);
 
 task_t *task_create(const char *name, task_entry_t entry, void *arg);
+
+task_t *task_create_user(const char *name, task_entry_t entry, void *arg);
 
 void sched_yield(void);
 

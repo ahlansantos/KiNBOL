@@ -79,7 +79,8 @@ static void task_list_remove(task_t *task) {
     bkl_release();
 }
 
-task_t *task_create(const char *name, task_entry_t entry, void *arg) {
+static task_t *task_create_internal(const char *name, task_entry_t entry, void *arg,
+                                     pagemap_t pm, bool owns_pagemap) {
     task_t *task = (task_t *)kmalloc(sizeof(task_t));
     if (!task) {
         dmesg("[sched] ERROR: failed to allocate task struct\n");
@@ -103,7 +104,9 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
     task->stack_size   = stack_size;
     task->entry        = entry;
     task->arg          = arg;
-    task->cr3          = (uint64_t)vmm_current() - hhdm_offset;
+    task->pagemap      = pm;
+    task->owns_pagemap = owns_pagemap;
+    task->cr3          = (uint64_t)pm - hhdm_offset;
     sched_strcpy(task->name, name ? name : "task", sizeof(task->name));
 
     uint64_t *sp = (uint64_t *)((uint8_t *)stack + stack_size);
@@ -129,8 +132,26 @@ task_t *task_create(const char *name, task_entry_t entry, void *arg) {
     dmesg_int(task->id);
     dmesg(" ('");
     dmesg(task->name);
-    dmesg("') created\n");
+    dmesg(owns_pagemap ? "') created (isolated pagemap)\n" : "') created\n");
 
+    return task;
+}
+
+task_t *task_create(const char *name, task_entry_t entry, void *arg) {
+    return task_create_internal(name, entry, arg, vmm_current(), false);
+}
+
+task_t *task_create_user(const char *name, task_entry_t entry, void *arg) {
+    pagemap_t pm = vmm_create_pagemap();
+    if (!pm) {
+        dmesg("[sched] ERROR: failed to create isolated pagemap for user task\n");
+        return NULL;
+    }
+    task_t *task = task_create_internal(name, entry, arg, pm, true);
+    if (!task) {
+        vmm_destroy_pagemap(pm);
+        return NULL;
+    }
     return task;
 }
 
@@ -155,6 +176,8 @@ void sched_init(void) {
 
     kmain_task->entry        = NULL;
     kmain_task->arg          = NULL;
+    kmain_task->pagemap      = vmm_current();
+    kmain_task->owns_pagemap = false;
     kmain_task->cr3          = (uint64_t)vmm_current() - hhdm_offset;
     sched_strcpy(kmain_task->name, "[kernel]", sizeof(kmain_task->name));
 
@@ -255,6 +278,11 @@ void task_destroy(task_t *task) {
 
     uint64_t pages = task->stack_size ? task->stack_size / PAGE_SIZE : TASK_STACK_PAGES;
     pmm_free_pages(task->phys_stack, pages);
+
+    if (task->owns_pagemap && task->pagemap) {
+        vmm_destroy_pagemap(task->pagemap);
+    }
+
     kfree(task);
 }
 

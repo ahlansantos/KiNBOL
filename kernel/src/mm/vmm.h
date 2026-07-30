@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #define VMM_PRESENT    (1ULL << 0)
 #define VMM_WRITE      (1ULL << 1)
@@ -37,3 +38,5 @@ uint64_t vmm_virt_to_phys(pagemap_t pm, uint64_t virt);
 int vmm_map_range(pagemap_t pm,
                   uint64_t virt_start, uint64_t phys_start,
                   uint64_t size, uint64_t flags);
+
+bool vmm_check_user_range(pagemap_t pm, uint64_t virt, uint64_t len, bool need_write);

@@ -105,6 +105,38 @@ uint64_t vmm_virt_to_phys(pagemap_t pm, uint64_t virt) {
     return (pt[pt_idx(virt)] & ~0xFFFULL) | (virt & 0xFFF);
 }
 
+bool vmm_check_user_range(pagemap_t pm, uint64_t virt, uint64_t len, bool need_write) {
+    if (!pm || len == 0) return false;
+
+    if (virt + len < virt) return false;
+
+    uint64_t start = virt & ~0xFFFULL;
+    uint64_t end   = (virt + len - 1) & ~0xFFFULL;
+
+    for (uint64_t page = start; ; page += PAGE_SIZE) {
+        uint64_t *pml4 = (uint64_t *)pm;
+        uint64_t e1 = pml4[pml4_idx(page)];
+        if (!(e1 & VMM_PRESENT) || !(e1 & VMM_USER)) return false;
+
+        uint64_t *pdpt = (uint64_t *)phys_to_virt(e1 & ~0xFFFULL);
+        uint64_t e2 = pdpt[pdpt_idx(page)];
+        if (!(e2 & VMM_PRESENT) || !(e2 & VMM_USER)) return false;
+
+        uint64_t *pd = (uint64_t *)phys_to_virt(e2 & ~0xFFFULL);
+        uint64_t e3 = pd[pd_idx(page)];
+        if (!(e3 & VMM_PRESENT) || !(e3 & VMM_USER)) return false;
+
+        uint64_t *pt = (uint64_t *)phys_to_virt(e3 & ~0xFFFULL);
+        uint64_t e4 = pt[pt_idx(page)];
+        if (!(e4 & VMM_PRESENT) || !(e4 & VMM_USER)) return false;
+        if (need_write && !(e4 & VMM_WRITE)) return false;
+
+        if (page == end) break;
+    }
+
+    return true;
+}
+
 int vmm_map_range(pagemap_t pm,
                   uint64_t virt_start, uint64_t phys_start,
                   uint64_t size, uint64_t flags) {
@@ -134,19 +166,21 @@ pagemap_t vmm_create_pagemap(void) {
     if (!phys) return NULL;
     pagemap_t pm = (pagemap_t)phys_to_virt(phys);
 
-    if (kernel_pagemap) {
-        uint64_t *kpml4 = (uint64_t *)kernel_pagemap;
+    pagemap_t active = vmm_current();
+
+    if (active) {
+        uint64_t *apml4 = (uint64_t *)active;
         uint64_t *npml4 = (uint64_t *)pm;
 
         for (int i = 256; i < 512; i++) {
-            npml4[i] = kpml4[i];
+            npml4[i] = apml4[i];
         }
     }
     return pm;
 }
 
 void vmm_destroy_pagemap(pagemap_t pm) {
-    if (!pm || pm == kernel_pagemap) return;
+    if (!pm || pm == vmm_current()) return;
 
     uint64_t *pml4 = (uint64_t *)pm;
 
@@ -160,7 +194,16 @@ void vmm_destroy_pagemap(pagemap_t pm) {
 
             for (int k = 0; k < 512; k++) {
                 if (!(pd[k] & VMM_PRESENT)) continue;
+                if (pd[k] & VMM_HUGE) {
+                    pmm_free_page((void *)(pd[k] & ~0xFFFULL));
+                    continue;
+                }
 
+                uint64_t *pt = (uint64_t *)phys_to_virt(pd[k] & ~0xFFFULL);
+                for (int l = 0; l < 512; l++) {
+                    if (!(pt[l] & VMM_PRESENT)) continue;
+                    pmm_free_page((void *)(pt[l] & ~0xFFFULL));
+                }
                 pmm_free_page((void *)(pd[k] & ~0xFFFULL));
             }
             pmm_free_page((void *)(pdpt[j] & ~0xFFFULL));
