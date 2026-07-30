@@ -38,14 +38,16 @@ Most things here are written from scratch, and a lot of documentation.
 | Heap (first-fit + coalesce) | ✅ 16-byte aligned |
 | Spinlock / Big Kernel Lock | ✅ lock xchg + BKL, active since `sched_init()` |
 | Scheduler | ✅ cooperative + intelligent preemption (user tasks preempted, kernel/shell protected) |
-| Ring 3 + syscalls | ✅ `int 0x80`, `SYS_WRITE`/`SYS_EXIT`, `usertest` shell cmd |
+| Ring 3 + syscalls | ✅ `int 0x80`, `SYS_WRITE`/`SYS_EXIT`/`SYS_READ`/`SYS_SLEEP`/`SYS_YIELD`, user pointer + RSP validation, `usertest` shell cmd |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
 | framebuffer (1080p) | ✅ text terminal (direct fb) + GPipe 1.0 (back buffer, dirty-rect) |
 | shell | ✅ commands + history + tab completion (subcommands) |
 
 > scheduling is cooperative with intelligent preemption: tasks give up the CPU voluntarily (`sleep_ms`, `task_exit`, explicit yield). the LAPIC timer fires at 100Hz and hooks into the scheduler, but **kernel tasks and the shell are protected from preemption** (tasks with names starting with `[` are never preempted). this means the terminal/keyboard remain responsive at all times, while user-mode tasks (`usertest`, `schedtest`, etc.) are preempted automatically. **this matters for ring 3**: a user-mode program is CPL-isolated from crashing the kernel, and now also can't hang it indefinitely — the scheduler will preempt spinning userspace tasks. the Big Kernel Lock provides the locking foundation for this, preventing context switches mid-operation on unprotected shared state.
 >
-> ring 3 is also single-address-space for now: every task shares the same page tables (`vmm_create_pagemap()`/`vmm_destroy_pagemap()` exist but aren't wired into `task_create()` yet), and syscalls don't validate user-supplied pointers. CPL enforcement stops privileged instructions, not memory access — real process isolation needs per-task address spaces first.
+> every syscall entry validates the user-supplied pointers it's handed (`syscall_check_user_ptr()`, backed by `vmm_check_user_range()` walking the 4-level page tables) *and* the RSP the task trapped in with (`syscall_check_user_rsp()`). the RSP check exists because the CPU saves the ring3 RSP on the kernel stack as part of the `iretq` frame during the ring transition — if a task forges a garbage RSP before `int 0x80`, nothing stops the kernel from handing it straight back on the way out, which corrupts the task's own return into userspace. a task that fails either check gets killed via `task_exit()` instead of being allowed to run the syscall.
+>
+> ring 3 is still single-address-space for now: every task shares the same page tables (`vmm_create_pagemap()`/`vmm_destroy_pagemap()` exist but aren't wired into `task_create()` yet). CPL enforcement plus the pointer/RSP checks stop a task from touching memory it doesn't own, but real process isolation still needs per-task address spaces.
 
 ---
 
@@ -105,9 +107,11 @@ test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 - [x] syscalls (`int 0x80`, DPL=3 gate, `SYS_WRITE`/`SYS_EXIT`)
 - [x] ring 3 (`iretq` into CPL=3, per-task RSP0 via TSS)
 - [x] preemptive scheduling (intelligent: user tasks preempted, kernel/shell protected)
+- [x] syscall pointer validation (`syscall_check_user_ptr()` / `vmm_check_user_range()`)
+- [x] syscall RSP validation (`syscall_check_user_rsp()` — rejects a forged ring3 RSP before it can corrupt the task's own `iretq` return)
+- [x] `SYS_READ` (path-based, reads through the VFS), `SYS_SLEEP`, `SYS_YIELD`
 - [ ] unify terminal + GPipe into one drawing path (right now they're two independent writers to the same fb)
 - [ ] per-task address spaces (`vmm_create_pagemap` exists, not wired to tasks yet)
-- [ ] syscall pointer validation (user buffers are trusted right now)
 - [ ] ELF loader
 - [ ] FAT32
 - [ ] AHCI/SATA
