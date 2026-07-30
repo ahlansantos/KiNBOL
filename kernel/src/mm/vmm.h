@@ -40,3 +40,7 @@ int vmm_map_range(pagemap_t pm,
                   uint64_t size, uint64_t flags);
 
 bool vmm_check_user_range(pagemap_t pm, uint64_t virt, uint64_t len, bool need_write);
+
+void vmm_enable_writecombine_pat(void);
+
+bool vmm_mark_range_writecombine(uint64_t virt, uint64_t size);

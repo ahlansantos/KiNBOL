@@ -5,11 +5,8 @@
 
 static gpipe_ctx_t *g_default_ctx = NULL;
 
-static inline void *gmemcpy(void *dst, const void *src, size_t n) {
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (size_t i = 0; i < n; i++) d[i] = s[i];
-    return dst;
+static inline void gpipe_copy_row(volatile uint32_t *dst, const uint32_t *src, size_t pixels) {
+    for (size_t i = 0; i < pixels; i++) dst[i] = src[i];
 }
 
 static inline int iclamp(int v, int lo, int hi) {
@@ -131,10 +128,10 @@ static void gpipe_flip_rect(gpipe_ctx_t *ctx, int x, int y, int w, int h) {
     volatile uint32_t *fb = ctx->fb->address;
 
     for (int row = y; row < y + h; row++) {
-        gmemcpy(
-            (void *)(fb + (uint32_t)row * ctx->pw + x),
-            (void *)(ctx->back + (uint32_t)row * ctx->pw + x),
-            (size_t)w * 4
+        gpipe_copy_row(
+            fb + (uint32_t)row * ctx->pw + x,
+            ctx->back + (uint32_t)row * ctx->pw + x,
+            (size_t)w
         );
     }
 }

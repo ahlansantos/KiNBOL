@@ -16,6 +16,25 @@ static inline void invlpg(uint64_t virt) {
     asm volatile("invlpg (%0)" :: "r"(virt) : "memory");
 }
 
+static inline uint64_t read_msr(uint32_t msr) {
+    uint32_t lo, hi;
+    asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
+    return ((uint64_t)hi << 32) | lo;
+}
+static inline void write_msr(uint32_t msr, uint64_t val) {
+    uint32_t lo = (uint32_t)val;
+    uint32_t hi = (uint32_t)(val >> 32);
+    asm volatile("wrmsr" :: "c"(msr), "a"(lo), "d"(hi) : "memory");
+}
+
+#define IA32_PAT_MSR   0x277
+#define PAT_WC         0x01ULL
+
+#define VMM_PWT        (1ULL << 3)
+#define VMM_PCD        (1ULL << 4)
+#define VMM_PAT_4K     (1ULL << 7)
+#define VMM_PAT_HUGE   (1ULL << 12)
+
 extern uint64_t hhdm_offset;
 
 static inline void *phys_to_virt(uint64_t phys) {
@@ -212,6 +231,58 @@ void vmm_destroy_pagemap(pagemap_t pm) {
     }
 
     pmm_free_page((void *)virt_to_phys(pm));
+}
+
+void vmm_enable_writecombine_pat(void) {
+    uint64_t pat = read_msr(IA32_PAT_MSR);
+    pat &= ~(0xFFULL << 8);
+    pat |= (PAT_WC << 8);
+    write_msr(IA32_PAT_MSR, pat);
+}
+
+bool vmm_mark_range_writecombine(uint64_t virt, uint64_t size) {
+    pagemap_t pm = vmm_current();
+    if (!pm || size == 0) return false;
+
+    uint64_t start = virt & ~0xFFFULL;
+    uint64_t end   = (virt + size - 1) & ~0xFFFULL;
+    uint64_t *pml4 = (uint64_t *)pm;
+
+    for (uint64_t page = start; page <= end; ) {
+        uint64_t e1 = pml4[pml4_idx(page)];
+        if (!(e1 & VMM_PRESENT)) return false;
+        uint64_t *pdpt = (uint64_t *)phys_to_virt(e1 & ~0xFFFULL);
+
+        uint64_t e2 = pdpt[pdpt_idx(page)];
+        if (!(e2 & VMM_PRESENT)) return false;
+
+        if (e2 & VMM_HUGE) {
+            return false;
+        }
+
+        uint64_t *pd = (uint64_t *)phys_to_virt(e2 & ~0xFFFULL);
+        uint64_t e3 = pd[pd_idx(page)];
+        if (!(e3 & VMM_PRESENT)) return false;
+
+        if (e3 & VMM_HUGE) {
+            uint64_t new_e3 = (e3 & ~(VMM_PCD | VMM_PAT_HUGE)) | VMM_PWT;
+            pd[pd_idx(page)] = new_e3;
+            invlpg(page);
+            page = (page & ~0x1FFFFFULL) + 0x200000ULL;
+            continue;
+        }
+
+        uint64_t *pt = (uint64_t *)phys_to_virt(e3 & ~0xFFFULL);
+        uint64_t e4 = pt[pt_idx(page)];
+        if (!(e4 & VMM_PRESENT)) return false;
+
+        uint64_t new_e4 = (e4 & ~(VMM_PCD | VMM_PAT_4K)) | VMM_PWT;
+        pt[pt_idx(page)] = new_e4;
+        invlpg(page);
+        page += PAGE_SIZE;
+    }
+
+    return true;
 }
 
 void vmm_init(void) {

@@ -86,6 +86,14 @@ task_t *usertest_launch(void) {
     return task_create_user("usertest", usertest_task_entry, NULL);
 }
 
+static bool syscall_check_user_ptr(uint64_t ptr, uint64_t len, bool need_write) {
+    if (len == 0) return false;
+    if (!vmm_check_user_range(vmm_current(), ptr, len, need_write)) {
+        dmesg("[syscall] rejected bad user pointer\n");
+        return false;
+    }
+    return true;
+}
 
 void syscall_dispatch(uint64_t *regs) {
     uint64_t num = regs[RAX];
@@ -95,10 +103,7 @@ void syscall_dispatch(uint64_t *regs) {
             uint64_t uptr = regs[RSI];
             uint64_t len  = regs[RDX];
 
-            if (len == 0) { regs[RAX] = 0; break; }
-
-            if (!vmm_check_user_range(vmm_current(), uptr, len, false)) {
-                dmesg("[syscall] SYS_WRITE rejected: bad user pointer\n");
+            if (!syscall_check_user_ptr(uptr, len, false)) {
                 regs[RAX] = (uint64_t)-1;
                 break;
             }

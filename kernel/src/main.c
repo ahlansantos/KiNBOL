@@ -158,6 +158,14 @@ void kmain(void) {
     vmm_init();
     dmesg("[vmm] OK\n");
 
+    vmm_enable_writecombine_pat();
+    uint64_t fb_size = fbi->pitch * fbi->height;
+    if (vmm_mark_range_writecombine((uint64_t)fbi->address, fb_size)) {
+        dmesg("[vmm] framebuffer marked write-combining\n");
+    } else {
+        dmesg("[vmm] WARNING: could not mark framebuffer write-combining (huge page or unmapped)\n");
+    }
+
     if (!gpipe_init(fbi))
         dmesg("[pre-boot] gpipe init FAILED (heap/pmm not ready or fbi null)\n");
     else
