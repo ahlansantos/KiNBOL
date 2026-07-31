@@ -75,7 +75,7 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 | scheduler | `schedtest`, `sleeptest`, `top` |
 | ring 3 | `usertest` — spawns a task, enters ring 3 via `iretq`, runs a hand-written user blob that calls `SYS_WRITE`/`SYS_EXIT` through `int 0x80` |
 | debug | `crash de`, `crash ud`, `crash pf`, `crash gp` — deterministic faults for exercising the exception dump (no UB; `crash gp` triggers via `wrmsr`, run from ring 0) |
-| utilities | `calc`, `ascii`, `anim` |
+| utilities | `calc`, `ascii`, `anim`, `mstat` |
 
 ---
 
@@ -112,6 +112,7 @@ test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 - [x] `SYS_READ` (path-based, reads through the VFS), `SYS_SLEEP`, `SYS_YIELD`
 - [x] unify terminal + GPipe into one drawing path (`gpipe_get_draw_target()`, single flip choke point)
 - [x] per-task address spaces (VMM)!
+- [x] PS/2 Mouse driver
 - [ ] ELF loader
 - [ ] FAT32
 - [ ] AHCI/SATA
@@ -121,6 +122,3 @@ test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 ## license
 
 MIT. do whatever you want, just keep the copyright notice.
-
-
-i really dont know what happened, someone changed the readme and made it portuguese
