@@ -40,7 +40,7 @@ Most things here are written from scratch, and a lot of documentation.
 | Scheduler | ✅ cooperative + intelligent preemption (user tasks preempted, kernel/shell protected) |
 | Ring 3 + syscalls | ✅ `int 0x80`, `SYS_WRITE`/`SYS_EXIT`/`SYS_READ`/`SYS_SLEEP`/`SYS_YIELD`, user pointer + RSP validation, `usertest` shell cmd |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
-| framebuffer (1080p) | ✅ text terminal (direct fb) + GPipe 1.0 (back buffer, dirty-rect) |
+| framebuffer (1080p) | ✅ text terminal + GPipe 1.0 unified — both draw into the same back buffer, only `gpipe_flip`/`gpipe_flip_full` touches real VRAM |
 | shell | ✅ commands + history + tab completion (subcommands) |
 
 > scheduling is cooperative with intelligent preemption: tasks give up the CPU voluntarily (`sleep_ms`, `task_exit`, explicit yield). the LAPIC timer fires at 100Hz and hooks into the scheduler, but **kernel tasks and the shell are protected from preemption** (tasks with names starting with `[` are never preempted). this means the terminal/keyboard remain responsive at all times, while user-mode tasks (`usertest`, `schedtest`, etc.) are preempted automatically. **this matters for ring 3**: a user-mode program is CPL-isolated from crashing the kernel, and now also can't hang it indefinitely — the scheduler will preempt spinning userspace tasks. the Big Kernel Lock provides the locking foundation for this, preventing context switches mid-operation on unprotected shared state.
@@ -90,7 +90,7 @@ BareGL is fully deprecated, moved to `src/graphics/api/deprecated-legacy/`. GPip
 
 test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 
-**known gotcha:** the text terminal writes straight to the real framebuffer, gpipe draws into its own back buffer. they don't know about each other. call `gpipe_sync_from_fb()` before drawing over existing terminal content, or you'll flip stale (usually black) pixels on top of it.
+**terminal + GPipe are unified.** `gpipe_get_draw_target()` is the single choke point: `chr()`, `scroll()`, `terminal_clear()`, and `terminal_cursor_draw()` all draw into GPipe's back buffer (falling back to the raw fb only during early boot, before `gpipe_init()` has run), then flip. `gpipe_flip()`/`gpipe_flip_full()` are the only code that ever writes real VRAM. No more stale/ghost pixels when text and gpipe drawing land on the same frame.
 
 **if you're hacking on graphics, use the terminal framebuffer directly. baregl will either get fixed or removed in a future version.**
 
@@ -110,7 +110,7 @@ test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 - [x] syscall pointer validation (`syscall_check_user_ptr()` / `vmm_check_user_range()`)
 - [x] syscall RSP validation (`syscall_check_user_rsp()` — rejects a forged ring3 RSP before it can corrupt the task's own `iretq` return)
 - [x] `SYS_READ` (path-based, reads through the VFS), `SYS_SLEEP`, `SYS_YIELD`
-- [ ] unify terminal + GPipe into one drawing path (right now they're two independent writers to the same fb)
+- [x] unify terminal + GPipe into one drawing path (`gpipe_get_draw_target()`, single flip choke point)
 - [ ] per-task address spaces (`vmm_create_pagemap` exists, not wired to tasks yet)
 - [ ] ELF loader
 - [ ] FAT32
