@@ -111,7 +111,7 @@ test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 - [x] syscall RSP validation (`syscall_check_user_rsp()` — rejects a forged ring3 RSP before it can corrupt the task's own `iretq` return)
 - [x] `SYS_READ` (path-based, reads through the VFS), `SYS_SLEEP`, `SYS_YIELD`
 - [x] unify terminal + GPipe into one drawing path (`gpipe_get_draw_target()`, single flip choke point)
-- [x] per-task address spaces
+- [x] per-task address spaces (VMM)!
 - [ ] ELF loader
 - [ ] FAT32
 - [ ] AHCI/SATA

@@ -25,7 +25,10 @@ void cmd_usertest(void) {
         terminal_println("  Failed to create usertest task.");
         return;
     }
-    while (t->state != TASK_DEAD) sched_yield();
+    terminal_set_fg(COLOR_ACCENT);
+    terminal_print("  launched usertest, pid ");
+    terminal_print_int(t->id);
+    terminal_println("");
 }
 
 void cmd_help(void) {

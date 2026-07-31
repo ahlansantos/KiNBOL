@@ -62,6 +62,8 @@ context_switch:
     pop rbp
     pop rbx
 
+    sti
+
     ; 6. Return to new task's saved RIP
     ret
 
