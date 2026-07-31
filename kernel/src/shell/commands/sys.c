@@ -60,6 +60,7 @@ void cmd_help(void) {
     terminal_println("  shutdown     power off (ACPI S5)");
     terminal_println("  crash        trigger kernel panic");
     terminal_println("  fastfetch    system overview");
+    terminal_println("  syscalls     list linux abi syscalls");
 
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Memory & Hardware");
@@ -515,4 +516,30 @@ void cmd_top(void) {
     }
 exit_top:
     terminal_clear();
+}
+
+void cmd_syscalls(void) {
+    terminal_set_fg(COLOR_ACCENT);
+    terminal_println("\n  KiNBOL System Calls (Linux x86_64 ABI)");
+    terminal_set_fg(COLOR_DIM);
+    terminal_println("  ------------------------------------------");
+    terminal_set_fg(COLOR_BODY);
+    
+    terminal_println("  %rax | Name       | Status      | Description");
+    terminal_println("  -------------------------------------------------------------");
+    
+    terminal_set_fg(0x88CC88); terminal_print("     0 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_READ   | Implemented | read from VFS node");
+    terminal_set_fg(0x88CC88); terminal_print("     1 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_WRITE  | Implemented | write to terminal");
+    terminal_set_fg(0x88CC88); terminal_print("    24 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_YIELD  | Implemented | sched_yield (sched_yield is 24 in Linux)");
+    terminal_set_fg(0x88CC88); terminal_print("    35 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_SLEEP  | Implemented | nanosleep (emulated via sleep_ms)");
+    terminal_set_fg(0x88CC88); terminal_print("    60 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_EXIT   | Implemented | exit current task");
+    
+    terminal_println("");
+    terminal_set_fg(COLOR_DIM);
+    terminal_println("  Registers:");
+    terminal_set_fg(COLOR_BODY);
+    terminal_println("  - %rax : Syscall number & Return value");
+    terminal_println("  - %rdi, %rsi, %rdx, %r10, %r8, %r9 : Arguments");
+    terminal_println("  - %rcx, %r11 : Clobbered by syscall instruction");
+    terminal_println("");
 }

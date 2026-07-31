@@ -13,7 +13,7 @@
 extern void task_entry_trampoline(void);
 
 static task_t *head_task    = NULL;
-static task_t *current_task = NULL;
+task_t *current_task = NULL;
 static task_t *idle_task    = NULL;
 static uint32_t next_pid    = 0;
 
@@ -125,6 +125,7 @@ static task_t *task_create_internal(const char *name, task_entry_t entry, void *
     *(--sp) = 0;
 
     task->rsp = (uint64_t)sp;
+    task->kernel_rsp = (uint64_t)stack + stack_size;
 
     task_list_insert(task);
 
@@ -167,6 +168,7 @@ void sched_init(void) {
     if (kmain_phys_stack) {
         kmain_task->kernel_stack = (void *)pmm_phys_to_virt((uint64_t)kmain_phys_stack);
         kmain_task->stack_size   = TASK_STACK_PAGES * PAGE_SIZE;
+        kmain_task->kernel_rsp   = (uint64_t)kmain_task->kernel_stack + kmain_task->stack_size;
         tss_set_rsp0((uint64_t)kmain_task->kernel_stack + kmain_task->stack_size);
     } else {
         kmain_task->kernel_stack = NULL;

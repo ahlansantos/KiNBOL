@@ -11,13 +11,12 @@
 #include "../fs/vfs.h"
 #include "../shell/commands/util.h"
 
-#define SYS_WRITE 0
-#define SYS_EXIT  1
-#define SYS_READ  2
-#define SYS_SLEEP 3
-#define SYS_YIELD 4
+#define SYS_READ  0
+#define SYS_WRITE 1
+#define SYS_YIELD 24
+#define SYS_SLEEP 35
+#define SYS_EXIT  60
 
-#define IRETQ_FRAME_RSP 20
 #define USER_RSP_GUARD  16
 
 enum { R15=0, R14, R13, R12, R11, R10, R9, R8, RBP, RDI, RSI, RDX, RCX, RBX, RAX };
@@ -26,19 +25,19 @@ extern void task_exit(void);
 
 __attribute__((naked)) void enter_userspace(uint64_t rip, uint64_t rsp) {
     asm volatile(
-        "movq $0x23, %%rax;"
+        "movq $0x1B, %%rax;"
         "movq %%rax, %%ds;"
         "movq %%rax, %%es;"
         "movq %%rax, %%fs;"
         "movq %%rax, %%gs;"
 
-        "pushq $0x23;"
+        "pushq $0x1B;"
         "pushq %%rsi;"
         "pushfq;"
         "popq %%rax;"
         "orq  $0x200, %%rax;"
         "pushq %%rax;"
-        "pushq $0x1B;"
+        "pushq $0x23;"
         "pushq %%rdi;"
         "iretq;"
         ::: "memory"
@@ -54,15 +53,17 @@ asm(
     ".global user_blob_start\n"
     ".global user_blob_end\n"
     "user_blob_start:\n"
+    "    movq $1, %rdi\n"
     "    leaq 1f(%rip), %rsi\n"
     "    movq $(2f - 1f), %rdx\n"
-    "    xorq %rax, %rax\n"
-    "    int $0x80\n"
-    "    movq $3000, %rdi\n"
-    "    movq $3, %rax\n"
-    "    int $0x80\n"
     "    movq $1, %rax\n"
-    "    int $0x80\n"
+    "    syscall\n"
+    "    movq $3000, %rdi\n"
+    "    movq $35, %rax\n"
+    "    syscall\n"
+    "    movq $0, %rdi\n"
+    "    movq $60, %rax\n"
+    "    syscall\n"
     "1:\n"
     "    .ascii \"  user mode ok \\n\"\n"
     "2:\n"
@@ -121,8 +122,10 @@ static bool syscall_check_user_ptr(uint64_t ptr, uint64_t len, bool need_write) 
     return true;
 }
 
-static bool syscall_check_user_rsp(uint64_t *regs) {
-    uint64_t rsp = regs[IRETQ_FRAME_RSP];
+static bool syscall_check_user_rsp(void) {
+    task_t *self = sched_current();
+    if (!self) return false;
+    uint64_t rsp = self->user_rsp;
 
     if (rsp < USER_RSP_GUARD) {
         dmesg("[syscall] rejected bad user rsp (too low)\n");
@@ -139,9 +142,9 @@ void syscall_dispatch(uint64_t *regs) {
     task_t *self = sched_current();
     uint32_t pid = self ? self->id : 0xFFFFFFFF;
 
-    if (!syscall_check_user_rsp(regs)) {
+    if (!syscall_check_user_rsp()) {
         dmesg("[syscall] pid "); dmesg_int(pid);
-        dmesg(" killing task: corrupt user rsp would break iretq\n");
+        dmesg(" killing task: corrupt user rsp\n");
         task_exit();
         return;
     }
@@ -241,9 +244,38 @@ void syscall_dispatch(uint64_t *regs) {
     }
 }
 
-extern uint64_t isr128_addr(void);
+void syscall_enter(uint64_t *regs) {
+    syscall_dispatch(regs);
+}
+
+extern void syscall_entry(void);
+
+#define MSR_EFER  0xC0000080
+#define MSR_STAR  0xC0000081
+#define MSR_LSTAR 0xC0000082
+#define MSR_FMASK 0xC0000084
+
+static inline void wrmsr(uint32_t msr, uint64_t val) {
+    uint32_t low = val & 0xFFFFFFFF;
+    uint32_t high = val >> 32;
+    asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
+}
+
+static inline uint64_t rdmsr(uint32_t msr) {
+    uint32_t low, high;
+    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(msr));
+    return ((uint64_t)high << 32) | low;
+}
 
 void syscall_init(void) {
-    idt_set_gate(0x80, isr128_addr(), 0x08, 0xEE);
-    dmesg("[syscall] int 0x80 gate installed\n");
+    uint64_t efer = rdmsr(MSR_EFER);
+    wrmsr(MSR_EFER, efer | 1);
+
+    uint64_t star = ((uint64_t)0x10 << 48) | ((uint64_t)0x08 << 32);
+    wrmsr(MSR_STAR, star);
+
+    wrmsr(MSR_LSTAR, (uint64_t)syscall_entry);
+    wrmsr(MSR_FMASK, 0x200);
+
+    dmesg("[syscall] syscall/sysret configured\n");
 }

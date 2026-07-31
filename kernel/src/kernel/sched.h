@@ -33,6 +33,8 @@ typedef struct task {
     bool           owns_pagemap;
     struct task   *prev;
     struct task   *next;
+    uint64_t       user_rsp;
+    uint64_t       kernel_rsp;
 } task_t;
 
 void sched_init(void);

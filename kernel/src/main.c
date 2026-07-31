@@ -74,7 +74,7 @@ static void print_banner(void) {
     terminal_println("");
 
     terminal_set_fg(0x88CC88);
-    terminal_println("  KiNBOL 0.07.1 LTS");
+    terminal_println("  KiNBOL 0.08");
     terminal_set_fg(0xAAAAAA);
     terminal_println("  this Kernel is Not Based On Linux");
     terminal_println("");
@@ -142,7 +142,7 @@ void kmain(void) {
     dmesg("[pre-boot] serial init\n");
     terminal_init(fbi);
     dmesg("[pre-boot] terminal init\n");
-    dmesg("[boot] FreeARS Base boot init, KiNBOL 0.07.1 LTS starting\n");
+    dmesg("[boot] FreeARS Base boot init, KiNBOL 0.08 starting\n");
 
     hhdm_offset = hhdm_request.response->offset;
     for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {

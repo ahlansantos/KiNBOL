@@ -30,8 +30,9 @@ void shell_run(void) {
         if      (!sh_strcmp(in, "help"))      cmd_help();
         else if (!sh_strcmp(in, "clear"))     terminal_clear();
         else if (!sh_strcmp(in, "uname")) {
-            terminal_set_fg(COLOR_SUCCESS);
-            terminal_println("  KiNBOL 0.07.1 LTS x86_64-uefi Limine");
+            terminal_set_fg(0x88CC88);
+            terminal_println("  KiNBOL 0.08 x86_64-uefi Limine");
+            terminal_set_fg(0xAAAAAA);
         }
         else if (sh_startswith(in, "echo ")) {
             terminal_set_fg(COLOR_SUCCESS);
@@ -50,6 +51,7 @@ void shell_run(void) {
         }
         else if (!sh_strcmp(in, "crash"))       cmd_crash();
         else if (!sh_strcmp(in, "fastfetch"))   cmd_fastfetch();
+        else if (!sh_strcmp(in, "syscalls"))    cmd_syscalls();
         else if (!sh_strcmp(in, "memtest"))     cmd_memtest();
         else if (!sh_strcmp(in, "reboot"))      cmd_reboot();
         else if (!sh_strcmp(in, "shutdown"))    cmd_shutdown();

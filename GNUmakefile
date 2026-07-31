@@ -8,7 +8,7 @@ ARCH := x86_64
 # FS TEST 0.06
 QEMUFLAGS := -m 2G -serial stdio -d int -D qemu.log -no-shutdown -no-reboot -icount shift=auto,align=off,sleep=on \
 
-override IMAGE_NAME := KiNBOL_0.07.1_uefi-$(ARCH)
+override IMAGE_NAME := KiNBOL_0.08_uefi-$(ARCH)
 
 # Toolchain for building the 'limine' executable for the host.
 HOST_CC := cc

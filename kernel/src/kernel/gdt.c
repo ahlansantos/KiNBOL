@@ -46,8 +46,8 @@ typedef struct {
     gdt_entry_t null_entry;
     gdt_entry_t kcode;
     gdt_entry_t kdata;
-    gdt_entry_t ucode;
     gdt_entry_t udata;
+    gdt_entry_t ucode;
     tss_desc_t  tss;
 } __attribute__((packed)) gdt_table_t;
 
@@ -134,8 +134,8 @@ void gdt_init(void) {
 
     gdt_set_entry(&gdt_table.kcode, 0, 0xFFFFF, 0x9A, 0xA0);
     gdt_set_entry(&gdt_table.kdata, 0, 0xFFFFF, 0x92, 0xA0);
-    gdt_set_entry(&gdt_table.ucode, 0, 0xFFFFF, 0xFA, 0xA0);
     gdt_set_entry(&gdt_table.udata, 0, 0xFFFFF, 0xF2, 0xA0);
+    gdt_set_entry(&gdt_table.ucode, 0, 0xFFFFF, 0xFA, 0xA0);
 
     tss.iopb_offset = sizeof(tss_t);
     tss_set_ist(1, (uint64_t)(ist1_stack + IST1_STACK_SIZE));

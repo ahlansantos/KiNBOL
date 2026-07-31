@@ -40,3 +40,4 @@ void cmd_crash_gp(void);
 void cmd_dmesg_clear(void);
 void cmd_usertest(void);
 void cmd_mstat(void);
+void cmd_syscalls(void);
