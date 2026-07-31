@@ -5,6 +5,7 @@
 
 #include "drivers/serial.h"
 #include "drivers/keyboard.h"
+#include "drivers/mouse.h"
 #include "drivers/rtc.h"
 #include "graphics/terminal.h"
 #include "graphics/api/gpipe.h"
@@ -187,6 +188,8 @@ void kmain(void) {
         irq_register(TIMER_VECTOR, timer_isr);
 
         lapic_timer_init(100, TIMER_VECTOR);
+
+        mouse_init();
 
         dmesg("[boot] LAPIC/IOAPIC timer online\n");
     } else {

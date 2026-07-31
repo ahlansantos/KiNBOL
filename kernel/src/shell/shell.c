@@ -73,6 +73,7 @@ void shell_run(void) {
         else if (!sh_strcmp(in, "clearfb"))     cmd_clearfb();
         else if (!sh_strcmp(in, "gpipe"))        cmd_gpipe("");
         else if (!sh_strcmp(in, "usertest"))     cmd_usertest();
+        else if (!sh_strcmp(in, "mstat"))        cmd_mstat();
         else if (sh_startswith(in, "gpipe "))    cmd_gpipe(in + 6);
         else if (!sh_strcmp(in, "vfsls"))       cmd_vfsls();
         else if (!sh_strcmp(in, "vminfo"))      cmd_vminfo();
