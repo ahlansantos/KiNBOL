@@ -4,11 +4,9 @@
 #include "../drivers/keyboard.h"
 #include "commands/util.h"
 #include <stddef.h>
+#include <libk/string.h>
 
-static int sh_strcmp(const char *a, const char *b) {
-    while (*a && *a == *b) { a++; b++; }
-    return *a - *b;
-}
+
 
 static int sh_startswith(const char *s, const char *p) {
     while (*p) if (*s++ != *p++) return 0;
@@ -27,9 +25,9 @@ void shell_run(void) {
 
         terminal_set_fg(COLOR_BODY);
 
-        if      (!sh_strcmp(in, "help"))      cmd_help();
-        else if (!sh_strcmp(in, "clear"))     terminal_clear();
-        else if (!sh_strcmp(in, "uname")) {
+        if      (!strcmp(in, "help"))      cmd_help();
+        else if (!strcmp(in, "clear"))     terminal_clear();
+        else if (!strcmp(in, "uname")) {
             terminal_set_fg(0x88CC88);
             terminal_println("  KiNBOL 0.08 x86_64-uefi Limine");
             terminal_set_fg(0xAAAAAA);
@@ -38,49 +36,53 @@ void shell_run(void) {
             terminal_set_fg(COLOR_SUCCESS);
             terminal_print("  "); terminal_println(in + 5);
         }
-        else if (!sh_strcmp(in, "ticks"))       cmd_ticks();
+        else if (!strcmp(in, "ticks"))       cmd_ticks();
         else if (sh_startswith(in, "sleep "))   cmd_sleep(in + 6);
         else if (sh_startswith(in, "crash ")) {
             const char *type = in + 6;
             while (*type == ' ') type++;
-            if      (!sh_strcmp(type, "de"))  cmd_crash_de();
-            else if (!sh_strcmp(type, "ud"))  cmd_crash_ud();
-            else if (!sh_strcmp(type, "pf"))  cmd_crash_pf();
-            else if (!sh_strcmp(type, "gp"))  cmd_crash_gp();
+            if      (!strcmp(type, "de"))  cmd_crash_de();
+            else if (!strcmp(type, "ud"))  cmd_crash_ud();
+            else if (!strcmp(type, "pf"))  cmd_crash_pf();
+            else if (!strcmp(type, "gp"))  cmd_crash_gp();
             else cmd_crash();
         }
-        else if (!sh_strcmp(in, "crash"))       cmd_crash();
-        else if (!sh_strcmp(in, "fastfetch"))   cmd_fastfetch();
-        else if (!sh_strcmp(in, "syscalls"))    cmd_syscalls();
-        else if (!sh_strcmp(in, "memtest"))     cmd_memtest();
-        else if (!sh_strcmp(in, "reboot"))      cmd_reboot();
-        else if (!sh_strcmp(in, "shutdown"))    cmd_shutdown();
-        else if (!sh_strcmp(in, "anim"))        cmd_anim();
-        else if (!sh_strcmp(in, "date"))        cmd_date();
-        else if (!sh_strcmp(in, "meminfo"))     cmd_meminfo();
-        else if (!sh_strcmp(in, "ascii"))       cmd_ascii();
-        else if (!sh_strcmp(in, "dmesg"))       cmd_dmesg();
+        else if (!strcmp(in, "crash"))       cmd_crash();
+        else if (!strcmp(in, "fastfetch"))   cmd_fastfetch();
+        else if (!strcmp(in, "syscalls"))    cmd_syscalls();
+        else if (!strcmp(in, "libktest")) {
+            extern void libk_test(void);
+            libk_test();
+        }
+        else if (!strcmp(in, "memtest"))     cmd_memtest();
+        else if (!strcmp(in, "reboot"))      cmd_reboot();
+        else if (!strcmp(in, "shutdown"))    cmd_shutdown();
+        else if (!strcmp(in, "anim"))        cmd_anim();
+        else if (!strcmp(in, "date"))        cmd_date();
+        else if (!strcmp(in, "meminfo"))     cmd_meminfo();
+        else if (!strcmp(in, "ascii"))       cmd_ascii();
+        else if (!strcmp(in, "dmesg"))       cmd_dmesg();
         else if (sh_startswith(in, "dmesg ")) {
             const char *arg = in + 6;
             while (*arg == ' ') arg++;
-            if (!sh_strcmp(arg, "--clear") || !sh_strcmp(arg, "clear"))
+            if (!strcmp(arg, "--clear") || !strcmp(arg, "clear"))
                 cmd_dmesg_clear();
             else
                 cmd_dmesg();
         }
-        else if (!sh_strcmp(in, "ps"))          cmd_ps();
-        else if (!sh_strcmp(in, "top"))         cmd_top();
-        else if (!sh_strcmp(in, "schedtest"))   cmd_schedtest();
-        else if (!sh_strcmp(in, "sleeptest"))   cmd_sleeptest();
-        else if (!sh_strcmp(in, "clearfb"))     cmd_clearfb();
-        else if (!sh_strcmp(in, "gpipe"))        cmd_gpipe("");
-        else if (!sh_strcmp(in, "usertest"))     cmd_usertest();
-        else if (!sh_strcmp(in, "mstat"))        cmd_mstat();
+        else if (!strcmp(in, "ps"))          cmd_ps();
+        else if (!strcmp(in, "top"))         cmd_top();
+        else if (!strcmp(in, "schedtest"))   cmd_schedtest();
+        else if (!strcmp(in, "sleeptest"))   cmd_sleeptest();
+        else if (!strcmp(in, "clearfb"))     cmd_clearfb();
+        else if (!strcmp(in, "gpipe"))        cmd_gpipe("");
+        else if (!strcmp(in, "usertest"))     cmd_usertest();
+        else if (!strcmp(in, "mstat"))        cmd_mstat();
         else if (sh_startswith(in, "gpipe "))    cmd_gpipe(in + 6);
-        else if (!sh_strcmp(in, "vfsls"))       cmd_vfsls();
-        else if (!sh_strcmp(in, "vminfo"))      cmd_vminfo();
-        else if (!sh_strcmp(in, "ramls"))       cmd_ramls();
-        else if (!sh_strcmp(in, "raminfo"))     cmd_raminfo();
+        else if (!strcmp(in, "vfsls"))       cmd_vfsls();
+        else if (!strcmp(in, "vminfo"))      cmd_vminfo();
+        else if (!strcmp(in, "ramls"))       cmd_ramls();
+        else if (!strcmp(in, "raminfo"))     cmd_raminfo();
         else if (sh_startswith(in, "calc ")) {
             if (in[5]) cmd_calc(in + 5);
             else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: calc <expr>"); }

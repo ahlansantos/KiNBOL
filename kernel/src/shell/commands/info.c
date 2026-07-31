@@ -85,6 +85,11 @@ void cmd_fastfetch(void) {
     terminal_println(GPIPE_VERSION);
 
     terminal_set_fg(0xDDDDDD);
+    terminal_print("  Libk:     ");
+    terminal_set_fg(0x88CC88);
+    terminal_println("Lib-kin v0.1");
+
+    terminal_set_fg(0xDDDDDD);
     terminal_print("  CPU:      ");
     terminal_set_fg(0x88CC88);
 

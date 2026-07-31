@@ -61,6 +61,7 @@ void cmd_help(void) {
     terminal_println("  crash        trigger kernel panic");
     terminal_println("  fastfetch    system overview");
     terminal_println("  syscalls     list linux abi syscalls");
+    terminal_println("  libktest     run libk string tests");
 
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Memory & Hardware");

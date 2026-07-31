@@ -6,10 +6,10 @@ x86_64 · UEFI · Limine · Ring 0 + Ring 3
 
 ---
 
-## 0.07.1 cmd test
+## 0.07.1 cmd test (outdated)
 <img src="pictures/KINBOL-0.07.1-LTS-dump2.png" alt="KiNBOL 0.08 screenshot" width="800"/>
 
-## 0.07.1 gpipe
+## 0.07.1 gpipe (outdated)
 <img src="pictures/KINBOL-0.07.1-LTS-dump3.png" alt="KiNBOL 0.08 screenshot" width="800"/>
 
 *be advised: this screenshot may not correspond to the newest commit. things move fast around here.*
@@ -68,7 +68,7 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 
 | category | commands |
 |---|---|
-| system | `ps`, `dmesg`, `dmesg --clear`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear`, `syscalls` |
+| system | `ps`, `dmesg`, `dmesg --clear`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear`, `syscalls`, `libktest` |
 | memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
 | filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`, `vfsread`, `vfswrite` |
 | graphics | `clearfb`, `scale`, `gpipe`, `gpipe clearfb`, `gpipe drawtest` |

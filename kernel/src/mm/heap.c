@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <libk/string.h>
 
 typedef struct block {
     size_t        size;
@@ -21,15 +22,7 @@ static uint32_t g_pages        = 0;
 static uint32_t g_used_bytes   = 0;
 static uint32_t g_used_blocks  = 0;
 
-static void heap_memset(void *dst, uint8_t val, size_t n) {
-    uint8_t *d = (uint8_t *)dst;
-    for (size_t i = 0; i < n; i++) d[i] = val;
-}
-static void heap_memcpy(void *dst, const void *src, size_t n) {
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (size_t i = 0; i < n; i++) d[i] = s[i];
-}
+
 
 static block_t *heap_new_page(void) {
     void *phys = pmm_alloc_page();
@@ -127,7 +120,7 @@ void *kcalloc(size_t num, size_t size) {
     size_t total = num * size;
     if (num != 0 && total / num != size) return NULL;
     void *ptr = kmalloc(total);
-    if (ptr) heap_memset(ptr, 0, total);
+    if (ptr) memset(ptr, 0, total);
     return ptr;
 }
 
@@ -142,7 +135,7 @@ void *krealloc(void *ptr, size_t size) {
 
     void *new_ptr = kmalloc(size);
     if (!new_ptr) return NULL;
-    heap_memcpy(new_ptr, ptr, blk->size);
+    memcpy(new_ptr, ptr, blk->size);
     kfree(ptr);
     return new_ptr;
 }

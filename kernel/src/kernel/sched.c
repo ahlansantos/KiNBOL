@@ -7,6 +7,7 @@
 #include "../drivers/serial.h"
 #include "pit.h"
 #include "gdt.h"
+#include <libk/string.h>
 
 #define TASK_STACK_PAGES 4
 
@@ -19,15 +20,7 @@ static uint32_t next_pid    = 0;
 
 extern uint64_t hhdm_offset;
 
-static void sched_strcpy(char *dst, const char *src, size_t max_len) {
-    size_t i = 0;
-    if (!dst || !src || max_len == 0) return;
-    while (src[i] && i < max_len - 1) {
-        dst[i] = src[i];
-        i++;
-    }
-    dst[i] = '\0';
-}
+
 
 static void idle_task_entry(void *arg) {
     (void)arg;
@@ -107,7 +100,8 @@ static task_t *task_create_internal(const char *name, task_entry_t entry, void *
     task->pagemap      = pm;
     task->owns_pagemap = owns_pagemap;
     task->cr3          = (uint64_t)pm - hhdm_offset;
-    sched_strcpy(task->name, name ? name : "task", sizeof(task->name));
+    strncpy(task->name, name ? name : "task", sizeof(task->name) - 1);
+    task->name[sizeof(task->name) - 1] = '\0';
 
     uint64_t *sp = (uint64_t *)((uint8_t *)stack + stack_size);
 
@@ -181,7 +175,8 @@ void sched_init(void) {
     kmain_task->pagemap      = vmm_current();
     kmain_task->owns_pagemap = false;
     kmain_task->cr3          = (uint64_t)vmm_current() - hhdm_offset;
-    sched_strcpy(kmain_task->name, "[kernel]", sizeof(kmain_task->name));
+    strncpy(kmain_task->name, "[kernel]", sizeof(kmain_task->name) - 1);
+    kmain_task->name[sizeof(kmain_task->name) - 1] = '\0';
 
     task_list_insert(kmain_task);
     current_task = kmain_task;
