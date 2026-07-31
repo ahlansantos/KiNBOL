@@ -47,7 +47,7 @@ Most things here are written from scratch, and a lot of documentation.
 >
 > every syscall entry validates the user-supplied pointers it's handed (`syscall_check_user_ptr()`, backed by `vmm_check_user_range()` walking the 4-level page tables). we also validate the RSP the task trapped in with (`syscall_check_user_rsp()`). the RSP check exists because if a task forges a garbage RSP before invoking `syscall`, nothing stops the kernel from handing it straight back on the way out via `sysret`, which corrompts the task's own return into userspace. a task that fails either check gets killed via `task_exit()` instead of being allowed to run the syscall.
 >
-> ring 3 is still single-address-space for now: every task shares the same page tables (`vmm_create_pagemap()`/`vmm_destroy_pagemap()` exist but aren't wired into `task_create()` yet). CPL enforcement plus the pointer/RSP checks stop a task from touching memory it doesn't own, but real process isolation still needs per-task address spaces.
+> ring 3 tasks now have full process isolation via per-task address spaces! `task_create_user()` clones a new pagemap (`vmm_create_pagemap()`) for every user task, and `CR3` context switches automatically inside the scheduler. This guarantees that one user program cannot read or write another user program's memory.
 
 ---
 
