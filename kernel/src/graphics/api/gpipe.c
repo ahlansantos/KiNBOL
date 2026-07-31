@@ -91,6 +91,16 @@ void gpipe_sync_from_fb(gpipe_ctx_t *ctx) {
     gpipe_mark_dirty(ctx, 0, 0, (int)ctx->width, (int)ctx->height);
 }
 
+void gpipe_get_draw_target(gpipe_ctx_t *ctx, uint32_t **out_ptr, uint32_t *out_pitch) {
+    if (ctx && ctx->back) {
+        *out_ptr   = ctx->back;
+        *out_pitch = ctx->pw;
+    } else {
+        *out_ptr   = NULL;
+        *out_pitch = 0;
+    }
+}
+
 void gpipe_mark_dirty(gpipe_ctx_t *ctx, int x, int y, int w, int h) {
     if (!ctx || w <= 0 || h <= 0) return;
 

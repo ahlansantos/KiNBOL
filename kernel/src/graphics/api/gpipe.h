@@ -34,6 +34,8 @@ void gpipe_flip(gpipe_ctx_t *ctx);
 void gpipe_flip_full(gpipe_ctx_t *ctx);
 void gpipe_mark_dirty(gpipe_ctx_t *ctx, int x, int y, int w, int h);
 
+void gpipe_get_draw_target(gpipe_ctx_t *ctx, uint32_t **out_ptr, uint32_t *out_pitch);
+
 int gpipe_width(gpipe_ctx_t *ctx);
 int gpipe_height(gpipe_ctx_t *ctx);
 

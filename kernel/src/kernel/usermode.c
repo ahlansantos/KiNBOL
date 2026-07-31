@@ -16,24 +16,7 @@
 #define SYS_SLEEP 3
 #define SYS_YIELD 4
 
-/* Index of the saved user RSP inside the iretq frame that isr_common
- * builds on the kernel stack. Layout (each 8-byte slot, counted from
- * `regs` == rsp right after the 15 GPR pushes in isr_common):
- *   [0..14]  R15..RAX  (see enum below)
- *   [15]     vector
- *   [16]     error_code
- *   [17]     RIP    (pushed by CPU)
- *   [18]     CS     (pushed by CPU)
- *   [19]     RFLAGS (pushed by CPU)
- *   [20]     RSP    (pushed by CPU on a ring3->ring0 transition)
- *   [21]     SS     (pushed by CPU)
- */
 #define IRETQ_FRAME_RSP 20
-
-/* Bytes below the saved user RSP that must be mapped + writable for it
- * to be accepted. Just needs to be nonzero so a forged RSP (NULL, a
- * kernel address, unmapped garbage) gets caught here instead of being
- * handed straight back to `iretq`. */
 #define USER_RSP_GUARD  16
 
 enum { R15=0, R14, R13, R12, R11, R10, R9, R8, RBP, RDI, RSI, RDX, RCX, RBX, RAX };
@@ -120,14 +103,6 @@ static bool syscall_check_user_ptr(uint64_t ptr, uint64_t len, bool need_write) 
     return true;
 }
 
-/* Validate the RSP the task had in ring3 at the moment it trapped in.
- * The CPU already saved it safely on the *kernel* stack as part of the
- * iretq frame, so a forged value can't corrupt kernel state directly -
- * but if we don't check it here, isr_common's `iretq` will happily load
- * it back into %rsp and hand control to ring3 with a broken stack
- * (NULL, a kernel address, or plain unmapped memory), which is exactly
- * the "corrupts the iretq return" case. Reject it in the same style as
- * syscall_check_user_ptr() so the task gets killed cleanly instead. */
 static bool syscall_check_user_rsp(uint64_t *regs) {
     uint64_t rsp = regs[IRETQ_FRAME_RSP];
 
@@ -143,10 +118,6 @@ static bool syscall_check_user_rsp(uint64_t *regs) {
 }
 
 void syscall_dispatch(uint64_t *regs) {
-    /* Every syscall entry is a ring3->ring0 transition, so regs[IRETQ_FRAME_RSP]
-     * always holds the RSP the task will be handed back on the way out. Check
-     * it up front, before we even look at which syscall was requested - a task
-     * that forges RSP doesn't get to run SYS_WRITE first. */
     if (!syscall_check_user_rsp(regs)) {
         dmesg("[syscall] killing task: corrupt user rsp would break iretq\n");
         task_exit();
@@ -174,10 +145,6 @@ void syscall_dispatch(uint64_t *regs) {
             break;
         }
         case SYS_READ: {
-            /* RDI = path ptr (NUL-terminated, <= VFS_NAME_MAX-1 bytes)
-             * RSI = dest buffer ptr (user, writable)
-             * RDX = len
-             * R10 = offset into the file */
             uint64_t path_ptr = regs[RDI];
             uint64_t buf_ptr  = regs[RSI];
             uint64_t len      = regs[RDX];
@@ -208,8 +175,6 @@ void syscall_dispatch(uint64_t *regs) {
             break;
         }
         case SYS_SLEEP: {
-            /* RDI = milliseconds. Blocks the calling task via the existing
-             * TASK_BLOCKED/wake_time_ms mechanism (see pit.c:sleep_ms). */
             uint32_t ms = (uint32_t)regs[RDI];
             sleep_ms(ms);
             regs[RAX] = 0;
