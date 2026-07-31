@@ -2,6 +2,7 @@
 #include "util.h"
 #include "../../graphics/terminal.h"
 #include "../../kernel/sched.h"
+#include "../../kernel/pit.h"
 
 static const char *state_to_str(task_state_t state) {
     switch (state) {
@@ -22,9 +23,9 @@ void cmd_ps(void) {
     }
 
     terminal_set_fg(COLOR_HEADER);
-    terminal_println("\n  PID   NAME            STATE       STACK_BASE          RSP");
+    terminal_println("\n  PID   NAME            STATE       STACK_BASE          RSP                 CR3                 WAKE-IN");
     terminal_set_fg(COLOR_DIM);
-    terminal_println("  ------------------------------------------------------------------");
+    terminal_println("  ----------------------------------------------------------------------------------------------------------");
 
     task_t *curr = head;
     do {
@@ -54,6 +55,18 @@ void cmd_ps(void) {
         terminal_print_hex((uint64_t)curr->kernel_stack);
         terminal_print("  ");
         terminal_print_hex(curr->rsp);
+        terminal_print("  ");
+        terminal_print_hex(curr->cr3);
+        terminal_print("  ");
+
+        if (curr->state == TASK_BLOCKED && curr->wake_time_ms > 0) {
+            uint64_t now = uptime_ms();
+            uint32_t remaining = (uint32_t)(curr->wake_time_ms > now ? curr->wake_time_ms - now : 0);
+            terminal_print_int(remaining);
+            terminal_print("ms");
+        } else {
+            terminal_print("-");
+        }
         terminal_println("");
 
         curr = curr->next;

@@ -197,6 +197,7 @@ task_t *sched_current(void) {
 void sched_schedule(void) {
     if (!current_task || !head_task) return;
 
+    asm volatile("cli");
     bkl_acquire();
 
     sched_update_blocked_tasks();
@@ -204,7 +205,7 @@ void sched_schedule(void) {
     task_t *start = current_task->next ? current_task : head_task;
     task_t *next  = start->next;
 
-    if (!next) { bkl_release(); return; }
+    if (!next) { bkl_release(); asm volatile("sti"); return; }
 
     task_t *iter = next;
     task_t *chosen = NULL;
@@ -222,13 +223,14 @@ void sched_schedule(void) {
             chosen = idle_task;
         } else if (current_task->state == TASK_RUNNING) {
             bkl_release();
+            asm volatile("sti");
             return;
         } else {
             chosen = idle_task;
         }
     }
 
-    if (chosen == current_task) { bkl_release(); return; }
+    if (chosen == current_task) { bkl_release(); asm volatile("sti"); return; }
 
     task_t *old_task = current_task;
     if (old_task->state == TASK_RUNNING) {
@@ -243,9 +245,7 @@ void sched_schedule(void) {
 
     bkl_release();
 
-    asm volatile("cli");
     context_switch(&old_task->rsp, chosen->rsp, chosen->cr3);
-    asm volatile("sti");
 }
 
 void sched_yield(void) {

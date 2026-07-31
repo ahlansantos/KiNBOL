@@ -14,6 +14,17 @@ static uint32_t ts   = 1;
 #define CELL_W (8u  * ts)
 #define CELL_H (16u * ts)
 
+uint64_t terminal_lock(void) {
+    uint64_t flags;
+    asm volatile("pushfq; popq %0" : "=r"(flags) :: "memory");
+    asm volatile("cli" ::: "memory");
+    return flags;
+}
+
+void terminal_unlock(uint64_t flags) {
+    asm volatile("pushq %0; popfq" :: "r"(flags) : "memory", "cc");
+}
+
 void terminal_init(struct limine_framebuffer *fb) {
     fbi = fb;
     pw  = fb->pitch / 4;
@@ -21,15 +32,25 @@ void terminal_init(struct limine_framebuffer *fb) {
     gy  = 8;
 }
 
-void terminal_set_fg(uint32_t color) { fg = color; }
-void terminal_set_bg(uint32_t color) { bg = color; }
+void terminal_set_fg(uint32_t color) {
+    uint64_t f = terminal_lock();
+    fg = color;
+    terminal_unlock(f);
+}
+void terminal_set_bg(uint32_t color) {
+    uint64_t f = terminal_lock();
+    bg = color;
+    terminal_unlock(f);
+}
 uint32_t terminal_get_fg(void)       { return fg;  }
 
 void terminal_set_scale(uint32_t scale) {
+    uint64_t f = terminal_lock();
     if (scale < 1) scale = 1;
     if (scale > 8) scale = 8;
     ts = scale;
     gx = 8; gy = 8;
+    terminal_unlock(f);
 }
 uint32_t terminal_get_scale(void) { return ts; }
 
@@ -72,29 +93,35 @@ static void chr(uint32_t x, uint32_t y, char c, uint32_t cf, uint32_t cb) {
     }
 }
 
+static void fb_scroll_copy(uint32_t *dst, uint32_t *src, uint32_t count) {
+    uint64_t *d64 = (uint64_t *)dst;
+    uint64_t *s64 = (uint64_t *)src;
+    uint32_t n64 = count / 2;
+    for (uint32_t i = 0; i < n64; i++) d64[i] = s64[i];
+    if (count & 1) dst[count - 1] = src[count - 1];
+}
+
 static void scroll(void) {
     gpipe_ctx_t *gctx   = gpipe_default();
     uint32_t    *target = NULL;
     uint32_t     tpitch = 0;
     gpipe_get_draw_target(gctx, &target, &tpitch);
 
-    volatile uint32_t *fbb;
+    uint32_t *fbb;
     uint32_t pitch;
     if (target) {
         fbb   = target;
         pitch = tpitch;
     } else {
-        fbb   = fbi->address;
+        fbb   = (uint32_t *)fbi->address;
         pitch = pw;
     }
 
-    for (uint32_t r = 0; r < fbi->height - CELL_H; r++) {
-        uint32_t *d = (uint32_t *)(fbb + r * pitch);
-        uint32_t *s = (uint32_t *)(fbb + (r + CELL_H) * pitch);
-        for (uint32_t c = 0; c < fbi->width; c++) d[c] = s[c];
-    }
-    for (uint32_t r = fbi->height - CELL_H; r < fbi->height; r++) {
-        uint32_t *p = (uint32_t *)(fbb + r * pitch);
+    uint32_t copy_rows = fbi->height - CELL_H;
+    fb_scroll_copy(fbb, fbb + (size_t)CELL_H * pitch, copy_rows * pitch);
+
+    for (uint32_t r = copy_rows; r < fbi->height; r++) {
+        uint32_t *p = fbb + r * pitch;
         for (uint32_t c = 0; c < fbi->width; c++) p[c] = bg;
     }
     gy = fbi->height - CELL_H;
@@ -105,7 +132,7 @@ static void scroll(void) {
     }
 }
 
-void terminal_putchar(char c) {
+static void putchar_nolock(char c) {
     if (c == '\n') {
         gx = 8; gy += CELL_H;
         if (gy >= fbi->height - CELL_H) scroll();
@@ -123,13 +150,29 @@ void terminal_putchar(char c) {
     }
 }
 
+void terminal_putchar(char c) {
+    uint64_t f = terminal_lock();
+    putchar_nolock(c);
+    terminal_unlock(f);
+}
+
 void terminal_print(const char *s) {
-    for (int i = 0; s[i]; i++) terminal_putchar(s[i]);
+    uint64_t f = terminal_lock();
+    for (int i = 0; s[i]; i++) putchar_nolock(s[i]);
+    terminal_unlock(f);
 }
 
 void terminal_println(const char *s) {
-    terminal_print(s);
-    terminal_putchar('\n');
+    uint64_t f = terminal_lock();
+    for (int i = 0; s[i]; i++) putchar_nolock(s[i]);
+    putchar_nolock('\n');
+    terminal_unlock(f);
+}
+
+void terminal_ensure_newline(void) {
+    uint64_t f = terminal_lock();
+    if (gx != 8) putchar_nolock('\n');
+    terminal_unlock(f);
 }
 
 void terminal_print_int(uint32_t n) {
@@ -140,12 +183,15 @@ void terminal_print_int(uint32_t n) {
 
 void terminal_print_hex(uint64_t n) {
     char h[] = "0123456789ABCDEF";
-    terminal_print("0x");
+    uint64_t f = terminal_lock();
+    for (int i = 0; i < 2; i++) putchar_nolock("0x"[i]);
     for (int i = 15; i >= 0; i--)
-        terminal_putchar(h[(n >> (i * 4)) & 0xF]);
+        putchar_nolock(h[(n >> (i * 4)) & 0xF]);
+    terminal_unlock(f);
 }
 
 void terminal_clear(void) {
+    uint64_t lockf = terminal_lock();
     gpipe_ctx_t *gctx   = gpipe_default();
     uint32_t    *target = NULL;
     uint32_t     tpitch = 0;
@@ -172,9 +218,12 @@ void terminal_clear(void) {
         gpipe_mark_dirty(gctx, 0, 0, (int)fbi->width, (int)fbi->height);
         gpipe_flip_full(gctx);
     }
+    terminal_unlock(lockf);
 }
 
 void terminal_cursor_draw(int visible) {
+    uint64_t lockf = terminal_lock();
+
     gpipe_ctx_t *gctx   = gpipe_default();
     uint32_t    *target = NULL;
     uint32_t     tpitch = 0;
@@ -203,4 +252,6 @@ void terminal_cursor_draw(int visible) {
         gpipe_mark_dirty(gctx, (int)gx, (int)(gy + row_start), (int)CELL_W, (int)(2 * ts));
         gpipe_flip(gctx);
     }
+
+    terminal_unlock(lockf);
 }

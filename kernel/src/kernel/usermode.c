@@ -9,6 +9,7 @@
 #include "sched.h"
 #include "pit.h"
 #include "../fs/vfs.h"
+#include "../shell/commands/util.h"
 
 #define SYS_WRITE 0
 #define SYS_EXIT  1
@@ -54,7 +55,7 @@ asm(
     ".global user_blob_end\n"
     "user_blob_start:\n"
     "    leaq 1f(%rip), %rsi\n"
-    "    movq $13, %rdx\n"
+    "    movq $(2f - 1f), %rdx\n"
     "    xorq %rax, %rax\n"
     "    int $0x80\n"
     "    movq $3000, %rdi\n"
@@ -63,7 +64,8 @@ asm(
     "    movq $1, %rax\n"
     "    int $0x80\n"
     "1:\n"
-    "    .ascii \"user mode ok\\n\"\n"
+    "    .ascii \"  user mode ok \\n\"\n"
+    "2:\n"
     "user_blob_end:\n"
 );
 extern uint8_t user_blob_start[];
@@ -73,10 +75,18 @@ extern uint8_t user_blob_end[];
 #define USER_STACK_VA 0x401000ULL
 
 void usertest_run(void) {
+    task_t *self = sched_current();
+    uint32_t pid = self ? self->id : 0xFFFFFFFF;
+
+    dmesg("[usertest] pid "); dmesg_int(pid); dmesg(" allocating pages\n");
+
     uint64_t size = (uint64_t)(user_blob_end - user_blob_start);
     void *code_phys  = pmm_alloc_page();
     void *stack_phys = pmm_alloc_page();
-    if (!code_phys || !stack_phys) { dmesg("[usertest] out of memory\n"); return; }
+    if (!code_phys || !stack_phys) {
+        dmesg("[usertest] pid "); dmesg_int(pid); dmesg(" out of memory\n");
+        return;
+    }
 
     uint8_t *code_dst = (uint8_t *)(hhdm_offset + (uint64_t)code_phys);
     for (uint64_t i = 0; i < size; i++) code_dst[i] = user_blob_start[i];
@@ -84,7 +94,12 @@ void usertest_run(void) {
     vmm_map(vmm_current(), USER_CODE_VA,  (uint64_t)code_phys,  VMM_FLAGS_USER);
     vmm_map(vmm_current(), USER_STACK_VA, (uint64_t)stack_phys, VMM_FLAGS_USER);
 
-    dmesg("[usertest] entering ring 3\n");
+    dmesg("[usertest] pid "); dmesg_int(pid);
+    dmesg(" code_phys="); dmesg_hex((uint64_t)code_phys);
+    dmesg(" stack_phys="); dmesg_hex((uint64_t)stack_phys);
+    dmesg("\n");
+
+    dmesg("[usertest] pid "); dmesg_int(pid); dmesg(" entering ring 3\n");
     enter_userspace(USER_CODE_VA, USER_STACK_VA + 0x1000 - 16);
 }
 
@@ -121,13 +136,20 @@ static bool syscall_check_user_rsp(uint64_t *regs) {
 }
 
 void syscall_dispatch(uint64_t *regs) {
+    task_t *self = sched_current();
+    uint32_t pid = self ? self->id : 0xFFFFFFFF;
+
     if (!syscall_check_user_rsp(regs)) {
-        dmesg("[syscall] killing task: corrupt user rsp would break iretq\n");
+        dmesg("[syscall] pid "); dmesg_int(pid);
+        dmesg(" killing task: corrupt user rsp would break iretq\n");
         task_exit();
         return;
     }
 
     uint64_t num = regs[RAX];
+
+    dmesg("[syscall] pid "); dmesg_int(pid);
+    dmesg(" num="); dmesg_int((uint32_t)num); dmesg("\n");
 
     switch (num) {
         case SYS_WRITE: {
@@ -140,10 +162,14 @@ void syscall_dispatch(uint64_t *regs) {
             }
 
             const char *buf = (const char *)uptr;
+            asm volatile("cli");
+            terminal_ensure_newline();
             for (uint64_t i = 0; i < len && buf[i]; i++) {
                 char c[2] = { buf[i], 0 };
                 terminal_print(c);
             }
+            terminal_ensure_newline();
+            asm volatile("sti");
             regs[RAX] = len;
             break;
         }
@@ -179,7 +205,25 @@ void syscall_dispatch(uint64_t *regs) {
         }
         case SYS_SLEEP: {
             uint32_t ms = (uint32_t)regs[RDI];
+
+            uint64_t tf = terminal_lock();
+            terminal_set_fg(COLOR_DIM);
+            terminal_print("  [pid ");
+            terminal_print_int(pid);
+            terminal_print("] sleeping for ");
+            terminal_print_int(ms);
+            terminal_println("ms...");
+            terminal_unlock(tf);
+
             sleep_ms(ms);
+
+            tf = terminal_lock();
+            terminal_set_fg(COLOR_SUCCESS);
+            terminal_print("  [pid ");
+            terminal_print_int(pid);
+            terminal_println("] woke up");
+            terminal_unlock(tf);
+
             regs[RAX] = 0;
             break;
         }

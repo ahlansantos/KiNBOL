@@ -76,13 +76,15 @@ void keyboard_readline(char *buf, int max) {
 
     while (i < max - 1) {
         if (!(inb(0x64) & 1)) {
-            uint64_t now = kb_rdtsc();
-            if (cursor_cb && (now - last_blink) >= blink_period) {
-                cursor_vis = !cursor_vis;
-                cursor_cb(cursor_vis);
-                last_blink = now;
-            }
+            sched_yield();
             asm volatile("pause");
+
+            uint64_t now = kb_rdtsc();
+            if ((now - last_blink) >= blink_period) {
+                cursor_vis = !cursor_vis;
+                last_blink = now;
+                if (cursor_cb) cursor_cb(cursor_vis);
+            }
             continue;
         }
         if (cursor_cb) cursor_cb(0);

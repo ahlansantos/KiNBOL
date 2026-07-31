@@ -29,6 +29,10 @@ void cmd_usertest(void) {
     terminal_print("  launched usertest, pid ");
     terminal_print_int(t->id);
     terminal_println("");
+
+    while (t->state != TASK_DEAD) {
+        sched_yield();
+    }
 }
 
 void cmd_help(void) {
@@ -357,21 +361,27 @@ void cmd_schedtest(void) {
 
 static void sleeptest_task_A(void *arg) {
     (void)arg;
+    uint64_t f = terminal_lock();
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("[A] before sleep");
+    terminal_unlock(f);
 
     sleep_ms(1000);
 
+    f = terminal_lock();
     terminal_set_fg(COLOR_SUCCESS);
     terminal_println("[A] after sleep");
+    terminal_unlock(f);
     task_exit();
 }
 
 static void sleeptest_task_B(void *arg) {
     (void)arg;
     for (int i = 0; i < 5; i++) {
+        uint64_t f = terminal_lock();
         terminal_set_fg(COLOR_BODY);
         terminal_println("[B] running");
+        terminal_unlock(f);
         sleep_ms(200);
     }
     task_exit();
@@ -380,10 +390,12 @@ static void sleeptest_task_B(void *arg) {
 static void sleeptest_task_multi(void *arg) {
     uint32_t delay = (uint32_t)(uint64_t)arg;
     sleep_ms(delay);
+    uint64_t f = terminal_lock();
     terminal_set_fg(COLOR_SUCCESS);
     terminal_print("Task woke up after ");
     terminal_print_int(delay);
     terminal_println("ms");
+    terminal_unlock(f);
     task_exit();
 }
 
@@ -431,7 +443,7 @@ void cmd_top(void) {
         terminal_set_fg(COLOR_DIM);
         terminal_println("  --------------------------------------------------");
         terminal_set_fg(COLOR_ACCENT);
-        terminal_println("  PID    STATE       WAKE (ms)    NAME");
+        terminal_println("  PID    STATE       WAKE-IN      NAME");
         terminal_set_fg(COLOR_DIM);
         terminal_println("  --------------------------------------------------");
 
@@ -460,16 +472,22 @@ void cmd_top(void) {
                 }
 
                 terminal_set_fg(COLOR_DIM);
-                if (iter->wake_time_ms > 0) {
-                    terminal_print_int((uint32_t)iter->wake_time_ms);
+                uint64_t now = uptime_ms();
+                uint32_t remaining = 0;
+                bool has_wake = (iter->state == TASK_BLOCKED && iter->wake_time_ms > 0);
+                if (has_wake) {
+                    remaining = (uint32_t)(iter->wake_time_ms > now ? iter->wake_time_ms - now : 0);
+                    terminal_print_int(remaining);
+                    terminal_print("ms");
                 } else {
                     terminal_print("-");
                 }
 
                 int wake_len = 1;
-                uint32_t val = (uint32_t)iter->wake_time_ms;
-                if (val > 0) {
-                    wake_len = 0;
+                if (has_wake) {
+                    uint32_t val = remaining;
+                    wake_len = 2;
+                    if (val == 0) wake_len = 3;
                     while (val > 0) { val /= 10; wake_len++; }
                 }
                 for (int i = 0; i < 13 - wake_len; i++) terminal_print(" ");
@@ -489,10 +507,10 @@ void cmd_top(void) {
         terminal_print_int((uint32_t)(uptime_ms() / 1000));
         terminal_println(" s");
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 5; i++) {
             keyboard_update();
             if (keyboard_held(0x10)) goto exit_top;
-            sleep_ms(100);
+            sleep_ms(60);
         }
     }
 exit_top:
