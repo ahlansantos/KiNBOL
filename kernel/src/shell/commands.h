@@ -17,6 +17,7 @@ void cmd_scale(const char *arg);
 void cmd_clearfb(void);
 void cmd_gpipe(const char *arg);
 void cmd_vfsls(void);
+void cmd_vfsls_ex(int show_hidden);
 void cmd_vminfo(void);
 void cmd_ramls(void);
 void cmd_raminfo(void);

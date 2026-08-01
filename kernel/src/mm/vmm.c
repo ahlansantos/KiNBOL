@@ -286,12 +286,12 @@ bool vmm_mark_range_writecombine(uint64_t virt, uint64_t size) {
 }
 
 void vmm_init(void) {
-    uint64_t phys = alloc_table();
-    if (!phys) return;
-    kernel_pagemap = (pagemap_t)phys_to_virt(phys);
+    kernel_pagemap = vmm_create_pagemap();
+    if (!kernel_pagemap) return;
 
     uint64_t hhdm_bytes = pmm_get_highest_phys();
     hhdm_bytes = (hhdm_bytes + 0x1FFFFF) & ~0x1FFFFFULL;
+    if (hhdm_bytes < 0x100000000ULL) hhdm_bytes = 0x100000000ULL;
     uint64_t hhdm_pages = hhdm_bytes / 0x200000ULL;
 
     uint64_t *pml4 = (uint64_t *)kernel_pagemap;
@@ -341,4 +341,5 @@ void vmm_init(void) {
     uint64_t *apic_pd = (uint64_t *)phys_to_virt(apic_pdpt[apic_pdpt_i] & ~0xFFFULL);
     apic_pd[apic_pd_i] = apic_phys | VMM_PRESENT | VMM_WRITE | VMM_HUGE;
 
+    vmm_switch(kernel_pagemap);
 }

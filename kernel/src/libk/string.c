@@ -90,8 +90,8 @@ int strncmp(const char *s1, const char *s2, size_t n) {
     return *(const unsigned char *)s1 - *(const unsigned char *)s2;
 }
 
-// Simple test for libk functions as requested
-extern void dmesg(const char *msg); // From kernel/dmesg.h
+extern void dmesg(const char *msg);
+extern void terminal_print(const char *msg);
 
 void libk_test(void) {
     char buf[32];
@@ -99,8 +99,10 @@ void libk_test(void) {
     strcpy(buf, "KiNBOL");
     
     if (strcmp(buf, "KiNBOL") == 0) {
+        terminal_print("  [libk] test passed: strcmp & strcpy & memset OK\n");
         dmesg("[libk] test passed: strcmp & strcpy & memset OK\n");
     } else {
+        terminal_print("  [libk] ERROR: test failed!\n");
         dmesg("[libk] ERROR: test failed!\n");
     }
 }

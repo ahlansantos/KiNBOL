@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <libk/string.h>
 
 #include "usermode.h"
 #include "gdt.h"
@@ -13,9 +14,21 @@
 
 #define SYS_READ  0
 #define SYS_WRITE 1
+#define SYS_OPEN  2
+#define SYS_CLOSE 3
+#define SYS_STAT  4
+#define SYS_FSTAT 5
+#define SYS_LSEEK 8
+#define SYS_MMAP  9
+#define SYS_MPROTECT 10
+#define SYS_MUNMAP 11
+#define SYS_BRK   12
+#define SYS_IOCTL 16
 #define SYS_YIELD 24
 #define SYS_SLEEP 35
 #define SYS_EXIT  60
+#define SYS_ARCH_PRCTL 158
+#define SYS_SET_TID_ADDRESS 218
 
 #define USER_RSP_GUARD  16
 
@@ -53,9 +66,28 @@ asm(
     ".global user_blob_start\n"
     ".global user_blob_end\n"
     "user_blob_start:\n"
+    "    movq $0, %rdi\n"
+    "    movq $12, %rax\n"
+    "    syscall\n"
+    "    movq %rax, %r8\n"
+    "    movq %r8, %rdi\n"
+    "    addq $4096, %rdi\n"
+    "    movq $12, %rax\n"
+    "    syscall\n"
+    "    movb $'s', 0(%r8)\n"
+    "    movb $'y', 1(%r8)\n"
+    "    movb $'s', 2(%r8)\n"
+    "    movb $'_', 3(%r8)\n"
+    "    movb $'b', 4(%r8)\n"
+    "    movb $'r', 5(%r8)\n"
+    "    movb $'k', 6(%r8)\n"
+    "    movb $' ', 7(%r8)\n"
+    "    movb $'O', 8(%r8)\n"
+    "    movb $'K', 9(%r8)\n"
+    "    movb $'\\n', 10(%r8)\n"
     "    movq $1, %rdi\n"
-    "    leaq 1f(%rip), %rsi\n"
-    "    movq $(2f - 1f), %rdx\n"
+    "    movq %r8, %rsi\n"
+    "    movq $11, %rdx\n"
     "    movq $1, %rax\n"
     "    syscall\n"
     "    movq $3000, %rdi\n"
@@ -64,16 +96,11 @@ asm(
     "    movq $0, %rdi\n"
     "    movq $60, %rax\n"
     "    syscall\n"
-    "1:\n"
-    "    .ascii \"  user mode ok \\n\"\n"
-    "2:\n"
     "user_blob_end:\n"
 );
 extern uint8_t user_blob_start[];
 extern uint8_t user_blob_end[];
 
-#define USER_CODE_VA  0x400000ULL
-#define USER_STACK_VA 0x401000ULL
 
 void usertest_run(void) {
     task_t *self = sched_current();
@@ -137,6 +164,23 @@ static bool syscall_check_user_rsp(void) {
     }
     return true;
 }
+
+static inline void wrmsr(uint32_t msr, uint64_t val) {
+    uint32_t low = val & 0xFFFFFFFF;
+    uint32_t high = val >> 32;
+    asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
+}
+
+static inline uint64_t rdmsr(uint32_t msr) {
+    uint32_t low, high;
+    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(msr));
+    return ((uint64_t)high << 32) | low;
+}
+
+#define MSR_EFER  0xC0000080
+#define MSR_STAR  0xC0000081
+#define MSR_LSTAR 0xC0000082
+#define MSR_FMASK 0xC0000084
 
 void syscall_dispatch(uint64_t *regs) {
     task_t *self = sched_current();
@@ -234,12 +278,105 @@ void syscall_dispatch(uint64_t *regs) {
             sched_yield();
             regs[RAX] = 0;
             break;
+        case SYS_BRK: {
+            uint64_t addr = regs[RDI];
+            if (addr == 0 || addr == self->user_brk) {
+                regs[RAX] = self->user_brk;
+                break;
+            }
+            if (addr < USER_HEAP_START) {
+                regs[RAX] = self->user_brk;
+                break;
+            }
+            
+            uint64_t old_page_end = (self->user_brk + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+            uint64_t new_page_end = (addr + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+            
+            if (new_page_end > old_page_end) {
+                uint64_t pages_needed = (new_page_end - old_page_end) / PAGE_SIZE;
+                for (uint64_t i = 0; i < pages_needed; i++) {
+                    void *phys = pmm_alloc_page();
+                    if (!phys) {
+                        regs[RAX] = self->user_brk;
+                        goto brk_done;
+                    }
+                    uint8_t *v = (uint8_t *)(hhdm_offset + (uint64_t)phys);
+                    memset(v, 0, PAGE_SIZE);
+                    vmm_map(vmm_current(), old_page_end + (i * PAGE_SIZE), (uint64_t)phys, VMM_FLAGS_USER);
+                }
+            }
+        brk_done:
+            self->user_brk = addr;
+            regs[RAX] = self->user_brk;
+            break;
+        }
+        case SYS_MMAP: {
+            uint64_t len   = regs[RSI];
+            uint32_t flags = (uint32_t)regs[R10];
+
+            if ((flags & 0x22) != 0x22) {
+                regs[RAX] = (uint64_t)-22;
+                break;
+            }
+            if (len == 0) {
+                regs[RAX] = (uint64_t)-22;
+                break;
+            }
+
+            uint64_t alloc_len = (len + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+            if (self->user_mmap_base + alloc_len >= USER_STACK_TOP) {
+                regs[RAX] = (uint64_t)-12;
+                break;
+            }
+
+            uint64_t start_va = self->user_mmap_base;
+            for (uint64_t i = 0; i < alloc_len; i += PAGE_SIZE) {
+                void *phys = pmm_alloc_page();
+                if (!phys) {
+                    regs[RAX] = (uint64_t)-12;
+                    goto mmap_done;
+                }
+                uint8_t *v = (uint8_t *)(hhdm_offset + (uint64_t)phys);
+                memset(v, 0, PAGE_SIZE);
+                vmm_map(vmm_current(), start_va + i, (uint64_t)phys, VMM_FLAGS_USER);
+            }
+            self->user_mmap_base += alloc_len;
+            regs[RAX] = start_va;
+        mmap_done:
+            break;
+        }
         case SYS_EXIT:
             dmesg("[syscall] task exited\n");
             task_exit();
             break;
+        case SYS_ARCH_PRCTL: {
+            uint32_t code = (uint32_t)regs[RDI];
+            uint64_t addr = regs[RSI];
+            if (code == 0x1002) {
+                wrmsr(0xC0000100, addr);
+                regs[RAX] = 0;
+            } else {
+                regs[RAX] = (uint64_t)-22;
+            }
+            break;
+        }
+        case SYS_SET_TID_ADDRESS: {
+            regs[RAX] = self ? self->id : 1;
+            break;
+        }
+        case SYS_OPEN:
+        case SYS_CLOSE:
+        case SYS_STAT:
+        case SYS_FSTAT:
+        case SYS_LSEEK:
+        case SYS_MPROTECT:
+        case SYS_MUNMAP:
+        case SYS_IOCTL:
+            regs[RAX] = (uint64_t)-38;
+            break;
         default:
-            regs[RAX] = (uint64_t)-1;
+            regs[RAX] = (uint64_t)-38;
             break;
     }
 }
@@ -249,23 +386,6 @@ void syscall_enter(uint64_t *regs) {
 }
 
 extern void syscall_entry(void);
-
-#define MSR_EFER  0xC0000080
-#define MSR_STAR  0xC0000081
-#define MSR_LSTAR 0xC0000082
-#define MSR_FMASK 0xC0000084
-
-static inline void wrmsr(uint32_t msr, uint64_t val) {
-    uint32_t low = val & 0xFFFFFFFF;
-    uint32_t high = val >> 32;
-    asm volatile("wrmsr" : : "c"(msr), "a"(low), "d"(high));
-}
-
-static inline uint64_t rdmsr(uint32_t msr) {
-    uint32_t low, high;
-    asm volatile("rdmsr" : "=a"(low), "=d"(high) : "c"(msr));
-    return ((uint64_t)high << 32) | low;
-}
 
 void syscall_init(void) {
     uint64_t efer = rdmsr(MSR_EFER);

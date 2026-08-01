@@ -80,13 +80,8 @@ void cmd_help(void) {
     terminal_set_fg(COLOR_DIM);
     terminal_println("  ------------------------------------------");
     terminal_set_fg(COLOR_BODY);
-    terminal_println("  ramls                  list ramdisk");
-    terminal_println("  ramcat <f>             show file");
-    terminal_println("  ramwrite <f> <txt>     write file");
-    terminal_println("  ramdel <f>             delete file");
-    terminal_println("  raminfo                ramdisk stats");
-    terminal_println("  vfsls                  list /dev nodes");
-    terminal_println("  vfsread <dev>          read device");
+    terminal_println("  ls                     list /dev nodes");
+    terminal_println("  cat <dev>              read device");
     terminal_println("  vfswrite <dev> <txt>   write device");
 
     terminal_set_fg(COLOR_HEADER);
@@ -531,9 +526,21 @@ void cmd_syscalls(void) {
     
     terminal_set_fg(0x88CC88); terminal_print("     0 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_READ   | Implemented | read from VFS node");
     terminal_set_fg(0x88CC88); terminal_print("     1 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_WRITE  | Implemented | write to terminal");
-    terminal_set_fg(0x88CC88); terminal_print("    24 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_YIELD  | Implemented | sched_yield (sched_yield is 24 in Linux)");
-    terminal_set_fg(0x88CC88); terminal_print("    35 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_SLEEP  | Implemented | nanosleep (emulated via sleep_ms)");
+    terminal_set_fg(0xCCBB88); terminal_print("     2 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_OPEN   | Stub        | open file");
+    terminal_set_fg(0xCCBB88); terminal_print("     3 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_CLOSE  | Stub        | close file");
+    terminal_set_fg(0xCCBB88); terminal_print("     4 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_STAT   | Stub        | file stats");
+    terminal_set_fg(0xCCBB88); terminal_print("     5 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_FSTAT  | Stub        | fd stats");
+    terminal_set_fg(0xCCBB88); terminal_print("     8 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_LSEEK  | Stub        | seek file");
+    terminal_set_fg(0x88CC88); terminal_print("     9 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MMAP   | Implemented | map memory (anonymous)");
+    terminal_set_fg(0xCCBB88); terminal_print("    10 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MPROTECT| Stub        | protect memory");
+    terminal_set_fg(0xCCBB88); terminal_print("    11 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MUNMAP | Stub        | unmap memory");
+    terminal_set_fg(0x88CC88); terminal_print("    12 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_BRK    | Implemented | change heap size");
+    terminal_set_fg(0xCCBB88); terminal_print("    16 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_IOCTL  | Stub        | device control");
+    terminal_set_fg(0x88CC88); terminal_print("    24 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_YIELD  | Implemented | sched_yield");
+    terminal_set_fg(0x88CC88); terminal_print("    35 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_SLEEP  | Implemented | nanosleep");
     terminal_set_fg(0x88CC88); terminal_print("    60 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_EXIT   | Implemented | exit current task");
+    terminal_set_fg(0x88CC88); terminal_print("   158 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_ARCH_PRCTL| Basic    | set TLS (FS.base)");
+    terminal_set_fg(0x88CC88); terminal_print("   218 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_SET_TID_ADDRESS| Stub| set tid address");
     
     terminal_println("");
     terminal_set_fg(COLOR_DIM);

@@ -63,8 +63,8 @@ static void gpipe_cmd_drawtest(void) {
     ctx->dirty = (gpipe_rect_t){0, 0, 0, 0};
 
     int w = gpipe_width(ctx), h = gpipe_height(ctx);
-    int ox = w > 480 ? w - 480 : 0;   /* draw in the right-hand side, out of the terminal's way */
-    int oy = h > 300 ? h - 300 : 0;   /* and near the bottom */
+    int ox = w > 480 ? w - 480 : 0;
+    int oy = h > 300 ? h - 300 : 0;
 
     gpipe_rect_fill(ctx, ox + 40, oy + 40, 120, 80, gpipe_rgb(200, 40, 40));
     gpipe_circle_fill(ctx, ox + 260, oy + 90, 50, gpipe_rgb(40, 190, 90));

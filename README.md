@@ -38,8 +38,9 @@ Most things here are written from scratch, and a lot of documentation.
 | Heap (first-fit + coalesce) | ✅ 16-byte aligned |
 | Spinlock / Big Kernel Lock | ✅ lock xchg + BKL, active since `sched_init()` |
 | Scheduler | ✅ cooperative + intelligent preemption (user tasks preempted, kernel/shell protected) |
-| Ring 3 + syscalls | ✅ `syscall/sysret` (Linux ABI), `SYS_WRITE`/`SYS_EXIT`/`SYS_READ`/`SYS_SLEEP`/`SYS_YIELD`, user pointer + RSP validation, `usertest` shell cmd |
+| Ring 3 + syscalls | ✅ `syscall/sysret` (Linux ABI), `SYS_WRITE`/`SYS_EXIT`/`SYS_READ`/`SYS_SLEEP`/`SYS_YIELD` & more, user pointer + RSP validation, `usertest` shell cmd |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
+| AHCI + FAT32 | ✅ PCI enum + bus mastering, real read/write DMA, `/dev/sda` mounted as FAT32 (read+write, subdirectories) |
 | framebuffer (1080p) | ✅ text terminal + GPipe 1.0 unified — both draw into the same back buffer, only `gpipe_flip`/`gpipe_flip_full` touches real VRAM |
 | shell | ✅ commands + history + tab completion (subcommands) |
 
@@ -70,7 +71,7 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 |---|---|
 | system | `ps`, `dmesg`, `dmesg --clear`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear`, `syscalls`, `libktest` |
 | memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
-| filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel`, `vfsls`, `vfsread`, `vfswrite` |
+| filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel` (ramdisk only) · `ls`, `ls -a`, `cat <file>`, `vfswrite <file> <data>` (all VFS nodes — ramdisk, `/dev/*`, and every mounted FAT32 file on `/dev/sda`) |
 | graphics | `clearfb`, `scale`, `gpipe`, `gpipe clearfb`, `gpipe drawtest` |
 | scheduler | `schedtest`, `sleeptest`, `top` |
 | ring 3 | `usertest` — spawns a task, enters ring 3 via `iretq`, runs a hand-written user blob that calls `SYS_WRITE`/`SYS_SLEEP`/`SYS_EXIT` through the modern `syscall` instruction (Linux ABI) |
@@ -96,6 +97,94 @@ test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 
 ---
 
+## disk: AHCI + FAT32
+
+`pci_init()` enumerates the bus, finds the AHCI controller (class 01h/06h/01h), enables
+**memory space + bus mastering** on it (`pci_enable_device()` — required for the ABAR to
+reliably respond and for the HBA to DMA into RAM; firmware often leaves this on already,
+which is why it "worked" before, but it isn't guaranteed), then hands off to `ahci_init()`.
+
+`ahci_init()` does a BIOS/OS handoff if the controller supports it, sets `GHC.AE`, finds
+the first active SATA port, and rebases it (fresh, zeroed command list + FIS receive area,
+32 command slots). It registers `/dev/sda` as a VFS block device backed by real
+`ahci_read`/`ahci_write` DMA transfers — both directions now, not just read. All HBA/port
+register access is serialized behind a spinlock (`ahci_lock`), since it's shared hardware
+state the scheduler could otherwise interleave onto.
+
+`fat32_detect()` peeks at sector 0's BPB (`root_entries == 0 && fat_size16 == 0 &&
+fat_size32 != 0`) at boot; if it looks like FAT32, `fat32_init()` mounts it. There is no
+FAT12/16 fallback anymore — every image this kernel builds/ships is FAT32, and the old
+FAT12 driver was removed. If the check fails, `/dev/sda` is simply left unmounted (the
+raw block device is still reachable, just no filesystem on top).
+
+FAT32 support (`fs/fat32.c`) includes:
+- full read **and write**, including growing a file across newly-allocated clusters
+- **subdirectories** — `fat32_scan_dir()` is the same function for root and every nested
+  folder; since this kernel's VFS is a flat namespace (linear array, `strcmp` lookup, no
+  path walking), nested files are registered as `parent/child.txt` style flattened names,
+  so `cat`/`vfswrite`/`ls` all keep working with zero shell changes
+- cluster allocation via a linear FAT scan with a "next free" hint (no FSInfo yet)
+- FAT entries are read/written directly from disk per-access rather than cached whole in
+  RAM — simpler and always-consistent, at the cost of raw throughput
+- short (8.3) names only; long file name (VFAT) entries are recognized and skipped, not
+  parsed — a file's long name won't show up, only its short name
+
+**what's still missing, if you want to push this further:** long file names, an FSInfo-based
+allocator (avoids rescanning the FAT from scratch when the hint wraps), directory creation
+(`mkdir`/new file creation — right now you can only write into files that already exist on
+the image), and multi-disk / multi-port AHCI support (`active_port` is a single global).
+
+### `ls` output
+
+`ls` splits its output into two sections — `Devices` (`sda`, `ram0`, `tty`, etc.) and
+`Disk Files` (anything mounted off `/dev/sda`'s FAT32) — each entry tagged `[device]` or
+`[file]` instead of a fake `/dev/`-style path. **The name shown is always the exact name
+you type into `cat`/`vfswrite`** — there is no real path prefix, since the VFS is a flat
+namespace. `ls -a` also shows macOS-generated metadata junk (`.fseventsd`, `.Trashes`,
+`.DS_Store`, AppleDouble `._file` entries) that gets auto-created any time you mount the
+disk image on macOS to drop a file in — hidden by default since it isn't real data.
+
+Filename lookup (`vfs_find`) is case-insensitive, so `cat teste.txt` finds a file the FAT32
+short-name table stored as `TESTE.TXT` (short 8.3 names are always uppercase on disk).
+
+### setting up `data.img`
+
+The FAT32 image shipped in this repo starts out **unformatted (all zero bytes)** — you need
+to format it once before the kernel will find a valid BPB and mount it:
+
+```bash
+# macOS
+hdiutil attach -nomount data.img          # note the /dev/diskN it prints
+sudo newfs_msdos -F 32 /dev/rdiskN        # use rdisk (raw), not disk, and sudo
+hdiutil detach /dev/diskN
+
+# Linux
+mkfs.fat -F 32 data.img
+```
+
+To drop files onto it before boot: mount the image (`hdiutil attach data.img` on macOS,
+loopback-mount on Linux), copy files in, then unmount before starting QEMU.
+
+---
+
+## recent fixes (AHCI/FAT32 debugging session)
+
+- **LBA48 disk size bug** — `ahci_init()` was assembling the IDENTIFY words for LBA48 out
+  of order (`id[101]`/`id[100]` swapped with `id[103]`/`id[102]`), producing a bogus 64-bit
+  value that truncated to `0` when narrowed to `dev_sda.size`'s `uint32_t`. `/dev/sda`
+  reported 0 MB even on a correctly-sized disk. Fixed the word ordering to match the ATA
+  spec (words 100–103 are sequential little-endian, low→high).
+- **README had stale command names** — docs referenced `vfsls`/`vfsread` which never
+  existed in `shell.c`; the real commands are `ls` (no args) and `cat <file>`.
+- **`ls` UX overhaul** — output now splits `Devices` vs `Disk Files`, drops the misleading
+  fake `/dev/` prefix, and hides macOS-generated FAT metadata junk by default (`ls -a` to
+  show it). `ls <anything>` now gives a clear warning instead of falling through to a red
+  "command not found".
+- **Case-insensitive file lookup** — `vfs_find()` was exact-match only, so a file the FAT32
+  driver stored as `TESTE.TXT` couldn't be opened with `cat teste.txt`. Now case-insensitive.
+
+---
+
 ## roadmap
 
 - [x] paging & VMM
@@ -113,9 +202,13 @@ test it: `gpipe`, `gpipe clearfb`, `gpipe drawtest`
 - [x] unify terminal + GPipe into one drawing path (`gpipe_get_draw_target()`, single flip choke point)
 - [x] per-task address spaces (VMM)!
 - [x] PS/2 Mouse driver
+- [x] Lib-kin v0.1 (kernel standard library + deduplication)
+- [x] userspace memory allocation (`SYS_BRK`, `SYS_MMAP` anonymous)
+- [x] POSIX syscall stubs (`open`, `close`, `stat`, `arch_prctl`, etc.)
 - [ ] ELF loader
-- [ ] FAT32
-- [ ] AHCI/SATA
+- [x] FAT32 (read + write, subdirectories flattened into VFS)
+- [x] PCI Enumeration (AHCI/SATA foundation) + memory space / bus mastering enable
+- [x] AHCI/SATA driver (single port, read + write DMA, GHC.AE + BOHC handoff, locked HBA access)
 
 ---
 

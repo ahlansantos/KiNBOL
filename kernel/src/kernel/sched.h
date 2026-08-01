@@ -35,6 +35,8 @@ typedef struct task {
     struct task   *next;
     uint64_t       user_rsp;
     uint64_t       kernel_rsp;
+    uint64_t       user_brk;
+    uint64_t       user_mmap_base;
 } task_t;
 
 void sched_init(void);

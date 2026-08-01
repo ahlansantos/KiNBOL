@@ -79,8 +79,13 @@ void shell_run(void) {
         else if (!strcmp(in, "usertest"))     cmd_usertest();
         else if (!strcmp(in, "mstat"))        cmd_mstat();
         else if (sh_startswith(in, "gpipe "))    cmd_gpipe(in + 6);
-        else if (!strcmp(in, "vfsls"))       cmd_vfsls();
+        else if (!strcmp(in, "ls"))          cmd_vfsls();
+        else if (!strcmp(in, "ls -a"))       cmd_vfsls_ex(1);
         else if (!strcmp(in, "vminfo"))      cmd_vminfo();
+        else if (!strcmp(in, "ahcitest")) {
+            extern void cmd_ahcitest(void);
+            cmd_ahcitest();
+        }
         else if (!strcmp(in, "ramls"))       cmd_ramls();
         else if (!strcmp(in, "raminfo"))     cmd_raminfo();
         else if (sh_startswith(in, "calc ")) {
@@ -103,10 +108,10 @@ void shell_run(void) {
             if (*q) { *q = 0; cmd_poke(p, q + 1); }
             else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: poke <addr> <val>"); }
         }
-        else if (sh_startswith(in, "vfsread ")) {
-            char *d = in + 8; while (*d == ' ') d++;
+        else if (sh_startswith(in, "cat ")) {
+            char *d = in + 4; while (*d == ' ') d++;
             if (*d) cmd_vfsread(d);
-            else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: vfsread <dev>"); }
+            else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: cat <dev>"); }
         }
         else if (sh_startswith(in, "vfswrite ")) {
             char *p = in + 9; while (*p == ' ') p++;
@@ -124,6 +129,10 @@ void shell_run(void) {
         else if (sh_startswith(in, "ramdel "))  { char *n = in+7;  if (*n) cmd_ramdel(n);  else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: ramdel <file>"); } }
         else if (sh_startswith(in, "scale ")) {
             cmd_scale(in + 6);
+        }
+        else if (sh_startswith(in, "ls ") && strcmp(in, "ls -a")) {
+            terminal_set_fg(COLOR_WARNING);
+            terminal_println("  ls takes no arguments, just type 'ls' (or 'ls -a' to show hidden files)");
         }
         else if (in[0]) {
             terminal_set_fg(COLOR_ERROR);

@@ -146,8 +146,13 @@ static vfs_node_t dev_ram0 = {
     .device = &ram0_dev,
 };
 
-static int str_eq(const char *a, const char *b) {
-    while (*a && *b && *a == *b) { a++; b++; }
+static int to_lower(int c) {
+    if (c >= 'A' && c <= 'Z') return c + 32;
+    return c;
+}
+
+static int str_eq_ci(const char *a, const char *b) {
+    while (*a && *b && to_lower(*a) == to_lower(*b)) { a++; b++; }
     return *a == *b;
 }
 
@@ -186,7 +191,7 @@ vfs_node_t *vfs_find(const char *name) {
     const char *n = name;
     if (n[0] == '/' && n[1] == 'd' && n[2] == 'e' && n[3] == 'v' && n[4] == '/') n += 5;
     for (int i = 0; i < node_count; i++)
-        if (nodes[i] && str_eq(nodes[i]->name, n)) return nodes[i];
+        if (nodes[i] && str_eq_ci(nodes[i]->name, n)) return nodes[i];
     return NULL;
 }
 

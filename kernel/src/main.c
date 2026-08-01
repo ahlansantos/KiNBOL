@@ -7,6 +7,7 @@
 #include "drivers/keyboard.h"
 #include "drivers/mouse.h"
 #include "drivers/rtc.h"
+#include "drivers/pci.h"
 #include "graphics/terminal.h"
 #include "graphics/api/gpipe.h"
 #include "graphics/api/gpipe_prim.h"
@@ -26,6 +27,7 @@
 #include "mm/heap.h"
 #include "fs/vfs.h"
 #include "fs/ramdisk.h"
+#include "fs/fat32.h"
 #include "kernel/sched.h"
 #include "shell/shell.h"
 
@@ -199,6 +201,15 @@ void kmain(void) {
 
     ramdisk_init();
     vfs_init();
+
+    pci_init();
+
+    if (fat32_detect()) {
+        dmesg("[boot] FAT32 BPB detected\n");
+        fat32_init();
+    } else {
+        dmesg("[boot] no FAT32 BPB found, /dev/sda left unmounted\n");
+    }
 
     sched_init();
 

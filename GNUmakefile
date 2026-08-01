@@ -39,11 +39,14 @@ run: run-$(ARCH)
 run-hdd: run-hdd-$(ARCH)
 
 .PHONY: run-x86_64
-run-x86_64: edk2-ovmf $(IMAGE_NAME).iso
+run-x86_64: edk2-ovmf $(IMAGE_NAME).iso data.img
 	qemu-system-$(ARCH) \
 		-M pc \
 		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
 		-cdrom $(IMAGE_NAME).iso \
+		-drive id=disk,file=data.img,if=none,format=raw \
+		-device ahci,id=ahci \
+		-device ide-hd,drive=disk,bus=ahci.0 \
 		$(QEMUFLAGS)
 
 .PHONY: run-hdd-x86_64
@@ -170,7 +173,7 @@ kernel: kernel/.deps-obtained
 
 data.img:
 	dd if=/dev/zero of=data.img bs=1M count=128
-	mkfs.fat -F32 data.img
+	-mkfs.fat -F32 data.img || newfs_msdos -F 32 data.img || true
 
 $(IMAGE_NAME).iso: limine-binary/limine kernel
 	rm -rf iso_root

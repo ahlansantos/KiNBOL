@@ -8,6 +8,7 @@
 #include "pit.h"
 #include "gdt.h"
 #include <libk/string.h>
+#include "usermode.h"
 
 #define TASK_STACK_PAGES 4
 
@@ -100,6 +101,8 @@ static task_t *task_create_internal(const char *name, task_entry_t entry, void *
     task->pagemap      = pm;
     task->owns_pagemap = owns_pagemap;
     task->cr3          = (uint64_t)pm - hhdm_offset;
+    task->user_brk     = USER_HEAP_START;
+    task->user_mmap_base = USER_MMAP_START;
     strncpy(task->name, name ? name : "task", sizeof(task->name) - 1);
     task->name[sizeof(task->name) - 1] = '\0';
 
