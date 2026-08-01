@@ -276,6 +276,146 @@ static void build_full_name(char *out, const char *prefix, const char *leaf) {
     out[o] = 0;
 }
 
+static char to_upper_c(char c) {
+    if (c >= 'a' && c <= 'z') return c - 32;
+    return c;
+}
+
+static void to_short_name(const char *name, char *name8, char *ext3) {
+    memset(name8, ' ', 8);
+    memset(ext3, ' ', 3);
+
+    int i = 0, ni = 0;
+    while (name[i] && name[i] != '.' && ni < 8) {
+        name8[ni++] = to_upper_c(name[i]);
+        i++;
+    }
+    while (name[i] && name[i] != '.') i++;
+    if (name[i] == '.') {
+        i++;
+        int ei = 0;
+        while (name[i] && ei < 3) {
+            ext3[ei++] = to_upper_c(name[i]);
+            i++;
+        }
+    }
+}
+
+static int find_free_root_slot(uint32_t *out_lba, uint32_t *out_offset, uint32_t *out_cluster) {
+    uint32_t cluster_size = bytes_per_sector * sectors_per_cluster;
+    uint8_t *cbuf = (uint8_t *)kmalloc(cluster_size);
+    if (!cbuf) return 0;
+
+    uint32_t cluster = root_cluster;
+    while (cluster >= 2 && cluster < 0x0FFFFFF8) {
+        uint32_t lba = cluster_to_lba(cluster);
+        if (!read_sectors(lba, sectors_per_cluster, cbuf)) { kfree(cbuf); return 0; }
+
+        for (uint32_t i = 0; i < cluster_size; i += 32) {
+            fat_dir_entry_t *e = (fat_dir_entry_t *)(cbuf + i);
+            if (e->name[0] == 0x00 || (uint8_t)e->name[0] == 0xE5) {
+                *out_lba = lba + (i / bytes_per_sector);
+                *out_offset = i % bytes_per_sector;
+                *out_cluster = cluster;
+                kfree(cbuf);
+                return 1;
+            }
+        }
+        cluster = fat_get_entry(cluster);
+    }
+    kfree(cbuf);
+    return 0;
+}
+
+static int write_dir_entry(uint32_t lba, uint32_t offset, const char *name8, const char *ext3,
+                            uint8_t attr, uint32_t cluster, uint32_t size) {
+    uint8_t sec[512];
+    if (!ahci_read_sector(lba, sec)) return 0;
+
+    fat_dir_entry_t *e = (fat_dir_entry_t *)(sec + offset);
+    memset(e, 0, sizeof(fat_dir_entry_t));
+    memcpy(e->name, name8, 8);
+    memcpy(e->ext, ext3, 3);
+    e->attr = attr;
+    e->fst_clus_hi = (uint16_t)(cluster >> 16);
+    e->fst_clus_lo = (uint16_t)(cluster & 0xFFFF);
+    e->file_size = size;
+
+    return ahci_write_sector(lba, sec);
+}
+
+int fat32_create_file(const char *name) {
+    if (!fat_ok) return 0;
+    if (fat_file_count >= FAT32_MAX_FILES) return 0;
+
+    uint32_t lba, offset, dcluster;
+    if (!find_free_root_slot(&lba, &offset, &dcluster)) return 0;
+
+    char name8[8], ext3[3];
+    to_short_name(name, name8, ext3);
+
+    if (!write_dir_entry(lba, offset, name8, ext3, 0x20, 0, 0)) return 0;
+
+    fat32_file_ctx_t *ctx = (fat32_file_ctx_t *)kmalloc(sizeof(fat32_file_ctx_t));
+    if (!ctx) return 0;
+    ctx->start_cluster = 0;
+    ctx->dirent_sector = lba;
+    ctx->dirent_offset = offset;
+
+    vfs_node_t *n = &fat_files[fat_file_count++];
+    memset(n, 0, sizeof(vfs_node_t));
+    char sname[13];
+    format_name(name8, ext3, sname);
+    strncpy(n->name, sname, VFS_NAME_MAX - 1);
+    n->name[VFS_NAME_MAX - 1] = 0;
+    n->flags  = VFS_FILE;
+    n->size   = 0;
+    n->device = ctx;
+    n->read   = fat32_file_read;
+    n->write  = fat32_file_write;
+    vfs_register(n);
+
+    return 1;
+}
+
+int fat32_mkdir(const char *name) {
+    if (!fat_ok) return 0;
+
+    uint32_t lba, offset, dcluster;
+    if (!find_free_root_slot(&lba, &offset, &dcluster)) return 0;
+
+    uint32_t newc = fat32_alloc_cluster();
+    if (!newc) return 0;
+    fat_set_entry(newc, 0x0FFFFFFF);
+
+    char name8[8], ext3[3];
+    to_short_name(name, name8, ext3);
+    if (!write_dir_entry(lba, offset, name8, ext3, 0x10, newc, 0)) return 0;
+
+    uint32_t cluster_size = bytes_per_sector * sectors_per_cluster;
+    uint8_t *cbuf = (uint8_t *)kmalloc(cluster_size);
+    if (!cbuf) return 1;
+    memset(cbuf, 0, cluster_size);
+
+    fat_dir_entry_t *dot = (fat_dir_entry_t *)cbuf;
+    memset(dot->name, ' ', 8); dot->name[0] = '.';
+    memset(dot->ext, ' ', 3);
+    dot->attr = 0x10;
+    dot->fst_clus_hi = (uint16_t)(newc >> 16);
+    dot->fst_clus_lo = (uint16_t)(newc & 0xFFFF);
+
+    fat_dir_entry_t *dotdot = (fat_dir_entry_t *)(cbuf + 32);
+    memset(dotdot->name, ' ', 8); dotdot->name[0] = '.'; dotdot->name[1] = '.';
+    memset(dotdot->ext, ' ', 3);
+    dotdot->attr = 0x10;
+    dotdot->fst_clus_hi = (uint16_t)(root_cluster >> 16);
+    dotdot->fst_clus_lo = (uint16_t)(root_cluster & 0xFFFF);
+
+    write_sectors(cluster_to_lba(newc), sectors_per_cluster, cbuf);
+    kfree(cbuf);
+    return 1;
+}
+
 static void fat32_scan_dir(uint32_t dir_cluster, const char *prefix, int depth) {
     if (depth > FAT32_MAX_DEPTH) return;
 

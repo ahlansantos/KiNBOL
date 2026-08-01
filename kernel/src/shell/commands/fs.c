@@ -3,6 +3,7 @@
 #include "../../graphics/terminal.h"
 #include "../../fs/vfs.h"
 #include "../../fs/ramdisk.h"
+#include "../../fs/fat32.h"
 
 static int str_contains(const char *hay, const char *needle) {
     for (int i = 0; hay[i]; i++) {
@@ -127,6 +128,45 @@ void cmd_vfswrite(const char *dev, const char *data) {
     terminal_print("\n  Wrote ");
     terminal_print_int(n);
     terminal_println(" bytes\n");
+}
+
+void cmd_touch(const char *name) {
+    if (!fat32_present()) {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  /dev/sda has no FAT32 filesystem mounted");
+        return;
+    }
+    if (vfs_find(name)) {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  File already exists");
+        return;
+    }
+    if (fat32_create_file(name)) {
+        terminal_set_fg(COLOR_SUCCESS);
+        terminal_print("  Created ");
+        terminal_println(name);
+    } else {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  Failed to create file (disk full or root dir full)");
+    }
+}
+
+void cmd_mkdir(const char *name) {
+    if (!fat32_present()) {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  /dev/sda has no FAT32 filesystem mounted");
+        return;
+    }
+    if (fat32_mkdir(name)) {
+        terminal_set_fg(COLOR_SUCCESS);
+        terminal_print("  Created directory ");
+        terminal_println(name);
+        terminal_set_fg(COLOR_DIM);
+        terminal_println("  (run 'ls' again to see files inside it)");
+    } else {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  Failed to create directory (disk full or root dir full)");
+    }
 }
 
 void cmd_ramls(void) {

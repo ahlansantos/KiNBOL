@@ -180,6 +180,26 @@ pagemap_t vmm_current(void) {
     return (pagemap_t)phys_to_virt(cr3 & ~0xFFFULL);
 }
 
+int vmm_sync_kernel_entry(uint64_t vaddr) {
+    if (!kernel_pagemap) return 0;
+
+    pagemap_t active = vmm_current();
+    if (!active || active == kernel_pagemap) return 0;
+
+    int idx = (int)((vaddr >> 39) & 0x1FF);
+    if (idx < 256) return 0;
+
+    uint64_t *kpml4 = (uint64_t *)kernel_pagemap;
+    uint64_t *apml4 = (uint64_t *)active;
+
+    if (!(kpml4[idx] & VMM_PRESENT)) return 0;
+    if (apml4[idx] == kpml4[idx]) return 0;
+
+    apml4[idx] = kpml4[idx];
+    asm volatile("movq %0, %%cr3" :: "r"(read_cr3()) : "memory");
+    return 1;
+}
+
 pagemap_t vmm_create_pagemap(void) {
     uint64_t phys = alloc_table();
     if (!phys) return NULL;

@@ -5,6 +5,7 @@
 #include "idt.h"
 #include "../graphics/terminal.h"
 #include "dmesg.h"
+#include "../mm/vmm.h"
 
 #define IDT_ENTRIES 256
 
@@ -71,6 +72,11 @@ void irq_dispatcher(uint64_t irq_num, uint64_t error_code, uint64_t rip, uint64_
     }
 
     if (irq_num < 32) {
+        if (irq_num == 14) {
+            uint64_t cr2;
+            asm volatile("movq %%cr2, %0" : "=r"(cr2));
+            if (vmm_sync_kernel_entry(cr2)) return;
+        }
         exception_fatal(irq_num, error_code, rip, regs);
         return;
     }
