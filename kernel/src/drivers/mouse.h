@@ -14,4 +14,6 @@ typedef struct {
 void mouse_init(void);
 mouse_state_t mouse_get_state(void);
 
+void mouse_get_cursor_delta(int *dx, int *dy, int *left, int *right, int *middle);
+
 #endif

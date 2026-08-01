@@ -1,262 +1,234 @@
 # Nuke built-in rules.
 .SUFFIXES:
 
+# This is the name that our final executable will have.
+# Change as needed.
+override OUTPUT := kernel
+
 # Target architecture to build for. Default to x86_64.
 ARCH := x86_64
 
-# Default user QEMU flags. These are appended to the QEMU command calls.
-# FS TEST 0.06
-QEMUFLAGS := -m 2G -serial stdio -d int -D qemu.log -no-shutdown -no-reboot -icount shift=auto,align=off,sleep=on \
+# Install prefix; /usr/local is a good, standard default pick.
+PREFIX := /usr/local
 
-override IMAGE_NAME := KiNBOL_0.08_uefi-$(ARCH)
-
-# Toolchain for building the 'limine' executable for the host.
-HOST_CC := cc
-HOST_CFLAGS := -g -O2 -pipe
-HOST_CPPFLAGS :=
-HOST_LDFLAGS :=
-HOST_LIBS :=
-
-.PHONY: all
-all: $(IMAGE_NAME).iso
-
-.PHONY: all-hdd
-all-hdd: $(IMAGE_NAME).hdd
-
-.PHONY: run-hvf
-run-hvf: edk2-ovmf $(IMAGE_NAME).iso
-	qemu-system-$(ARCH) \
-		-M q35 \
-		-accel hvf \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-cdrom $(IMAGE_NAME).iso \
-		-m 2G -serial stdio -no-shutdown -no-reboot
-
-.PHONY: run
-run: run-$(ARCH)
-
-.PHONY: run-hdd
-run-hdd: run-hdd-$(ARCH)
-
-.PHONY: run-x86_64
-run-x86_64: edk2-ovmf $(IMAGE_NAME).iso fat32/data.img
-	qemu-system-$(ARCH) \
-		-M pc \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-cdrom $(IMAGE_NAME).iso \
-		-drive id=disk,file=fat32/data.img,if=none,format=raw \
-		-device ahci,id=ahci \
-		-device ide-hd,drive=disk,bus=ahci.0 \
-		$(QEMUFLAGS)
-
-.PHONY: run-hdd-x86_64
-run-hdd-x86_64: edk2-ovmf $(IMAGE_NAME).hdd
-	qemu-system-$(ARCH) \
-		-M q35 \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-hda $(IMAGE_NAME).hdd \
-		$(QEMUFLAGS)
-
-.PHONY: run-aarch64
-run-aarch64: edk2-ovmf $(IMAGE_NAME).iso
-	qemu-system-$(ARCH) \
-		-M virt \
-		-cpu cortex-a72 \
-		-device ramfb \
-		-device qemu-xhci \
-		-device usb-kbd \
-		-device usb-tablet \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-cdrom $(IMAGE_NAME).iso \
-		$(QEMUFLAGS)
-
-.PHONY: run-hdd-aarch64
-run-hdd-aarch64: edk2-ovmf $(IMAGE_NAME).hdd
-	qemu-system-$(ARCH) \
-		-M virt \
-		-cpu cortex-a72 \
-		-device ramfb \
-		-device qemu-xhci \
-		-device usb-kbd \
-		-device usb-tablet \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-hda $(IMAGE_NAME).hdd \
-		$(QEMUFLAGS)
-
-.PHONY: run-riscv64
-run-riscv64: edk2-ovmf $(IMAGE_NAME).iso
-	qemu-system-$(ARCH) \
-		-M virt \
-		-cpu rv64 \
-		-device ramfb \
-		-device qemu-xhci \
-		-device usb-kbd \
-		-device usb-tablet \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-cdrom $(IMAGE_NAME).iso \
-		$(QEMUFLAGS)
-
-.PHONY: run-hdd-riscv64
-run-hdd-riscv64: edk2-ovmf $(IMAGE_NAME).hdd
-	qemu-system-$(ARCH) \
-		-M virt \
-		-cpu rv64 \
-		-device ramfb \
-		-device qemu-xhci \
-		-device usb-kbd \
-		-device usb-tablet \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-hda $(IMAGE_NAME).hdd \
-		$(QEMUFLAGS)
-
-.PHONY: run-loongarch64
-run-loongarch64: edk2-ovmf $(IMAGE_NAME).iso
-	qemu-system-$(ARCH) \
-		-M virt \
-		-cpu la464 \
-		-device ramfb \
-		-device qemu-xhci \
-		-device usb-kbd \
-		-device usb-tablet \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-cdrom $(IMAGE_NAME).iso \
-		$(QEMUFLAGS)
-
-.PHONY: run-hdd-loongarch64
-run-hdd-loongarch64: edk2-ovmf $(IMAGE_NAME).hdd
-	qemu-system-$(ARCH) \
-		-M virt \
-		-cpu la464 \
-		-device ramfb \
-		-device qemu-xhci \
-		-device usb-kbd \
-		-device usb-tablet \
-		-drive if=pflash,unit=0,format=raw,file=edk2-ovmf/ovmf-code-$(ARCH).fd,readonly=on \
-		-hda $(IMAGE_NAME).hdd \
-		$(QEMUFLAGS)
-
-
-.PHONY: run-bios
-run-bios: $(IMAGE_NAME).iso
-	qemu-system-$(ARCH) \
-		-M q35 \
-		-cdrom $(IMAGE_NAME).iso \
-		-boot d \
-		$(QEMUFLAGS)
-
-.PHONY: run-hdd-bios
-run-hdd-bios: $(IMAGE_NAME).hdd
-	qemu-system-$(ARCH) \
-		-M q35 \
-		-hda $(IMAGE_NAME).hdd \
-		$(QEMUFLAGS)
-
-edk2-ovmf:
-	curl -L https://github.com/osdev0/edk2-ovmf-nightly/releases/latest/download/edk2-ovmf.tar.gz | gunzip | tar -xf -
-
-limine-binary/limine:
-	rm -rf limine-binary
-	curl -L https://github.com/Limine-Bootloader/Limine/releases/latest/download/limine-binary.tar.gz | gunzip | tar -xf -
-	$(MAKE) -C limine-binary \
-		CC="$(HOST_CC)" \
-		CFLAGS="$(HOST_CFLAGS)" \
-		CPPFLAGS="$(HOST_CPPFLAGS)" \
-		LDFLAGS="$(HOST_LDFLAGS)" \
-		LIBS="$(HOST_LIBS)"
-
-kernel/.deps-obtained:
-	./kernel/get-deps
-
-.PHONY: kernel
-kernel: kernel/.deps-obtained
-	$(MAKE) -C kernel
-
-fat32/data.img:
-	mkdir -p fat32
-	dd if=/dev/zero of=fat32/data.img bs=1M count=128
-	-mkfs.fat -F32 fat32/data.img || newfs_msdos -F 32 fat32/data.img || true
-
-$(IMAGE_NAME).iso: limine-binary/limine kernel
-	rm -rf iso_root
-	mkdir -p iso_root/boot
-	cp -v kernel/bin-$(ARCH)/kernel iso_root/boot/
-	mkdir -p iso_root/boot/limine
-	cp -v limine.conf iso_root/boot/limine/
-	mkdir -p iso_root/EFI/BOOT
-ifeq ($(ARCH),x86_64)
-	cp -v limine-binary/limine-bios.sys limine-binary/limine-bios-cd.bin limine-binary/limine-uefi-cd.bin iso_root/boot/limine/
-	cp -v limine-binary/BOOTX64.EFI iso_root/EFI/BOOT/
-	cp -v limine-binary/BOOTIA32.EFI iso_root/EFI/BOOT/
-	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
-		-no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
-		-apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
-		-efi-boot-part --efi-boot-image --protective-msdos-label \
-		iso_root -o $(IMAGE_NAME).iso
-	./limine-binary/limine bios-install $(IMAGE_NAME).iso
+# Check if the architecture is supported.
+ifeq ($(filter $(ARCH),aarch64 loongarch64 riscv64 x86_64),)
+    $(error Architecture $(ARCH) not supported)
 endif
-ifeq ($(ARCH),aarch64)
-	cp -v limine-binary/limine-uefi-cd.bin iso_root/boot/limine/
-	cp -v limine-binary/BOOTAA64.EFI iso_root/EFI/BOOT/
-	xorriso -as mkisofs -R -r -J \
-		-hfsplus -apm-block-size 2048 \
-		--efi-boot boot/limine/limine-uefi-cd.bin \
-		-efi-boot-part --efi-boot-image --protective-msdos-label \
-		iso_root -o $(IMAGE_NAME).iso
-endif
-ifeq ($(ARCH),riscv64)
-	cp -v limine-binary/limine-uefi-cd.bin iso_root/boot/limine/
-	cp -v limine-binary/BOOTRISCV64.EFI iso_root/EFI/BOOT/
-	xorriso -as mkisofs -R -r -J \
-		-hfsplus -apm-block-size 2048 \
-		--efi-boot boot/limine/limine-uefi-cd.bin \
-		-efi-boot-part --efi-boot-image --protective-msdos-label \
-		iso_root -o $(IMAGE_NAME).iso
-endif
-ifeq ($(ARCH),loongarch64)
-	cp -v limine-binary/limine-uefi-cd.bin iso_root/boot/limine/
-	cp -v limine-binary/BOOTLOONGARCH64.EFI iso_root/EFI/BOOT/
-	xorriso -as mkisofs -R -r -J \
-		-hfsplus -apm-block-size 2048 \
-		--efi-boot boot/limine/limine-uefi-cd.bin \
-		-efi-boot-part --efi-boot-image --protective-msdos-label \
-		iso_root -o $(IMAGE_NAME).iso
-endif
-	rm -rf iso_root
 
-$(IMAGE_NAME).hdd: limine-binary/limine kernel
-	rm -f $(IMAGE_NAME).hdd
-	dd if=/dev/zero bs=1M count=0 seek=64 of=$(IMAGE_NAME).hdd
-ifeq ($(ARCH),x86_64)
-	PATH=$$PATH:/usr/sbin:/sbin sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00 -m 1
-	./limine-binary/limine bios-install $(IMAGE_NAME).hdd
+# User controllable toolchain and toolchain prefix.
+TOOLCHAIN :=
+TOOLCHAIN_PREFIX :=
+ifneq ($(TOOLCHAIN),)
+    ifeq ($(TOOLCHAIN_PREFIX),)
+        TOOLCHAIN_PREFIX := $(TOOLCHAIN)-
+    endif
+endif
+
+# User controllable C compiler command.
+ifneq ($(TOOLCHAIN_PREFIX),)
+    CC := $(TOOLCHAIN_PREFIX)gcc
 else
-	PATH=$$PATH:/usr/sbin:/sbin sgdisk $(IMAGE_NAME).hdd -n 1:2048 -t 1:ef00
-endif
-	mformat -i $(IMAGE_NAME).hdd@@1M
-	mmd -i $(IMAGE_NAME).hdd@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine
-	mcopy -i $(IMAGE_NAME).hdd@@1M kernel/bin-$(ARCH)/kernel ::/boot
-	mcopy -i $(IMAGE_NAME).hdd@@1M limine.conf ::/boot/limine
-ifeq ($(ARCH),x86_64)
-	mcopy -i $(IMAGE_NAME).hdd@@1M limine-binary/limine-bios.sys ::/boot/limine
-	mcopy -i $(IMAGE_NAME).hdd@@1M limine-binary/BOOTX64.EFI ::/EFI/BOOT
-	mcopy -i $(IMAGE_NAME).hdd@@1M limine-binary/BOOTIA32.EFI ::/EFI/BOOT
-endif
-ifeq ($(ARCH),aarch64)
-	mcopy -i $(IMAGE_NAME).hdd@@1M limine-binary/BOOTAA64.EFI ::/EFI/BOOT
-endif
-ifeq ($(ARCH),riscv64)
-	mcopy -i $(IMAGE_NAME).hdd@@1M limine-binary/BOOTRISCV64.EFI ::/EFI/BOOT
-endif
-ifeq ($(ARCH),loongarch64)
-	mcopy -i $(IMAGE_NAME).hdd@@1M limine-binary/BOOTLOONGARCH64.EFI ::/EFI/BOOT
+    CC := cc
 endif
 
+# User controllable linker command.
+LD := $(TOOLCHAIN_PREFIX)ld
+
+# Defaults overrides for variables if using "llvm" as toolchain.
+ifeq ($(TOOLCHAIN),llvm)
+    CC := clang
+    LD := ld.lld
+endif
+
+# User controllable C flags.
+CFLAGS := -g -O2 -pipe
+
+# User controllable C preprocessor flags. We set none by default.
+CPPFLAGS :=
+
+ifeq ($(ARCH),x86_64)
+    # User controllable nasm flags.
+    NASMFLAGS := -g
+endif
+
+# User controllable linker flags. We set none by default.
+LDFLAGS :=
+
+# Ensure the dependencies have been obtained.
+ifneq ($(filter-out clean distclean,$(or $(MAKECMDGOALS),default)),)
+    ifeq ($(wildcard .deps-obtained),)
+        $(error Please run the ./get-deps script first)
+    endif
+endif
+
+# Check if CC is Clang.
+override CC_IS_CLANG := $(shell ! $(CC) --version 2>/dev/null | grep -q '^Target: '; echo $$?)
+
+# Internal C flags that should not be changed by the user.
+override CFLAGS += \
+    -Wall \
+    -Wextra \
+    -std=gnu11 \
+    -nostdinc \
+    -ffreestanding \
+    -fno-stack-protector \
+    -fno-stack-check \
+    -fno-lto \
+    -fno-PIC \
+    -ffunction-sections \
+    -fdata-sections
+
+# Internal C preprocessor flags that should not be changed by the user.
+override CPPFLAGS := \
+    -I src \
+    -I limine-protocol/include \
+    -isystem freestnd-c-hdrs/include \
+    $(CPPFLAGS) \
+    -MMD \
+    -MP
+
+ifeq ($(ARCH),x86_64)
+    # Internal nasm flags that should not be changed by the user.
+    override NASMFLAGS := \
+        $(patsubst -g,-g -F dwarf,$(NASMFLAGS)) \
+        -Wall
+endif
+
+# Architecture specific internal flags.
+ifeq ($(ARCH),x86_64)
+    ifeq ($(CC_IS_CLANG),1)
+        override CC += \
+            -target x86_64-unknown-none-elf
+    endif
+    override CFLAGS += \
+        -m64 \
+        -march=x86-64 \
+        -mabi=sysv \
+        -mno-80387 \
+        -mno-mmx \
+        -mno-sse \
+        -mno-sse2 \
+        -mno-red-zone \
+        -mcmodel=kernel
+    override LDFLAGS += \
+        -m elf_x86_64
+    override NASMFLAGS := \
+        -f elf64 \
+        $(NASMFLAGS)
+endif
+ifeq ($(ARCH),aarch64)
+    ifeq ($(CC_IS_CLANG),1)
+        override CC += \
+            -target aarch64-unknown-none-elf
+    endif
+    override CFLAGS += \
+        -mcpu=generic \
+        -march=armv8-a+nofp+nosimd \
+        -mgeneral-regs-only
+    override LDFLAGS += \
+        -m aarch64elf
+endif
+ifeq ($(ARCH),riscv64)
+    ifeq ($(CC_IS_CLANG),1)
+        override CC += \
+            -target riscv64-unknown-none-elf
+    endif
+    override CFLAGS += \
+        -march=rv64imac_zicsr_zifencei \
+        -mabi=lp64 \
+        -mno-relax
+    override LDFLAGS += \
+        -m elf64lriscv \
+        --no-relax
+endif
+ifeq ($(ARCH),loongarch64)
+    ifeq ($(CC_IS_CLANG),1)
+        override CC += \
+            -target loongarch64-unknown-none-elf
+    endif
+    override CFLAGS += \
+        -march=loongarch64 \
+        -mabi=lp64s \
+        -mfpu=none \
+        -msimd=none
+    override LDFLAGS += \
+        -m elf64loongarch
+endif
+
+# Internal linker flags that should not be changed by the user.
+override LDFLAGS += \
+    -nostdlib \
+    -static \
+    -z max-page-size=0x1000 \
+    --gc-sections \
+    -T linker-scripts/$(ARCH).lds
+
+# Use "find" to glob all *.c, *.S, and *.asm files in the tree
+# (except the src/arch/* directories, as those are gonna be added
+# in the next step).
+override SRCFILES := $(shell find -L src cc-runtime/src -type f -not -path 'src/arch/*' 2>/dev/null | LC_ALL=C sort)
+# Add architecture specific files, if they exist.
+override SRCFILES += $(shell find -L src/arch/$(ARCH) -type f 2>/dev/null | LC_ALL=C sort)
+# Obtain the object and header dependencies file names.
+override CFILES := $(filter %.c,$(SRCFILES))
+override ASFILES := $(filter %.S,$(SRCFILES))
+ifeq ($(ARCH),x86_64)
+override NASMFILES := $(filter %.asm,$(SRCFILES))
+endif
+override OBJ := $(addprefix obj-$(ARCH)/,$(CFILES:.c=.c.o) $(ASFILES:.S=.S.o))
+ifeq ($(ARCH),x86_64)
+override OBJ += $(addprefix obj-$(ARCH)/,$(NASMFILES:.asm=.asm.o))
+endif
+override HEADER_DEPS := $(addprefix obj-$(ARCH)/,$(CFILES:.c=.c.d) $(ASFILES:.S=.S.d))
+
+# Default target. This must come first, before header dependencies.
+.PHONY: all
+all: bin-$(ARCH)/$(OUTPUT)
+
+# Include header dependencies.
+-include $(HEADER_DEPS)
+
+# Link rules for the final executable.
+bin-$(ARCH)/$(OUTPUT): GNUmakefile linker-scripts/$(ARCH).lds $(OBJ)
+	mkdir -p "$(dir $@)"
+	$(LD) $(LDFLAGS) $(OBJ) -o $@
+
+# Compilation rules for *.c files.
+obj-$(ARCH)/%.c.o: %.c GNUmakefile
+	mkdir -p "$(dir $@)"
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+# Compilation rules for *.S files.
+obj-$(ARCH)/%.S.o: %.S GNUmakefile
+	mkdir -p "$(dir $@)"
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+ifeq ($(ARCH),x86_64)
+# Compilation rules for *.asm (nasm) files.
+obj-$(ARCH)/%.asm.o: %.asm GNUmakefile
+	mkdir -p "$(dir $@)"
+	nasm $(NASMFLAGS) $< -o $@
+endif
+
+# Remove object files and the final executable.
 .PHONY: clean
 clean:
-	$(MAKE) -C kernel clean
-	rm -rf iso_root $(IMAGE_NAME).iso $(IMAGE_NAME).hdd
+	rm -rf bin-$(ARCH) obj-$(ARCH)
 
+# Remove everything built and generated including downloaded dependencies.
 .PHONY: distclean
 distclean:
-	$(MAKE) -C kernel distclean
-	rm -rf iso_root *.iso *.hdd limine-binary edk2-ovmf
+	rm -rf bin-* obj-* .deps-obtained .cache compile_commands.json freestnd-c-hdrs cc-runtime limine-protocol
+
+# Install the final built executable to its final on-root location.
+.PHONY: install
+install: all
+	install -d "$(DESTDIR)$(PREFIX)/share/$(OUTPUT)"
+	install -m 644 bin-$(ARCH)/$(OUTPUT) "$(DESTDIR)$(PREFIX)/share/$(OUTPUT)/$(OUTPUT)-$(ARCH)"
+
+# Try to undo whatever the "install" target did.
+.PHONY: uninstall
+uninstall:
+	rm -f "$(DESTDIR)$(PREFIX)/share/$(OUTPUT)/$(OUTPUT)-$(ARCH)"
+	-rmdir "$(DESTDIR)$(PREFIX)/share/$(OUTPUT)"

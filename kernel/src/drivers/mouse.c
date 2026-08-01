@@ -44,6 +44,9 @@ static volatile mouse_state_t state = {0, 0, 0, 0, 0};
 static uint8_t packet[3];
 static int packet_idx = 0;
 
+static volatile int cur_dx = 0;
+static volatile int cur_dy = 0;
+
 static void mouse_isr(void) {
     if (!(inb(PS2_STATUS) & 0x20)) {
         lapic_eoi();
@@ -74,6 +77,9 @@ static void mouse_isr(void) {
         state.left   = flags & 0x01;
         state.right  = flags & 0x02;
         state.middle = flags & 0x04;
+
+        cur_dx += dx;
+        cur_dy -= dy;
     }
 
     lapic_eoi();
@@ -123,4 +129,14 @@ mouse_state_t mouse_get_state(void) {
     state.dx = 0;
     state.dy = 0;
     return copy;
+}
+
+void mouse_get_cursor_delta(int *dx, int *dy, int *left, int *right, int *middle) {
+    *dx = cur_dx;
+    *dy = cur_dy;
+    cur_dx = 0;
+    cur_dy = 0;
+    *left   = state.left;
+    *right  = state.right;
+    *middle = state.middle;
 }

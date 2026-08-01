@@ -11,6 +11,7 @@
 #include "graphics/terminal.h"
 #include "graphics/api/gpipe.h"
 #include "graphics/api/gpipe_prim.h"
+#include "graphics/cursor.h"
 #include "graphics/font.h"
 #include "kernel/gdt.h"
 #include "kernel/idt.h"
@@ -117,6 +118,7 @@ static void print_banner(void) {
 
 static void timer_isr(void) {
     pit_tick();
+    cursor_update();
     lapic_eoi();
 
     if (bkl == 0) {
@@ -192,6 +194,7 @@ void kmain(void) {
         lapic_timer_init(100, TIMER_VECTOR);
 
         mouse_init();
+        cursor_init();
 
         dmesg("[boot] LAPIC/IOAPIC timer online\n");
     } else {
@@ -225,6 +228,7 @@ void kmain(void) {
 
     terminal_clear();
     print_banner();
+    cursor_force_redraw();
 
     shell_run();
     hcf();
