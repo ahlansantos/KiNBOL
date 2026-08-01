@@ -90,6 +90,11 @@ void cmd_fastfetch(void) {
     terminal_println("Lib-kin v0.1");
 
     terminal_set_fg(0xDDDDDD);
+    terminal_print("  Userland: ");
+    terminal_set_fg(0x88CC88);
+    terminal_println("musl (static, x86_64-linux-musl target) [ELF loader WIP]");
+
+    terminal_set_fg(0xDDDDDD);
     terminal_print("  CPU:      ");
     terminal_set_fg(0x88CC88);
 

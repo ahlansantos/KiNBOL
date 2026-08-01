@@ -4,3 +4,5 @@
 *.hdd
 *.log
 *.img
+data.img
+fat32/
