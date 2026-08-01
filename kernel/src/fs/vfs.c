@@ -190,6 +190,7 @@ int vfs_register(vfs_node_t *node) {
 vfs_node_t *vfs_find(const char *name) {
     const char *n = name;
     if (n[0] == '/' && n[1] == 'd' && n[2] == 'e' && n[3] == 'v' && n[4] == '/') n += 5;
+    if (n[0] == 's' && n[1] == 'd' && n[2] == 'a' && n[3] == '/') n += 4;
     for (int i = 0; i < node_count; i++)
         if (nodes[i] && str_eq_ci(nodes[i]->name, n)) return nodes[i];
     return NULL;

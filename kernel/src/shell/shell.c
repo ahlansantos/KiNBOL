@@ -113,6 +113,16 @@ void shell_run(void) {
             if (*d) cmd_vfsread(d);
             else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: cat <dev>"); }
         }
+        else if (sh_startswith(in, "touch ")) {
+            char *d = in + 6; while (*d == ' ') d++;
+            if (*d) cmd_touch(d);
+            else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: touch <file>"); }
+        }
+        else if (sh_startswith(in, "mkdir ")) {
+            char *d = in + 6; while (*d == ' ') d++;
+            if (*d) cmd_mkdir(d);
+            else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: mkdir <dir>"); }
+        }
         else if (sh_startswith(in, "vfswrite ")) {
             char *p = in + 9; while (*p == ' ') p++;
             char *q = p; while (*q && *q != ' ') q++;

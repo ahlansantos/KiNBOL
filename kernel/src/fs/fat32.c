@@ -413,6 +413,19 @@ int fat32_mkdir(const char *name) {
 
     write_sectors(cluster_to_lba(newc), sectors_per_cluster, cbuf);
     kfree(cbuf);
+
+    if (fat_file_count < FAT32_MAX_FILES) {
+        vfs_node_t *dn = &fat_files[fat_file_count++];
+        memset(dn, 0, sizeof(vfs_node_t));
+        char sname[13];
+        format_name(name8, ext3, sname);
+        strncpy(dn->name, sname, VFS_NAME_MAX - 1);
+        dn->name[VFS_NAME_MAX - 1] = 0;
+        dn->flags = VFS_DIRECTORY;
+        dn->size  = 0;
+        vfs_register(dn);
+    }
+
     return 1;
 }
 
@@ -447,6 +460,15 @@ static void fat32_scan_dir(uint32_t dir_cluster, const char *prefix, int depth) 
             uint32_t start_cluster = ((uint32_t)e->fst_clus_hi << 16) | e->fst_clus_lo;
 
             if (e->attr & 0x10) {
+                if (fat_file_count < FAT32_MAX_FILES) {
+                    vfs_node_t *dn = &fat_files[fat_file_count++];
+                    memset(dn, 0, sizeof(vfs_node_t));
+                    strncpy(dn->name, fullname, VFS_NAME_MAX - 1);
+                    dn->name[VFS_NAME_MAX - 1] = 0;
+                    dn->flags = VFS_DIRECTORY;
+                    dn->size  = 0;
+                    vfs_register(dn);
+                }
 
                 if (start_cluster >= 2 && fat_file_count < FAT32_MAX_FILES) {
                     char subprefix[VFS_NAME_MAX];

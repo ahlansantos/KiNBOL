@@ -80,9 +80,12 @@ void cmd_help(void) {
     terminal_set_fg(COLOR_DIM);
     terminal_println("  ------------------------------------------");
     terminal_set_fg(COLOR_BODY);
-    terminal_println("  ls                     list /dev nodes");
-    terminal_println("  cat <dev>              read device");
-    terminal_println("  vfswrite <dev> <txt>   write device");
+    terminal_println("  ls                     list devices and disk files");
+    terminal_println("  ls -a                  also show hidden/macOS junk files");
+    terminal_println("  cat <name>             read file/device");
+    terminal_println("  vfswrite <name> <txt>  write file/device");
+    terminal_println("  touch <name>           create empty file (root dir)");
+    terminal_println("  mkdir <name>           create directory (root dir)");
 
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Graphics (GPipe)");

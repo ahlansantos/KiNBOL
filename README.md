@@ -71,7 +71,7 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 |---|---|
 | system | `ps`, `dmesg`, `dmesg --clear`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear`, `syscalls`, `libktest` |
 | memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
-| filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel` (ramdisk only) · `ls`, `ls -a`, `cat <file>`, `vfswrite <file> <data>` (all VFS nodes — ramdisk, `/dev/*`, and every mounted FAT32 file on `/dev/sda`) |
+| filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel` (ramdisk only) · `ls`, `ls -a`, `cat <file>`, `vfswrite <file> <data>`, `touch <file>`, `mkdir <dir>` (VFS nodes; `ls` shows the disk as `sda` with all FAT32 files/dirs listed as `sda/name`, `touch`/`mkdir` write into the root directory of `/dev/sda` only) |
 | graphics | `clearfb`, `scale`, `gpipe`, `gpipe clearfb`, `gpipe drawtest` |
 | scheduler | `schedtest`, `sleeptest`, `top` |
 | ring 3 | `usertest` — spawns a task, enters ring 3 via `iretq`, runs a hand-written user blob that calls `SYS_WRITE`/`SYS_SLEEP`/`SYS_EXIT` through the modern `syscall` instruction (Linux ABI) |
@@ -131,21 +131,34 @@ FAT32 support (`fs/fat32.c`) includes:
 
 **what's still missing, if you want to push this further:** long file names, an FSInfo-based
 allocator (avoids rescanning the FAT from scratch when the hint wraps), directory creation
-(`mkdir`/new file creation — right now you can only write into files that already exist on
-the image), and multi-disk / multi-port AHCI support (`active_port` is a single global).
+(`mkdir`/new file creation only work in the root directory right now — `touch`/`mkdir` inside
+a subfolder isn't implemented yet), and multi-disk / multi-port AHCI support (`active_port`
+is a single global).
 
 ### `ls` output
 
-`ls` splits its output into two sections — `Devices` (`sda`, `ram0`, `tty`, etc.) and
-`Disk Files` (anything mounted off `/dev/sda`'s FAT32) — each entry tagged `[device]` or
-`[file]` instead of a fake `/dev/`-style path. **The name shown is always the exact name
-you type into `cat`/`vfswrite`** — there is no real path prefix, since the VFS is a flat
-namespace. `ls -a` also shows macOS-generated metadata junk (`.fseventsd`, `.Trashes`,
-`.DS_Store`, AppleDouble `._file` entries) that gets auto-created any time you mount the
-disk image on macOS to drop a file in — hidden by default since it isn't real data.
+`ls` looks like a real Unix `ls`: a plain columnar grid, colored by type, no headers or
+`[tag]` labels. Low-level char devices (`null`, `zero`, `random`, `tty`, `dmesg`) and the
+internal ramdisk block device (`ram0`) are hidden by default — they're kernel plumbing, not
+something a user needs to see every time. `sda` (the disk) is shown bare; everything mounted
+off its FAT32 filesystem — files and directories, at any depth — is shown prefixed `sda/`,
+e.g. `sda/pasta1/`, `sda/teste.txt`, matching how you'd expect a real disk to be addressed.
+
+`cat`/`vfswrite`/`touch` all accept that `sda/` prefix too (it's stripped in `vfs_find()`
+before lookup), so `cat sda/teste.txt` works the same as `cat teste.txt`. `ls -a` also shows
+macOS-generated metadata junk (`.fseventsd`, `.Trashes`, `.DS_Store`, AppleDouble `._file`
+entries) that gets auto-created any time you mount the disk image on macOS to drop a file
+in — hidden by default since it isn't real data.
 
 Filename lookup (`vfs_find`) is case-insensitive, so `cat teste.txt` finds a file the FAT32
 short-name table stored as `TESTE.TXT` (short 8.3 names are always uppercase on disk).
+
+To wipe `data.img` clean between test runs without reformatting:
+```bash
+hdiutil attach data.img            # note the /Volumes/NO NAME mount point
+rm -rf "/Volumes/NO NAME"/*
+hdiutil detach /dev/diskN
+```
 
 ### setting up `data.img`
 
@@ -182,6 +195,44 @@ loopback-mount on Linux), copy files in, then unmount before starting QEMU.
   "command not found".
 - **Case-insensitive file lookup** — `vfs_find()` was exact-match only, so a file the FAT32
   driver stored as `TESTE.TXT` couldn't be opened with `cat teste.txt`. Now case-insensitive.
+- **FAT32 file/directory creation** — `fat32_create_file()` and `fat32_mkdir()` added
+  (`touch`/`mkdir` shell commands), root directory only for now. `mkdir` registers the new
+  directory in the VFS immediately, no reboot needed to see it.
+- **Directories are now first-class VFS nodes** — `fat32_scan_dir()` used to only recurse
+  into subdirectories without registering them; now every directory gets a `VFS_DIRECTORY`
+  node too, so `ls` can actually show them.
+- **`ls` rewritten to look like a real Unix `ls`** — plain columnar grid instead of boxed
+  headers/tags. Low-level char devices (`null`/`zero`/`random`/`tty`/`dmesg`) and the
+  internal `ram0` ramdisk are hidden by default (kernel plumbing, not user-facing). The disk
+  shows as bare `sda`; everything on its FAT32 filesystem is shown as `sda/name`, and that
+  same `sda/` prefix is now accepted by `cat`/`vfswrite`/`touch` for consistency.
+- **Isolated-pagemap freeze fix** — `vmm_create_pagemap()` only clones the kernel's PML4
+  entries (256–511) at the moment a user task is created; any kernel PML4 entry allocated
+  *after* that point (e.g. a new top-level region) was invisible to that task and could
+  fault-loop/hang it. Added `vmm_sync_kernel_entry()`, called from the `#PF` handler, which
+  copies the missing entry over on demand and retries — the standard "vmalloc fault" pattern.
+
+---
+
+## Linux userland compat — the plan
+
+Next big milestone: run real static binaries (musl-libc) in ring 3. Broken into stages:
+
+1. **ELF loader** (not started) — parse the ELF header, map every `PT_LOAD` segment via
+   `vmm_map` at the addresses the header requests, zero the BSS tail, jump to `e_entry` via
+   the existing `enter_userspace()`.
+2. **Linux-style initial user stack** — musl's `_start` expects `argc, argv[], NULL, envp[],
+   NULL, auxv[]..., AT_NULL` already laid out on the stack when it starts running, not just a
+   bare entry jump. This has to be built by whatever launches the program (planned shell
+   command: `exec <file>`), separate from the ELF parsing itself.
+3. **musl toolchain** — musl builds unmodified against `--target=x86_64-linux-musl` (with
+   `--disable-shared` for now), since the kernel already speaks the Linux `syscall` ABI —
+   no custom target needed, that's the whole point of matching the syscall numbers/registers.
+4. **Fill in missing syscalls as they come up** — a musl static binary's `_start` calls a
+   handful of syscalls before `main()` even runs (`arch_prctl` for TLS, possibly `brk`,
+   `set_tid_address`, `exit_group`). Expect to discover missing ones via the exception dump
+   (RAX at the fault = syscall number) and add them incrementally rather than pre-guessing
+   the full list.
 
 ---
 
@@ -205,8 +256,10 @@ loopback-mount on Linux), copy files in, then unmount before starting QEMU.
 - [x] Lib-kin v0.1 (kernel standard library + deduplication)
 - [x] userspace memory allocation (`SYS_BRK`, `SYS_MMAP` anonymous)
 - [x] POSIX syscall stubs (`open`, `close`, `stat`, `arch_prctl`, etc.)
-- [ ] ELF loader
-- [x] FAT32 (read + write, subdirectories flattened into VFS)
+- [ ] ELF loader (PT_LOAD mapping, BSS zeroing, jump to e_entry)
+- [ ] Linux-style initial user stack (argc/argv/envp/auxv) for `exec`
+- [ ] musl static toolchain + fill in missing syscalls as discovered
+- [x] FAT32 (read + write, subdirectories flattened into VFS, root-dir file/dir creation)
 - [x] PCI Enumeration (AHCI/SATA foundation) + memory space / bus mastering enable
 - [x] AHCI/SATA driver (single port, read + write DMA, GHC.AE + BOHC handoff, locked HBA access)
 

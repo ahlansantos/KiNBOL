@@ -4,6 +4,7 @@
 #include "../../fs/vfs.h"
 #include "../../fs/ramdisk.h"
 #include "../../fs/fat32.h"
+#include <libk/string.h>
 
 static int str_contains(const char *hay, const char *needle) {
     for (int i = 0; hay[i]; i++) {
@@ -26,58 +27,62 @@ static int is_macos_junk(const char *name) {
 }
 
 static int ls_show_hidden = 0;
-static int ls_dev_count, ls_file_count, ls_hidden_count;
+static int ls_col = 0;
+static int ls_total = 0;
 
-static void vfsls_devs_cb(const char *name, uint32_t flags, uint32_t size) {
-    if (flags & VFS_FILE) return;
-    terminal_set_fg(COLOR_DIM);
-    terminal_print("  [device]  ");
-    terminal_set_fg((flags & VFS_BLOCKDEV) ? COLOR_WARNING : COLOR_HIGHLIGHT);
-    terminal_print(name);
-    if (size) {
-        terminal_set_fg(COLOR_BODY);
-        terminal_print("  (");
-        terminal_print_int(size);
-        terminal_print(" bytes)");
-    }
-    terminal_println("");
-    ls_dev_count++;
+#define LS_COL_WIDTH 16
+#define LS_COLS      5
+
+static int is_noisy_dev(const char *name, uint32_t flags) {
+    if (flags & VFS_CHARDEV) return 1;
+    if ((flags & VFS_BLOCKDEV) && !strcmp(name, "ram0")) return 1;
+    return 0;
 }
 
-static void vfsls_files_cb(const char *name, uint32_t flags, uint32_t size) {
-    if (!(flags & VFS_FILE)) return;
-    if (!ls_show_hidden && is_macos_junk(name)) { ls_hidden_count++; return; }
-    terminal_set_fg(COLOR_DIM);
-    terminal_print("  [file]    ");
-    terminal_set_fg(COLOR_HIGHLIGHT);
-    terminal_print(name);
-    terminal_set_fg(COLOR_BODY);
-    terminal_print("  (");
-    terminal_print_int(size);
-    terminal_print(" bytes)");
-    terminal_println("");
-    ls_file_count++;
+static void ls_print(const char *label, int is_dir) {
+    int len = str_len(label);
+    terminal_print(label);
+    if (is_dir) { terminal_putchar('/'); len++; }
+    for (int i = len; i < LS_COL_WIDTH; i++) terminal_putchar(' ');
+
+    ls_col++;
+    ls_total++;
+    if (ls_col >= LS_COLS) { terminal_println(""); ls_col = 0; }
+}
+
+static void vfsls_all_cb(const char *name, uint32_t flags, uint32_t size) {
+    (void)size;
+
+    if (flags & VFS_BLOCKDEV) {
+        if (is_noisy_dev(name, flags)) return;
+        terminal_set_fg(COLOR_HIGHLIGHT);
+        ls_print(name, 0);
+        return;
+    }
+    if (flags & VFS_CHARDEV) return;
+
+    if (!ls_show_hidden && is_macos_junk(name)) return;
+
+    char full[80];
+    int o = 0;
+    full[o++] = 's'; full[o++] = 'd'; full[o++] = 'a'; full[o++] = '/';
+    for (int i = 0; name[i] && o < 78; i++) full[o++] = name[i];
+    full[o] = 0;
+
+    terminal_set_fg((flags & VFS_DIRECTORY) ? COLOR_WARNING : COLOR_BODY);
+    ls_print(full, (flags & VFS_DIRECTORY) ? 1 : 0);
 }
 
 void cmd_vfsls_ex(int show_hidden) {
     ls_show_hidden = show_hidden;
-    ls_dev_count = ls_file_count = ls_hidden_count = 0;
+    ls_col = 0;
+    ls_total = 0;
 
-    print_header("Devices");
-    vfs_list(vfsls_devs_cb);
-    terminal_println("");
-
-    print_header("Disk Files");
-    vfs_list(vfsls_files_cb);
-    if (ls_file_count == 0) {
+    vfs_list(vfsls_all_cb);
+    if (ls_col != 0) terminal_println("");
+    if (ls_total == 0) {
         terminal_set_fg(COLOR_DIM);
-        terminal_println("  (none)");
-    }
-    if (!show_hidden && ls_hidden_count) {
-        terminal_set_fg(COLOR_DIM);
-        terminal_print("  (+");
-        terminal_print_int(ls_hidden_count);
-        terminal_println(" macOS metadata files hidden, use 'ls -a')");
+        terminal_println("  (empty)");
     }
     terminal_println("");
 }

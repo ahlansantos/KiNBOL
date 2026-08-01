@@ -29,6 +29,8 @@ void vmm_switch(pagemap_t pm);
 
 pagemap_t vmm_current(void);
 
+int vmm_sync_kernel_entry(uint64_t vaddr);
+
 int vmm_map(pagemap_t pm, uint64_t virt, uint64_t phys, uint64_t flags);
 
 void vmm_unmap(pagemap_t pm, uint64_t virt);
