@@ -20,7 +20,7 @@ x86_64 · UEFI · Limine · Ring 0 + Ring 3
 
 KiNBOL is a hobby OS I'm building from scratch to learn how operating systems actually work. It started as a simple framebuffer kernel and grew into something with memory management, interrupts, a scheduler, syscalls, and user mode.
 
-Most things here are written from scratch, and a lot of documentation.
+~~Most things here are written from scratch, and a lot of documentation.~~
 
 ---
 
