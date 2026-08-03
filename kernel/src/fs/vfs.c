@@ -187,6 +187,19 @@ int vfs_register(vfs_node_t *node) {
     return 0;
 }
 
+int vfs_unregister(vfs_node_t *node) {
+    if (!node) return -1;
+    for (int i = 0; i < node_count; i++) {
+        if (nodes[i] == node) {
+            for (int j = i; j < node_count - 1; j++) nodes[j] = nodes[j + 1];
+            nodes[node_count - 1] = NULL;
+            node_count--;
+            return 0;
+        }
+    }
+    return -1;
+}
+
 vfs_node_t *vfs_find(const char *name) {
     const char *n = name;
     if (n[0] == '/' && n[1] == 'd' && n[2] == 'e' && n[3] == 'v' && n[4] == '/') n += 5;

@@ -30,6 +30,7 @@ typedef struct vfs_node {
 void vfs_init(void);
 
 int vfs_register(vfs_node_t *node);
+int vfs_unregister(vfs_node_t *node);
 
 vfs_node_t *vfs_find(const char *name);
 

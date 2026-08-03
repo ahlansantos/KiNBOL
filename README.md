@@ -71,7 +71,7 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 |---|---|
 | system | `ps`, `dmesg`, `dmesg --clear`, `uname`, `ticks`, `date`, `sleep`, `reboot`, `shutdown`, `fastfetch`, `help`, `clear`, `syscalls`, `libktest` |
 | memory | `meminfo`, `memtest`, `vminfo`, `hexdump`, `peek`, `poke` |
-| filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel` (ramdisk only) · `ls`, `ls -a`, `cat <file>`, `vfswrite <file> <data>`, `touch <file>`, `mkdir <dir>` (VFS nodes; `ls` shows the disk as `sda` with all FAT32 files/dirs listed as `sda/name`, `touch`/`mkdir` write into the root directory of `/dev/sda` only) |
+| filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel` (ramdisk only) · `ls`, `ls -a`, `cat <file>`, `vfswrite <file> <data>`, `touch <path>`, `mkdir <path>`, `rm <path>`, `rm -r <path>`, `rmdir <path>` (VFS nodes; `ls` shows the disk as `sda` with all FAT32 files/dirs listed as `sda/name`, `touch`/`mkdir`/`rm`/`rmdir` work at any depth via `sda/pasta1/x.txt`-style paths) |
 | graphics | `clearfb`, `scale`, `gpipe`, `gpipe clearfb`, `gpipe drawtest` |
 | scheduler | `schedtest`, `sleeptest`, `top` |
 | ring 3 | `usertest` — spawns a task, enters ring 3 via `iretq`, runs a hand-written user blob that calls `SYS_WRITE`/`SYS_SLEEP`/`SYS_EXIT` through the modern `syscall` instruction (Linux ABI) |
@@ -123,17 +123,41 @@ FAT32 support (`fs/fat32.c`) includes:
   folder; since this kernel's VFS is a flat namespace (linear array, `strcmp` lookup, no
   path walking), nested files are registered as `parent/child.txt` style flattened names,
   so `cat`/`vfswrite`/`ls` all keep working with zero shell changes
-- cluster allocation via a linear FAT scan with a "next free" hint (no FSInfo yet)
+- cluster allocation via an FSInfo-backed hint (`next_free`/`free_count` read at mount,
+  updated on every allocation); falls back to a linear FAT scan from cluster 2 if the
+  FSInfo sector's signatures don't validate (older/foreign images)
+- directory creation (`touch`/`mkdir`) works at any depth, not just root — both resolve
+  the parent directory's cluster through the VFS (every directory node now carries its
+  own `start_cluster`), and a directory chain that's completely full gets extended with
+  a freshly-allocated cluster automatically instead of failing
 - FAT entries are read/written directly from disk per-access rather than cached whole in
   RAM — simpler and always-consistent, at the cost of raw throughput
-- short (8.3) names only; long file name (VFAT) entries are recognized and skipped, not
-  parsed — a file's long name won't show up, only its short name
+- **long file names (VFAT/LFN)** — names that don't fit 8.3 (too long, lowercase, multiple
+  dots) get real LFN entries on write (UTF-16, checksum, sequence-numbered), with a unique
+  short name generated alongside (`SUBFO~1`, `SUBFO~2`, ...) for backward compatibility.
+  `fat32_scan_dir()` reconstructs the long name on read by walking the LFN chain backward
+  from the short entry and validating its checksum; a corrupt/orphaned LFN chain falls back
+  to the short name instead of showing garbage
+- **`rm`/`rmdir`, including recursive delete** — `fat32_remove()` frees the cluster chain,
+  tombstones the short entry (`0xE5`) on disk, and walks backward to tombstone any LFN
+  entries that belonged to it (matched by checksum) so no directory slots leak. `rm -r` on a
+  directory finds every VFS node nested under that path, deletes deepest-first, then removes
+  the directory itself; a non-recursive `rmdir` refuses unless the directory is actually empty
+- directory creation (`touch`/`mkdir`) works at any depth, not just root — both resolve
+  the parent directory's cluster through the VFS (every directory node now carries its
+  own `start_cluster`), and a directory chain that's completely full gets extended with
+  a freshly-allocated cluster automatically instead of failing
+- `touch`/`mkdir` reject a path that already exists (`FAT32_ERR_EXISTS`) instead of silently
+  creating a second, colliding VFS node for the same name
+- all mutating FAT32 entry points (`fat32_create_file`, `fat32_mkdir`, `fat32_remove`) are
+  serialized behind their own `fs_lock` spinlock (`kernel/lock.c`) — separate from the
+  scheduler's BKL, which only ever protected the task list, not filesystem state
 
-**what's still missing, if you want to push this further:** long file names, an FSInfo-based
-allocator (avoids rescanning the FAT from scratch when the hint wraps), directory creation
-(`mkdir`/new file creation only work in the root directory right now — `touch`/`mkdir` inside
-a subfolder isn't implemented yet), and multi-disk / multi-port AHCI support (`active_port`
-is a single global).
+**what's still missing, if you want to push this further:** rename, and multi-disk /
+multi-port AHCI support (`active_port` is a single global). LFN entry cleanup on delete
+assumes the LFN run for an entry lives in the same cluster as its short entry, which is true
+for every name this driver itself writes but may miss orphaned entries on a directory-entry
+run that straddles a cluster boundary if written by something else.
 
 ### `ls` output
 
@@ -196,7 +220,7 @@ loopback-mount on Linux), copy files in, then unmount before starting QEMU.
 - **Case-insensitive file lookup** — `vfs_find()` was exact-match only, so a file the FAT32
   driver stored as `TESTE.TXT` couldn't be opened with `cat teste.txt`. Now case-insensitive.
 - **FAT32 file/directory creation** — `fat32_create_file()` and `fat32_mkdir()` added
-  (`touch`/`mkdir` shell commands), root directory only for now. `mkdir` registers the new
+  (`touch`/`mkdir` shell commands), root directory only at first. `mkdir` registers the new
   directory in the VFS immediately, no reboot needed to see it.
 - **Directories are now first-class VFS nodes** — `fat32_scan_dir()` used to only recurse
   into subdirectories without registering them; now every directory gets a `VFS_DIRECTORY`
@@ -211,6 +235,39 @@ loopback-mount on Linux), copy files in, then unmount before starting QEMU.
   *after* that point (e.g. a new top-level region) was invisible to that task and could
   fault-loop/hang it. Added `vmm_sync_kernel_entry()`, called from the `#PF` handler, which
   copies the missing entry over on demand and retries — the standard "vmalloc fault" pattern.
+- **FSInfo-backed cluster allocator** — `fat32_init()` now reads the FSInfo sector
+  (`bpb->fs_info`), validates its lead/struc/trail signatures, and seeds `next_free_hint`
+  from it instead of always starting the scan at cluster 2. `fat32_alloc_cluster()` updates
+  `free_count`/`next_free` and writes the sector back on every allocation; falls back to the
+  old full-scan behavior if the signatures don't check out.
+- **`touch`/`mkdir` work at any depth** — directories now carry their own `start_cluster`
+  (same as files), so a path like `pasta1/sub/arquivo.txt` resolves its parent through the
+  VFS instead of needing root. A directory chain that's completely full also gets extended
+  with a new cluster automatically, instead of failing outright (this used to be a root-only
+  limitation, and even root didn't grow when full).
+- **`ls` is now a tree** — entries are sorted alphabetically (which naturally groups a
+  directory right before its own children) and printed indented by path depth instead of a
+  flat column grid; the macOS-junk filter now checks only the leaf name instead of the whole
+  path, so a hidden file inside a visible subfolder is filtered correctly.
+- **Long file names (VFAT/LFN)** — `mkdir folder1/subfolder1` used to silently store
+  `SUBFOLDE` (8.3-truncated, no warning), and a later `touch folder1/subfolder1/x.txt` would
+  fail with a misleading "disk full" because the real parent name didn't match. FAT32 write
+  paths now emit proper LFN entries when a name doesn't fit 8.3, with a generated-unique
+  short name kept alongside for compatibility; the scan path reconstructs the long name from
+  the LFN chain (checksum-validated against the short entry) so it round-trips correctly
+  across reboots.
+- **`rm` / `rm -r` / `rmdir`** — first delete support of any kind; previously the FSInfo free
+  counters only ever went down. Frees the cluster chain, tombstones the directory entry (and
+  any LFN entries belonging to it) on disk, and unregisters the VFS node. `rm -r` recurses;
+  plain `rmdir` refuses on a non-empty directory instead of silently orphaning its contents.
+- **`fs_lock`, separate from the scheduler's BKL** — the BKL (`kernel/lock.c`) only ever
+  guarded the task list; FAT32 had no locking of its own at all. Rather than overload the
+  scheduler's lock (which would serialize filesystem work against scheduling for no reason),
+  every mutating FAT32 entry point now takes a dedicated `fs_lock` spinlock.
+- **`touch`/`mkdir` now reject existing names** — creating a path that already resolves to a
+  VFS node returns `FAT32_ERR_EXISTS` instead of silently registering a second, colliding
+  node for the same name (this could previously happen from re-running `touch` on the same
+  file, corrupting the flat VFS namespace's assumption that names are unique).
 
 ---
 
@@ -259,7 +316,8 @@ Next big milestone: run real static binaries (musl-libc) in ring 3. Broken into 
 - [ ] ELF loader (PT_LOAD mapping, BSS zeroing, jump to e_entry)
 - [ ] Linux-style initial user stack (argc/argv/envp/auxv) for `exec`
 - [ ] musl static toolchain + fill in missing syscalls as discovered
-- [x] FAT32 (read + write, subdirectories flattened into VFS, root-dir file/dir creation)
+- [x] FAT32 (read + write, subdirectories flattened into VFS, file/dir creation and recursive
+      deletion at any depth via FSInfo-backed allocator, long file names)
 - [x] PCI Enumeration (AHCI/SATA foundation) + memory space / bus mastering enable
 - [x] AHCI/SATA driver (single port, read + write DMA, GHC.AE + BOHC handoff, locked HBA access)
 

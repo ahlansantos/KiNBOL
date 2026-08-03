@@ -32,6 +32,8 @@ void cmd_vfsread(const char *dev);
 void cmd_vfswrite(const char *dev, const char *data);
 void cmd_touch(const char *name);
 void cmd_mkdir(const char *name);
+void cmd_rm(const char *name, int recursive);
+void cmd_rmdir(const char *name);
 void cmd_ps(void);
 void cmd_schedtest(void);
 void cmd_sleeptest(void);

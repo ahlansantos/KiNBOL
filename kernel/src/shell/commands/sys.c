@@ -80,12 +80,15 @@ void cmd_help(void) {
     terminal_set_fg(COLOR_DIM);
     terminal_println("  ------------------------------------------");
     terminal_set_fg(COLOR_BODY);
-    terminal_println("  ls                     list devices and disk files");
+    terminal_println("  ls                     list devices and disk files (tree view)");
     terminal_println("  ls -a                  also show hidden/macOS junk files");
     terminal_println("  cat <name>             read file/device");
     terminal_println("  vfswrite <name> <txt>  write file/device");
-    terminal_println("  touch <name>           create empty file (root dir)");
-    terminal_println("  mkdir <name>           create directory (root dir)");
+    terminal_println("  touch <path>           create empty file (any existing dir, e.g. pasta1/x.txt)");
+    terminal_println("  mkdir <path>           create directory (any existing dir, e.g. pasta1/sub)");
+    terminal_println("  rm <path>              remove a file");
+    terminal_println("  rm -r <path>           remove a file or directory recursively");
+    terminal_println("  rmdir <path>           remove an empty directory");
 
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Graphics (GPipe)");

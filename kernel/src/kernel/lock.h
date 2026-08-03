@@ -43,4 +43,14 @@ static inline void bkl_release(void) {
     spin_release(&bkl);
 }
 
+extern spinlock_t fs_lock;
+
+static inline void fs_lock_acquire(void) {
+    spin_acquire(&fs_lock);
+}
+
+static inline void fs_lock_release(void) {
+    spin_release(&fs_lock);
+}
+
 #endif

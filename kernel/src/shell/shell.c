@@ -123,6 +123,21 @@ void shell_run(void) {
             if (*d) cmd_mkdir(d);
             else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: mkdir <dir>"); }
         }
+        else if (sh_startswith(in, "rm -r ")) {
+            char *d = in + 6; while (*d == ' ') d++;
+            if (*d) cmd_rm(d, 1);
+            else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: rm -r <path>"); }
+        }
+        else if (sh_startswith(in, "rm ")) {
+            char *d = in + 3; while (*d == ' ') d++;
+            if (*d) cmd_rm(d, 0);
+            else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: rm <path> (or rm -r <path>)"); }
+        }
+        else if (sh_startswith(in, "rmdir ")) {
+            char *d = in + 6; while (*d == ' ') d++;
+            if (*d) cmd_rmdir(d);
+            else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: rmdir <path>"); }
+        }
         else if (sh_startswith(in, "vfswrite ")) {
             char *p = in + 9; while (*p == ' ') p++;
             char *q = p; while (*q && *q != ' ') q++;
