@@ -77,6 +77,11 @@ void shell_run(void) {
         else if (!strcmp(in, "clearfb"))     cmd_clearfb();
         else if (!strcmp(in, "gpipe"))        cmd_gpipe("");
         else if (!strcmp(in, "usertest"))     cmd_usertest();
+        else if (sh_startswith(in, "exec ")) {
+            char *d = in + 5; while (*d == ' ') d++;
+            if (*d) cmd_exec(d);
+            else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: exec <path>"); }
+        }
         else if (!strcmp(in, "mstat"))        cmd_mstat();
         else if (sh_startswith(in, "gpipe "))    cmd_gpipe(in + 6);
         else if (!strcmp(in, "ls"))          cmd_vfsls();

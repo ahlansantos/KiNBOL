@@ -1,5 +1,6 @@
 #include "vmm.h"
 #include "pmm.h"
+#include "../kernel/dmesg.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -14,6 +15,59 @@ static inline uint64_t read_cr3(void) {
 }
 static inline void invlpg(uint64_t virt) {
     asm volatile("invlpg (%0)" :: "r"(virt) : "memory");
+}
+
+static inline uint64_t read_cr4(void) {
+    uint64_t val;
+    asm volatile("mov %%cr4, %0" : "=r"(val));
+    return val;
+}
+static inline void write_cr4(uint64_t val) {
+    asm volatile("mov %0, %%cr4" :: "r"(val) : "memory");
+}
+
+static inline void cpuid(uint32_t leaf, uint32_t subleaf,
+                          uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d) {
+    asm volatile("cpuid"
+        : "=a"(*a), "=b"(*b), "=c"(*c), "=d"(*d)
+        : "a"(leaf), "c"(subleaf));
+}
+
+#define CR4_SMEP (1ULL << 20)
+#define CR4_SMAP (1ULL << 21)
+
+static bool g_smap_supported = false;
+
+void cpu_security_init(void) {
+    uint32_t a, b, c, d;
+    cpuid(7, 0, &a, &b, &c, &d);
+
+    uint64_t cr4 = read_cr4();
+
+    if (b & (1 << 7)) {
+        cr4 |= CR4_SMEP;
+        dmesg("[cpu] SMEP enabled (kernel cannot execute user pages)\n");
+    } else {
+        dmesg("[cpu] SMEP not supported by this CPU\n");
+    }
+
+    if (b & (1 << 20)) {
+        cr4 |= CR4_SMAP;
+        g_smap_supported = true;
+        dmesg("[cpu] SMAP enabled (kernel cannot access user pages without explicit override)\n");
+    } else {
+        dmesg("[cpu] SMAP not supported by this CPU\n");
+    }
+
+    write_cr4(cr4);
+}
+
+void smap_stac(void) {
+    if (g_smap_supported) asm volatile("stac" ::: "cc");
+}
+
+void smap_clac(void) {
+    if (g_smap_supported) asm volatile("clac" ::: "cc");
 }
 
 static inline uint64_t read_msr(uint32_t msr) {
@@ -122,6 +176,74 @@ uint64_t vmm_virt_to_phys(pagemap_t pm, uint64_t virt) {
     if (!(pt[pt_idx(virt)] & VMM_PRESENT)) return 0;
 
     return (pt[pt_idx(virt)] & ~0xFFFULL) | (virt & 0xFFF);
+}
+
+#define VMM_PHYS_MASK 0x000FFFFFFFFFF000ULL
+
+int vmm_protect(pagemap_t pm, uint64_t virt, uint64_t len, uint64_t flags) {
+    if (!pm || len == 0) return -1;
+
+    uint64_t start = virt & ~0xFFFULL;
+    uint64_t end   = (virt + len - 1) & ~0xFFFULL;
+
+    for (uint64_t page = start; ; page += PAGE_SIZE) {
+        uint64_t *pml4 = (uint64_t *)pm;
+        uint64_t e1 = pml4[pml4_idx(page)];
+        if (!(e1 & VMM_PRESENT)) return -1;
+
+        uint64_t *pdpt = (uint64_t *)phys_to_virt(e1 & ~0xFFFULL);
+        uint64_t e2 = pdpt[pdpt_idx(page)];
+        if (!(e2 & VMM_PRESENT)) return -1;
+
+        uint64_t *pd = (uint64_t *)phys_to_virt(e2 & ~0xFFFULL);
+        uint64_t e3 = pd[pd_idx(page)];
+        if (!(e3 & VMM_PRESENT)) return -1;
+
+        uint64_t *pt = (uint64_t *)phys_to_virt(e3 & ~0xFFFULL);
+        uint64_t e4 = pt[pt_idx(page)];
+        if (!(e4 & VMM_PRESENT)) return -1;
+
+        uint64_t phys_addr = e4 & VMM_PHYS_MASK;
+        pt[pt_idx(page)] = phys_addr | (flags & 0xFFF) | (flags & VMM_NX);
+        invlpg(page);
+
+        if (page == end) break;
+    }
+
+    return 0;
+}
+
+void vmm_unmap_range(pagemap_t pm, uint64_t virt, uint64_t len, bool free_phys) {
+    if (!pm || len == 0) return;
+
+    uint64_t start = virt & ~0xFFFULL;
+    uint64_t end   = (virt + len - 1) & ~0xFFFULL;
+
+    for (uint64_t page = start; ; page += PAGE_SIZE) {
+        uint64_t *pml4 = (uint64_t *)pm;
+        uint64_t e1 = pml4[pml4_idx(page)];
+        if (e1 & VMM_PRESENT) {
+            uint64_t *pdpt = (uint64_t *)phys_to_virt(e1 & ~0xFFFULL);
+            uint64_t e2 = pdpt[pdpt_idx(page)];
+            if (e2 & VMM_PRESENT) {
+                uint64_t *pd = (uint64_t *)phys_to_virt(e2 & ~0xFFFULL);
+                uint64_t e3 = pd[pd_idx(page)];
+                if (e3 & VMM_PRESENT) {
+                    uint64_t *pt = (uint64_t *)phys_to_virt(e3 & ~0xFFFULL);
+                    uint64_t e4 = pt[pt_idx(page)];
+                    if (e4 & VMM_PRESENT) {
+                        if (free_phys) {
+                            pmm_free_page((void *)(e4 & VMM_PHYS_MASK));
+                        }
+                        pt[pt_idx(page)] = 0;
+                        invlpg(page);
+                    }
+                }
+            }
+        }
+
+        if (page == end) break;
+    }
 }
 
 bool vmm_check_user_range(pagemap_t pm, uint64_t virt, uint64_t len, bool need_write) {
@@ -305,7 +427,13 @@ bool vmm_mark_range_writecombine(uint64_t virt, uint64_t size) {
     return true;
 }
 
+#define MSR_EFER    0xC0000080
+#define EFER_NXE    (1ULL << 11)
+
 void vmm_init(void) {
+    uint64_t efer = read_msr(MSR_EFER);
+    write_msr(MSR_EFER, efer | EFER_NXE);
+
     kernel_pagemap = vmm_create_pagemap();
     if (!kernel_pagemap) return;
 

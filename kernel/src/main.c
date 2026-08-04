@@ -161,6 +161,8 @@ void kmain(void) {
     vmm_init();
     dmesg("[vmm] OK\n");
 
+    cpu_security_init();
+
     vmm_enable_writecombine_pat();
     uint64_t fb_size = fbi->pitch * fbi->height;
     if (vmm_mark_range_writecombine((uint64_t)fbi->address, fb_size)) {

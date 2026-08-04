@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="pictures/kinbol.png" alt="KiNBOL logo" width="220"/>
+</p>
+
 # KiNBOL
 
 > **this Kernel is Not Based On Linux**
@@ -30,7 +34,7 @@ KiNBOL is a hobby OS I'm building from scratch to learn how operating systems ac
 |---|---|
 | UEFI boot (Limine) | ✅ 64-bit long mode |
 | GDT + TSS | ✅ user segments + RSP0 per-task |
-| IDT + exceptions | ✅ page fault, GP, etc. + RFLAGS/CS dump |
+| IDT + exceptions | ✅ page fault, GP, etc. + RFLAGS/CS dump + **ring-3 fault isolation** (a userspace fault kills only that task via `task_exit()`; kernel-mode faults still halt the system) |
 | PIC → LAPIC/IOAPIC | ✅ PIC disabled, IOAPIC active |
 | ACPI (poweroff) | ✅ S5 shutdown |
 | PMM (freelist) | ✅ dynamic HHDM |
@@ -38,7 +42,8 @@ KiNBOL is a hobby OS I'm building from scratch to learn how operating systems ac
 | Heap (first-fit + coalesce) | ✅ 16-byte aligned |
 | Spinlock / Big Kernel Lock | ✅ lock xchg + BKL, active since `sched_init()` |
 | Scheduler | ✅ cooperative + intelligent preemption (user tasks preempted, kernel/shell protected) |
-| Ring 3 + syscalls | ✅ `syscall/sysret` (Linux ABI), `SYS_WRITE`/`SYS_EXIT`/`SYS_READ`/`SYS_SLEEP`/`SYS_YIELD` & more, user pointer + RSP validation, `usertest` shell cmd |
+| Ring 3 + syscalls | ✅ `syscall/sysret` (Linux ABI), `SYS_WRITE`/`SYS_EXIT`/`SYS_READ`/`SYS_SLEEP`/`SYS_YIELD`/`SYS_BRK`/`SYS_MMAP`/**`SYS_MPROTECT`/`SYS_MUNMAP`** & more, user pointer + RSP validation, `usertest` shell cmd |
+| unified kernel logging (`klog`) | ✅ single call site (`KLOG_I`/`KLOG_W`/`KLOG_E`/`KLOG_D`/`KLOG_T`) fans out to the dmesg ring buffer + serial *and* the screen terminal at once, level-tagged and colorized, no more drifting between two separate hand-rolled log paths |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
 | AHCI + FAT32 | ✅ PCI enum + bus mastering, real read/write DMA, `/dev/sda` mounted as FAT32 (read+write, subdirectories) |
 | framebuffer (1080p) | ✅ text terminal + GPipe 1.0 unified — both draw into the same back buffer, only `gpipe_flip`/`gpipe_flip_full` touches real VRAM |
@@ -74,7 +79,7 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 | filesystem | `ramls`, `ramcat`, `ramwrite`, `ramdel` (ramdisk only) · `ls`, `ls -a`, `cat <file>`, `vfswrite <file> <data>`, `touch <path>`, `mkdir <path>`, `rm <path>`, `rm -r <path>`, `rmdir <path>` (VFS nodes; `ls` shows the disk as `sda` with all FAT32 files/dirs listed as `sda/name`, `touch`/`mkdir`/`rm`/`rmdir` work at any depth via `sda/pasta1/x.txt`-style paths) |
 | graphics | `clearfb`, `scale`, `gpipe`, `gpipe clearfb`, `gpipe drawtest` |
 | scheduler | `schedtest`, `sleeptest`, `top` |
-| ring 3 | `usertest` — spawns a task, enters ring 3 via `iretq`, runs a hand-written user blob that calls `SYS_WRITE`/`SYS_SLEEP`/`SYS_EXIT` through the modern `syscall` instruction (Linux ABI) |
+| ring 3 | `usertest` — spawns a task, enters ring 3 via `iretq`, runs a hand-written user blob that calls `SYS_WRITE`/`SYS_SLEEP`/`SYS_EXIT` through the modern `syscall` instruction (Linux ABI) · `exec <path>` — loads a real ELF64 binary off the VFS via `elf_load()`, builds a real Linux-shaped initial stack (`argc`/`argv[0]`/auxv), and enters ring 3 at its `e_entry` (`envp` still empty, no dynamic linking) |
 | debug | `crash de`, `crash ud`, `crash pf`, `crash gp` — deterministic faults for exercising the exception dump (no UB; `crash gp` triggers via `wrmsr`, run from ring 0) |
 | utilities | `calc`, `ascii`, `anim`, `mstat` |
 
@@ -271,25 +276,107 @@ loopback-mount on Linux), copy files in, then unmount before starting QEMU.
 
 ---
 
-## Linux userland compat — the plan
+## testing the ELF loader
+
+The loader is wired into a real shell command now: `exec <path>`. It spawns a user task
+(`exec_launch()` in `kernel/src/kernel/usermode.c`, same shape as `usertest_launch()`), calls
+`elf_load()` on the given VFS path, maps a stack, and jumps into ring 3 at `e_entry`.
+**Confirmed working end to end** — a minimal freestanding `test.elf` (raw syscalls only, no
+libc: `write`, `sleep`, `write`, `exit`) loads, runs, sleeps, wakes, and exits cleanly through
+the real scheduler/reaper path.
+
+1. Build a tiny static ELF to load. `userland/test.c` in this repo is the confirmed-working
+   example (raw syscalls only, no libc — `PT_INTERP`/dynamic linking isn't supported yet):
+   ```bash
+   x86_64-elf-gcc -static -nostdlib -no-pie -o test.elf userland/test.c
+   ```
+   Keep any new test binaries to raw syscalls (`write`/`exit` via inline `syscall` asm, same shape as the
+   existing `user_blob` in `usermode.c`) — `exec` now builds a real `argc`/`argv[0]`/auxv stack, but
+   `envp` is still an empty terminator and dynamic linking (`PT_INTERP`) isn't supported yet.
+2. Copy `test.elf` onto `data.img` with `mtools` (no mounting needed):
+   ```bash
+   mcopy -i data.img test.elf ::test.elf
+   ```
+3. `make TOOLCHAIN=llvm run`, then from the shell: `exec sda/test.elf`. Sample `dmesg` output
+   from an actual run:
+   ```
+   [elf] loaded sda/test.elf entry=0x00000000004000CB highest_vaddr=0x0000000000401000
+   [exec] pid 2 entering ring 3 at 0x00000000004000CB
+   [syscall] pid 2 num=1
+   [syscall] pid 2 num=35
+   [sched] task 2 blocked until tick 13384
+   [sched] task 2 woke up
+   [syscall] pid 2 num=1
+   [syscall] pid 2 num=60
+   [syscall] task exited
+   [sched] task 2 ('exec') exited
+   [reaper] task 2 destroyed
+   [reaper] cleanup complete
+   ```
+4. Sanity checks worth trying deliberately: a 32-bit ELF (should reject on `ELFCLASS64`), a
+   dynamically-linked binary (should reject on `PT_INTERP`), and a binary bigger than
+   available physical memory (should fail cleanly via `elf_map_segment`'s OOM path, not
+   panic).
+
+---
+
+## testing SYS_MPROTECT / SYS_MUNMAP
+
+Both are now real (`vmm_protect()`/`vmm_unmap_range()` in `kernel/src/mm/vmm.c`), not stubs.
+Two test binaries, same build/copy pattern as `test.elf`:
+
+- `test-mprotect.elf` — mmaps a page, writes/reads through it, calls `mprotect(PROT_READ)`,
+  confirms it's still readable, confirms an unaligned `mprotect` is rejected cleanly (no crash),
+  mmaps a second page and `munmap`s it. All safe checks, exits cleanly with `PASS:` lines.
+- `test-crash.elf` — same setup, but *deliberately* writes to the page after `mprotect(PROT_READ)`.
+  This is expected to fault. Confirmed behavior:
+  ```
+  [TRACE] syscall: pid 2 num=1
+  [idt] fatal exception vector=14 (#PF Page Fault) err=0x0000000000000007 rip=... rax=0x0000700000000000
+  ```
+  `err=0x7` = present page (`P=1`), caused by a write (`W=1`), from user mode (`U=1`) — exactly
+  the write-protection fault `mprotect(PROT_READ)` is supposed to produce. Confirmed the task dies
+  and the kernel/shell keep running (see ring-3 fault isolation above) rather than halting the
+  whole system.
+
+---
+
+## ring-3 fault isolation
+
+`exception_fatal()` in `kernel/src/kernel/idt.c` now checks the CPL of the faulting context
+(bits 0-1 of the saved `CS`). If the fault came from ring 3, only that task is killed
+(`task_exit()`, the same safe from-interrupt-context yield the PIT timer ISR already uses) and
+everything else keeps running — matching how a real Linux kernel handles a userspace segfault.
+If the fault came from ring 0 (an actual kernel bug, or the `crash de`/`ud`/`pf`/`gp` shell
+commands, which run in kernel mode), the system still halts as before — that case really is fatal.
+
+---
 
 Next big milestone: run real static binaries (musl-libc) in ring 3. Broken into stages:
 
-1. **ELF loader** (not started) — parse the ELF header, map every `PT_LOAD` segment via
-   `vmm_map` at the addresses the header requests, zero the BSS tail, jump to `e_entry` via
-   the existing `enter_userspace()`.
-2. **Linux-style initial user stack** — musl's `_start` expects `argc, argv[], NULL, envp[],
-   NULL, auxv[]..., AT_NULL` already laid out on the stack when it starts running, not just a
-   bare entry jump. This has to be built by whatever launches the program (planned shell
-   command: `exec <file>`), separate from the ELF parsing itself.
+1. **ELF loader** (`kernel/src/loader/elf.h`, `elf_loader.c`) — parses the ELF64 header,
+   validates magic/class/endianness/machine, walks every `PT_LOAD` segment and maps it via
+   `vmm_map` at the addresses the header requests (page-aligned, `p_filesz`/`p_memsz`
+   handled correctly so BSS is zero-filled), rejects `PT_INTERP` for now (no dynamic linker
+   yet), supports `ET_DYN`/PIE via a fixed load bias. **W^X is enforced per segment** —
+   executable segments never get `VMM_WRITE`, non-executable segments always get `VMM_NX`.
+   Wired into the shell via `exec <path>` (`exec_launch()`/`exec_run()` in `usermode.c`).
+2. **Linux-style initial user stack** — ✅ done. `build_initial_user_stack()` in `usermode.c` lays
+   out a fixed 16-word/128-byte block (`argc`, `argv[0]`, argv/envp terminators, and a real `auxv`
+   array — `AT_PHDR`/`AT_PHENT`/`AT_PHNUM`/`AT_ENTRY`/`AT_BASE`/`AT_NULL` — pulled straight from the
+   ELF loader's own output), always 16-byte aligned by construction. `envp` is currently just an
+   empty terminator (no environment variables passed yet); `argc` is hardcoded to `1` (no extra
+   argv from the shell's `exec <path>` yet).
 3. **musl toolchain** — musl builds unmodified against `--target=x86_64-linux-musl` (with
    `--disable-shared` for now), since the kernel already speaks the Linux `syscall` ABI —
    no custom target needed, that's the whole point of matching the syscall numbers/registers.
 4. **Fill in missing syscalls as they come up** — a musl static binary's `_start` calls a
    handful of syscalls before `main()` even runs (`arch_prctl` for TLS, possibly `brk`,
-   `set_tid_address`, `exit_group`). Expect to discover missing ones via the exception dump
-   (RAX at the fault = syscall number) and add them incrementally rather than pre-guessing
-   the full list.
+   `set_tid_address`, `exit_group`). `SYS_MPROTECT`/`SYS_MUNMAP` are now real (not stubs) —
+   this matters because musl's `_start` calls `mprotect` early for RELRO on PIE binaries, and
+   would previously have died on `-ENOSYS` before reaching `main()`. Expect to discover any
+   remaining missing ones via the exception dump (RAX at the fault = syscall number) and add
+   them incrementally rather than pre-guessing the full list.
 
 ---
 
@@ -313,9 +400,20 @@ Next big milestone: run real static binaries (musl-libc) in ring 3. Broken into 
 - [x] Lib-kin v0.1 (kernel standard library + deduplication)
 - [x] userspace memory allocation (`SYS_BRK`, `SYS_MMAP` anonymous)
 - [x] POSIX syscall stubs (`open`, `close`, `stat`, `arch_prctl`, etc.)
-- [ ] ELF loader (PT_LOAD mapping, BSS zeroing, jump to e_entry)
-- [ ] Linux-style initial user stack (argc/argv/envp/auxv) for `exec`
-- [ ] musl static toolchain + fill in missing syscalls as discovered
+- [x] ELF loader — PT_LOAD mapping + W^X per segment, BSS zeroing, ET_DYN/PIE load bias,
+      wired into the shell as `exec <path>` (no `PT_INTERP`/dynamic linking yet)
+- [x] Linux-style initial user stack (argc/argv[0]/auxv) for `exec` (`envp` still empty, no
+      extra argv from the shell yet)
+- [x] real `SYS_MPROTECT`/`SYS_MUNMAP` (`vmm_protect()`/`vmm_unmap_range()` in `vmm.c`) — no
+      longer stubbed `-ENOSYS`, needed for musl's RELRO `mprotect` call in `_start`
+- [x] ring-3 fault isolation — a userspace exception (`#PF`, `#GP`, etc.) now kills only the
+      faulting task via `task_exit()`; the kernel and every other task keep running. Kernel-mode
+      faults (CPL 0, e.g. `crash pf`) still halt the system as before
+- [x] unified kernel logging (`klog.c`/`klog.h`) — one call site fans out to dmesg/serial and
+      the screen terminal together, level-tagged and colorized
+- [ ] musl static toolchain + fill in any remaining missing syscalls as discovered
+- [ ] real `envp` + shell-provided `argv` for `exec <path> arg1 arg2`
+- [ ] stack guard page + unmapped NULL page
 - [x] FAT32 (read + write, subdirectories flattened into VFS, file/dir creation and recursive
       deletion at any depth via FSInfo-backed allocator, long file names)
 - [x] PCI Enumeration (AHCI/SATA foundation) + memory space / bus mastering enable

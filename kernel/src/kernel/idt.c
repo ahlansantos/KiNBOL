@@ -40,7 +40,6 @@ IRQ_STUB_DECL(36) IRQ_STUB_DECL(37) IRQ_STUB_DECL(38) IRQ_STUB_DECL(39)
 IRQ_STUB_DECL(40) IRQ_STUB_DECL(41) IRQ_STUB_DECL(42) IRQ_STUB_DECL(43)
 IRQ_STUB_DECL(44) IRQ_STUB_DECL(45) IRQ_STUB_DECL(46) IRQ_STUB_DECL(47)
 
-
 IRQ_STUB_DECL(1)  IRQ_STUB_DECL(2)  IRQ_STUB_DECL(3)  IRQ_STUB_DECL(4)
 IRQ_STUB_DECL(5)  IRQ_STUB_DECL(7)  IRQ_STUB_DECL(9)  IRQ_STUB_DECL(10)
 IRQ_STUB_DECL(11) IRQ_STUB_DECL(12) IRQ_STUB_DECL(15) IRQ_STUB_DECL(16)
@@ -111,6 +110,7 @@ void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, 
 
     uint64_t cs_val     = regs[18];
     uint64_t rflags_val = regs[19];
+    uint64_t cpl        = cs_val & 3;
 
     terminal_set_fg(0xFF0000);
     terminal_println("\n=== FATAL EXCEPTION ===");
@@ -132,9 +132,7 @@ void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, 
     reg_line("R12: ", regs[R12]); reg_line("R13: ", regs[R13]);
     reg_line("R14: ", regs[R14]); reg_line("R15: ", regs[R15]);
 
-    terminal_println("\nSystem halted");
-
-    dmesg("[idt] fatal exception vector=");
+    dmesg("[idt] exception vector=");
     dmesg_int((uint32_t)exception_num);
     dmesg(" (");
     dmesg(exception_name(exception_num));
@@ -144,7 +142,25 @@ void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, 
     dmesg_hex(rip);
     dmesg(" rax=");
     dmesg_hex(regs[RAX]);
+    dmesg(" cpl=");
+    dmesg_int((uint32_t)cpl);
     dmesg("\n");
+
+    if (cpl == 3) {
+
+        terminal_set_fg(0xFFAA00);
+        terminal_println("\nUser-mode task faulted -- killing task, kernel continues.");
+        dmesg("[idt] user-mode fault, killing task\n");
+
+        extern void task_exit(void);
+        task_exit();
+
+        while (1) asm volatile("hlt");
+    }
+
+    terminal_set_fg(0xFF0000);
+    terminal_println("\nSystem halted");
+    dmesg("[idt] kernel-mode fault, halting system\n");
 
     asm volatile("cli; 1: hlt; jmp 1b");
 }
@@ -208,12 +224,10 @@ IRQ_STUB(36) IRQ_STUB(37) IRQ_STUB(38) IRQ_STUB(39)
 IRQ_STUB(40) IRQ_STUB(41) IRQ_STUB(42) IRQ_STUB(43)
 IRQ_STUB(44) IRQ_STUB(45) IRQ_STUB(46) IRQ_STUB(47)
 
-
 #define EXC_STUB_NOERR(vec) \
     __attribute__((naked)) static void isr##vec(void) { \
         asm volatile("pushq $0; pushq $" #vec "; jmp isr_common"); \
     }
-
 
 #define EXC_STUB_ERR(vec) \
     __attribute__((naked)) static void isr##vec(void) { \

@@ -17,4 +17,7 @@ void syscall_init(void);
 void usertest_run(void);
 task_t *usertest_launch(void);
 
+void exec_run(void *arg);
+task_t *exec_launch(const char *path);
+
 #endif

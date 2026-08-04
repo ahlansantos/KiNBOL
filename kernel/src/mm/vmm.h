@@ -11,6 +11,8 @@
 
 #define VMM_FLAGS_KERNEL  (VMM_PRESENT | VMM_WRITE)
 #define VMM_FLAGS_USER    (VMM_PRESENT | VMM_WRITE | VMM_USER)
+#define VMM_FLAGS_USER_DATA (VMM_PRESENT | VMM_WRITE | VMM_USER | VMM_NX)
+#define VMM_FLAGS_USER_CODE (VMM_PRESENT | VMM_USER)
 #define VMM_FLAGS_RODATA  (VMM_PRESENT | VMM_NX)
 #define VMM_FLAGS_CODE    (VMM_PRESENT)
 
@@ -35,6 +37,10 @@ int vmm_map(pagemap_t pm, uint64_t virt, uint64_t phys, uint64_t flags);
 
 void vmm_unmap(pagemap_t pm, uint64_t virt);
 
+int vmm_protect(pagemap_t pm, uint64_t virt, uint64_t len, uint64_t flags);
+
+void vmm_unmap_range(pagemap_t pm, uint64_t virt, uint64_t len, bool free_phys);
+
 uint64_t vmm_virt_to_phys(pagemap_t pm, uint64_t virt);
 
 int vmm_map_range(pagemap_t pm,
@@ -46,3 +52,7 @@ bool vmm_check_user_range(pagemap_t pm, uint64_t virt, uint64_t len, bool need_w
 void vmm_enable_writecombine_pat(void);
 
 bool vmm_mark_range_writecombine(uint64_t virt, uint64_t size);
+
+void cpu_security_init(void);
+void smap_stac(void);
+void smap_clac(void);

@@ -35,6 +35,25 @@ void cmd_usertest(void) {
     }
 }
 
+void cmd_exec(const char *path) {
+    task_t *t = exec_launch(path);
+    if (!t) {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  Failed to create exec task.");
+        return;
+    }
+    terminal_set_fg(COLOR_ACCENT);
+    terminal_print("  exec ");
+    terminal_print(path);
+    terminal_print(", pid ");
+    terminal_print_int(t->id);
+    terminal_println("");
+
+    while (t->state != TASK_DEAD) {
+        sched_yield();
+    }
+}
+
 void cmd_help(void) {
     terminal_set_fg(COLOR_ACCENT);
     terminal_println("\n  +-------------------------------------------+");
@@ -100,6 +119,14 @@ void cmd_help(void) {
     terminal_println("  gpipe clearfb           clear framebuffer via gpipe");
     terminal_println("  gpipe drawtest          draw rect/circle/line test");
     terminal_println("  scale <1-8>             resize terminal font");
+
+    terminal_set_fg(COLOR_HEADER);
+    terminal_println("\n  Ring 3 / Userspace");
+    terminal_set_fg(COLOR_DIM);
+    terminal_println("  ------------------------------------------");
+    terminal_set_fg(COLOR_BODY);
+    terminal_println("  usertest        run built-in ring 3 test blob (syscall demo)");
+    terminal_println("  exec <path>     load and run a real ELF64 binary (e.g. exec sda/test.elf)");
 
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Utilities");
