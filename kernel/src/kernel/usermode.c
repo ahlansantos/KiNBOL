@@ -12,6 +12,7 @@
 #include "pit.h"
 #include "../fs/vfs.h"
 #include "../shell/commands/util.h"
+#include "rand.h"
 
 #define SYS_READ  0
 #define SYS_WRITE 1
@@ -131,31 +132,54 @@ void usertest_run(void) {
 #include "../loader/elf.h"
 #include "../mm/heap.h"
 
+static const char *default_envp[] = {
+    "PATH=/",
+    "HOME=/",
+    "TERM=kinbol",
+    "USER=root",
+    NULL,
+};
+
 static uint64_t build_initial_user_stack(uint64_t stack_va, void *stack_phys,
                                           const char *argv0, elf_load_result_t *res) {
     uint8_t *page = (uint8_t *)(hhdm_offset + (uint64_t)stack_phys);
     uint64_t off = PAGE_SIZE;
 
-    size_t argv0_len = strlen(argv0) + 1;
-    off -= argv0_len;
-    memcpy(page + off, argv0, argv0_len);
+    int envc = 0;
+    while (default_envp[envc]) envc++;
+
+    off -= strlen(argv0) + 1;
+    memcpy(page + off, argv0, strlen(argv0) + 1);
     uint64_t argv0_va = stack_va + off;
 
+    uint64_t envp_va[8];
+    for (int i = 0; i < envc; i++) {
+        size_t l = strlen(default_envp[i]) + 1;
+        off -= l;
+        memcpy(page + off, default_envp[i], l);
+        envp_va[i] = stack_va + off;
+    }
+
+    uint64_t words = 1  + 2  + (uint64_t)(envc + 1) + 12 ;
+    uint64_t block_bytes = words * 8;
     off &= ~0xFULL;
-    off -= 128;
+    off -= block_bytes;
+    off &= ~0xFULL;
     uint64_t block_va = stack_va + off;
 
     uint64_t *w = (uint64_t *)(page + off);
-    w[0]  = 1;
-    w[1]  = argv0_va;
-    w[2]  = 0;
-    w[3]  = 0;
-    w[4]  = AT_PHDR;  w[5]  = res->phdr_vaddr;
-    w[6]  = AT_PHENT; w[7]  = res->phent;
-    w[8]  = AT_PHNUM; w[9]  = res->phnum;
-    w[10] = AT_ENTRY; w[11] = res->entry;
-    w[12] = AT_BASE;  w[13] = res->load_bias;
-    w[14] = AT_NULL;  w[15] = 0;
+    int i = 0;
+    w[i++] = 1;            
+    w[i++] = argv0_va;     
+    w[i++] = 0;            
+    for (int e = 0; e < envc; e++) w[i++] = envp_va[e];
+    w[i++] = 0;            
+    w[i++] = AT_PHDR;  w[i++] = res->phdr_vaddr;
+    w[i++] = AT_PHENT; w[i++] = res->phent;
+    w[i++] = AT_PHNUM; w[i++] = res->phnum;
+    w[i++] = AT_ENTRY; w[i++] = res->entry;
+    w[i++] = AT_BASE;  w[i++] = res->load_bias;
+    w[i++] = AT_NULL;  w[i++] = 0;
 
     return block_va;
 }
@@ -175,7 +199,10 @@ void exec_run(void *arg) {
         return;
     }
 
-    uint64_t stack_va = res.highest_vaddr + PAGE_SIZE;
+    #define EXEC_STACK_ASLR_RANGE (16ULL * 1024 * 1024)
+    uint64_t stack_top_va = (USER_STACK_TOP - krand_page_aligned_below(EXEC_STACK_ASLR_RANGE)) & ~0xFFFULL;
+    uint64_t stack_va = stack_top_va - PAGE_SIZE;
+    uint64_t guard_va = stack_va - PAGE_SIZE;
 
     void *stack_phys = pmm_alloc_page();
     if (!stack_phys) {
@@ -189,10 +216,13 @@ void exec_run(void *arg) {
     uint64_t user_rsp = build_initial_user_stack(stack_va, stack_phys, path, &res);
 
     vmm_map(vmm_current(), stack_va, (uint64_t)stack_phys, VMM_FLAGS_USER_DATA);
-
+    
     if (self) {
         self->user_brk = res.highest_vaddr;
-        self->user_mmap_base = USER_MMAP_START;
+        self->user_stack_guard_va = guard_va;
+        
+        #define EXEC_MMAP_ASLR_RANGE (1024ULL * 1024 * 1024)
+        self->user_mmap_base = USER_MMAP_START + krand_page_aligned_below(EXEC_MMAP_ASLR_RANGE);
     }
 
     kfree(path);
@@ -309,36 +339,27 @@ void syscall_dispatch(uint64_t *regs) {
             regs[RAX] = len;
             break;
         }
+        
         case SYS_READ: {
-            uint64_t path_ptr = regs[RDI];
+            int fd            = (int)regs[RDI];
             uint64_t buf_ptr  = regs[RSI];
             uint64_t len      = regs[RDX];
-            uint64_t offset   = regs[R10];
 
-            if (!syscall_check_user_ptr(path_ptr, VFS_NAME_MAX, false) ||
-                !syscall_check_user_ptr(buf_ptr, len, true)) {
-                regs[RAX] = (uint64_t)-1;
+            if (!syscall_check_user_ptr(buf_ptr, len, true)) {
+                regs[RAX] = (uint64_t)-14; 
+                break;
+            }
+            if (fd < 0 || fd >= TASK_MAX_FDS || !self->fds[fd].in_use) {
+                regs[RAX] = (uint64_t)-9; 
                 break;
             }
 
-            const char *path = (const char *)path_ptr;
-            uint64_t plen = 0;
-            while (plen < VFS_NAME_MAX && path[plen]) plen++;
-            if (plen == VFS_NAME_MAX) {
-                KLOG_W("syscall", "rejected unterminated path");
-                regs[RAX] = (uint64_t)-1;
-                break;
-            }
-
-            vfs_node_t *node = vfs_find(path);
-            if (!node) {
-                regs[RAX] = (uint64_t)-1;
-                break;
-            }
-
+            vfs_node_t *node = self->fds[fd].node;
             smap_stac();
-            regs[RAX] = vfs_read(node, (uint32_t)offset, (uint32_t)len, (uint8_t *)buf_ptr);
+            uint32_t got = vfs_read(node, self->fds[fd].offset, (uint32_t)len, (uint8_t *)buf_ptr);
             smap_clac();
+            self->fds[fd].offset += got;
+            regs[RAX] = got;
             break;
         }
         case SYS_SLEEP: {
@@ -487,13 +508,102 @@ void syscall_dispatch(uint64_t *regs) {
             regs[RAX] = self ? self->id : 1;
             break;
         }
-        case SYS_OPEN:
-        case SYS_CLOSE:
+        case SYS_OPEN: {
+            uint64_t path_ptr = regs[RDI];
+            if (!syscall_check_user_ptr(path_ptr, VFS_NAME_MAX, false)) {
+                regs[RAX] = (uint64_t)-14; 
+                break;
+            }
+            const char *path = (const char *)path_ptr;
+            uint64_t plen = 0;
+            while (plen < VFS_NAME_MAX && path[plen]) plen++;
+            if (plen == VFS_NAME_MAX) { regs[RAX] = (uint64_t)-36; break; } 
+
+            vfs_node_t *node = vfs_find(path);
+            if (!node) { regs[RAX] = (uint64_t)-2; break; } 
+
+            int slot = -1;
+            for (int i = 3; i < TASK_MAX_FDS; i++) {
+                if (!self->fds[i].in_use) { slot = i; break; }
+            }
+            if (slot < 0) { regs[RAX] = (uint64_t)-24; break; } 
+
+            self->fds[slot].node   = node;
+            self->fds[slot].offset = 0;
+            self->fds[slot].in_use = 1;
+            regs[RAX] = (uint64_t)slot;
+            break;
+        }
+        case SYS_CLOSE: {
+            int fd = (int)regs[RDI];
+            if (fd < 0 || fd >= TASK_MAX_FDS || !self->fds[fd].in_use) {
+                regs[RAX] = (uint64_t)-9; 
+                break;
+            }
+            self->fds[fd].in_use = 0;
+            self->fds[fd].node   = NULL;
+            self->fds[fd].offset = 0;
+            regs[RAX] = 0;
+            break;
+        }
+        case SYS_LSEEK: {
+            int fd = (int)regs[RDI];
+            int64_t offset = (int64_t)regs[RSI];
+            uint32_t whence = (uint32_t)regs[RDX];
+            if (fd < 0 || fd >= TASK_MAX_FDS || !self->fds[fd].in_use) {
+                regs[RAX] = (uint64_t)-9;
+                break;
+            }
+            vfs_node_t *node = self->fds[fd].node;
+            int64_t new_off;
+            if (whence == 0) new_off = offset;                              
+            else if (whence == 1) new_off = (int64_t)self->fds[fd].offset + offset; 
+            else if (whence == 2) new_off = (int64_t)node->size + offset;   
+            else { regs[RAX] = (uint64_t)-22; break; }                      
+            if (new_off < 0) { regs[RAX] = (uint64_t)-22; break; }
+            self->fds[fd].offset = (uint32_t)new_off;
+            regs[RAX] = (uint64_t)new_off;
+            break;
+        }
+        
         case SYS_STAT:
-        case SYS_FSTAT:
-        case SYS_LSEEK:
+        case SYS_FSTAT: {
+            uint64_t statbuf_ptr = regs[RSI];
+            if (!syscall_check_user_ptr(statbuf_ptr, 144, true)) {
+                regs[RAX] = (uint64_t)-14;
+                break;
+            }
+            vfs_node_t *node = NULL;
+            if (num == SYS_STAT) {
+                uint64_t path_ptr = regs[RDI];
+                if (!syscall_check_user_ptr(path_ptr, VFS_NAME_MAX, false)) {
+                    regs[RAX] = (uint64_t)-14;
+                    break;
+                }
+                node = vfs_find((const char *)path_ptr);
+                if (!node) { regs[RAX] = (uint64_t)-2; break; }
+            } else {
+                int fd = (int)regs[RDI];
+                if (fd < 0 || fd >= TASK_MAX_FDS || !self->fds[fd].in_use) {
+                    regs[RAX] = (uint64_t)-9;
+                    break;
+                }
+                node = self->fds[fd].node;
+            }
+
+            uint8_t statbuf[144];
+            memset(statbuf, 0, sizeof(statbuf));
+            uint32_t mode = (node->flags & VFS_DIRECTORY) ? 040755 : 0100644; 
+            *(uint32_t *)(statbuf + 24) = mode;          
+            *(uint64_t *)(statbuf + 48) = node->size;    
+            smap_stac();
+            memcpy((void *)statbuf_ptr, statbuf, sizeof(statbuf));
+            smap_clac();
+            regs[RAX] = 0;
+            break;
+        }
         case SYS_IOCTL:
-            regs[RAX] = (uint64_t)-38;
+            regs[RAX] = (uint64_t)-25; 
             break;
         default:
             regs[RAX] = (uint64_t)-38;

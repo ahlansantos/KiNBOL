@@ -21,8 +21,6 @@ static uint32_t next_pid    = 0;
 
 extern uint64_t hhdm_offset;
 
-
-
 static void idle_task_entry(void *arg) {
     (void)arg;
     while (1) {
@@ -103,6 +101,12 @@ static task_t *task_create_internal(const char *name, task_entry_t entry, void *
     task->cr3          = (uint64_t)pm - hhdm_offset;
     task->user_brk     = USER_HEAP_START;
     task->user_mmap_base = USER_MMAP_START;
+    task->user_stack_guard_va = 0;
+    for (int i = 0; i < TASK_MAX_FDS; i++) {
+        task->fds[i].node   = NULL;
+        task->fds[i].offset = 0;
+        task->fds[i].in_use = 0;
+    }
     strncpy(task->name, name ? name : "task", sizeof(task->name) - 1);
     task->name[sizeof(task->name) - 1] = '\0';
 

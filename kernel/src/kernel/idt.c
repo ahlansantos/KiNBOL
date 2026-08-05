@@ -6,6 +6,7 @@
 #include "../graphics/terminal.h"
 #include "dmesg.h"
 #include "../mm/vmm.h"
+#include "sched.h"
 
 #define IDT_ENTRIES 256
 
@@ -148,9 +149,17 @@ void exception_fatal(uint64_t exception_num, uint64_t error_code, uint64_t rip, 
 
     if (cpl == 3) {
 
-        terminal_set_fg(0xFFAA00);
-        terminal_println("\nUser-mode task faulted -- killing task, kernel continues.");
-        dmesg("[idt] user-mode fault, killing task\n");
+        task_t *cur = sched_current();
+        if (exception_num == 14 && cur && cur->user_stack_guard_va &&
+            (cr2 & ~0xFFFULL) == cur->user_stack_guard_va) {
+            terminal_set_fg(0xFFAA00);
+            terminal_println("\nStack overflow (guard page hit) -- killing task, kernel continues.");
+            dmesg("[idt] stack guard page hit, killing task\n");
+        } else {
+            terminal_set_fg(0xFFAA00);
+            terminal_println("\nUser-mode task faulted -- killing task, kernel continues.");
+            dmesg("[idt] user-mode fault, killing task\n");
+        }
 
         extern void task_exit(void);
         task_exit();

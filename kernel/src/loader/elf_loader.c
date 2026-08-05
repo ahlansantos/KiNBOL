@@ -8,11 +8,14 @@
 #include "../mm/vmm.h"
 #include "../fs/vfs.h"
 #include "../kernel/dmesg.h"
+#include "../kernel/rand.h"
 
 extern uint64_t hhdm_offset;
 
 #define ELF_LOAD_BASE_PIE 0x555555554000ULL
 #define ELF_MAX_PHDRS 32
+
+#define ELF_ASLR_RANGE (256ULL * 1024 * 1024)
 
 static bool elf_validate_header(elf64_ehdr_t *eh) {
     if (eh->e_ident[0] != ELFMAG0 || eh->e_ident[1] != ELFMAG1 ||
@@ -130,7 +133,7 @@ int elf_load(const char *path, pagemap_t pm, elf_load_result_t *out) {
 
     uint64_t load_bias = 0;
     if (eh.e_type == ET_DYN) {
-        load_bias = ELF_LOAD_BASE_PIE;
+        load_bias = ELF_LOAD_BASE_PIE + krand_page_aligned_below(ELF_ASLR_RANGE);
     }
 
     uint64_t highest_vaddr = 0;

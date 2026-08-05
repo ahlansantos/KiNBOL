@@ -8,6 +8,16 @@
 
 #define STACK_SIZE 16384
 
+#define TASK_MAX_FDS 16
+
+struct vfs_node;
+
+typedef struct {
+    struct vfs_node *node;
+    uint32_t         offset;
+    int               in_use;
+} task_fd_t;
+
 typedef enum {
     TASK_READY,
     TASK_RUNNING,
@@ -37,6 +47,8 @@ typedef struct task {
     uint64_t       kernel_rsp;
     uint64_t       user_brk;
     uint64_t       user_mmap_base;
+    uint64_t       user_stack_guard_va; 
+    task_fd_t      fds[TASK_MAX_FDS];
 } task_t;
 
 void sched_init(void);

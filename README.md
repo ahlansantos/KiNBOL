@@ -42,7 +42,11 @@ KiNBOL is a hobby OS I'm building from scratch to learn how operating systems ac
 | Heap (first-fit + coalesce) | ✅ 16-byte aligned |
 | Spinlock / Big Kernel Lock | ✅ lock xchg + BKL, active since `sched_init()` |
 | Scheduler | ✅ cooperative + intelligent preemption (user tasks preempted, kernel/shell protected) |
-| Ring 3 + syscalls | ✅ `syscall/sysret` (Linux ABI), `SYS_WRITE`/`SYS_EXIT`/`SYS_READ`/`SYS_SLEEP`/`SYS_YIELD`/`SYS_BRK`/`SYS_MMAP`/**`SYS_MPROTECT`/`SYS_MUNMAP`** & more, user pointer + RSP validation, `usertest` shell cmd |
+| Ring 3 + syscalls | ✅ `syscall/sysret` (Linux ABI), `SYS_WRITE`/`SYS_EXIT`/`SYS_READ`/`SYS_SLEEP`/`SYS_YIELD`/`SYS_BRK`/`SYS_MMAP`/`SYS_MPROTECT`/`SYS_MUNMAP`/**`SYS_OPEN`/`SYS_CLOSE`/`SYS_LSEEK`/`SYS_STAT`/`SYS_FSTAT`** (real, fd-table backed — no longer stubbed `-ENOSYS`) & more, user pointer + RSP validation, `usertest` shell cmd |
+| ASLR | ✅ PIE load-bias, stack top, and mmap arena base are all randomized per exec (`kernel/rand.c`, xorshift64* seeded from RDSEED/TSC) |
+| stack guard page | ✅ every user stack has a deliberately-unmapped page directly below it; a stack overflow takes a clean, immediately-identified `#PF` (`kernel/idt.c` recognizes the guard address) instead of silently corrupting adjacent memory |
+| /proc | ✅ minimal read-only `procfs` (`fs/procfs.c`): `/proc/version`, `/proc/cpuinfo`, `/proc/uptime`, `/proc/self/status`, `/proc/self/exe` |
+| envp | ✅ `exec` now builds a real (currently fixed: `PATH`/`HOME`/`TERM`/`USER`) environment block on the initial user stack, not just an empty terminator |
 | unified kernel logging (`klog`) | ✅ single call site (`KLOG_I`/`KLOG_W`/`KLOG_E`/`KLOG_D`/`KLOG_T`) fans out to the dmesg ring buffer + serial *and* the screen terminal at once, level-tagged and colorized, no more drifting between two separate hand-rolled log paths |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
 | AHCI + FAT32 | ✅ PCI enum + bus mastering, real read/write DMA, `/dev/sda` mounted as FAT32 (read+write, subdirectories) |
@@ -393,7 +397,7 @@ Next big milestone: run real static binaries (musl-libc) in ring 3. Broken into 
 - [x] preemptive scheduling (intelligent: user tasks preempted, kernel/shell protected)
 - [x] syscall pointer validation (`syscall_check_user_ptr()` / `vmm_check_user_range()`)
 - [x] syscall RSP validation (`syscall_check_user_rsp()`)
-- [x] `SYS_READ` (path-based, reads through the VFS), `SYS_SLEEP`, `SYS_YIELD`
+- [x] `SYS_READ` (fd-based, backed by a per-task fd table), `SYS_SLEEP`, `SYS_YIELD`
 - [x] unify terminal + GPipe into one drawing path (`gpipe_get_draw_target()`, single flip choke point)
 - [x] per-task address spaces (VMM)!
 - [x] PS/2 Mouse driver
@@ -402,18 +406,36 @@ Next big milestone: run real static binaries (musl-libc) in ring 3. Broken into 
 - [x] POSIX syscall stubs (`open`, `close`, `stat`, `arch_prctl`, etc.)
 - [x] ELF loader — PT_LOAD mapping + W^X per segment, BSS zeroing, ET_DYN/PIE load bias,
       wired into the shell as `exec <path>` (no `PT_INTERP`/dynamic linking yet)
-- [x] Linux-style initial user stack (argc/argv[0]/auxv) for `exec` (`envp` still empty, no
-      extra argv from the shell yet)
+- [x] Linux-style initial user stack (argc/argv[0]/auxv/envp) for `exec` — envp now carries a
+      small fixed default environment (`PATH`/`HOME`/`TERM`/`USER`), not just an empty terminator
 - [x] real `SYS_MPROTECT`/`SYS_MUNMAP` (`vmm_protect()`/`vmm_unmap_range()` in `vmm.c`) — no
       longer stubbed `-ENOSYS`, needed for musl's RELRO `mprotect` call in `_start`
+- [x] real `SYS_OPEN`/`SYS_CLOSE`/`SYS_LSEEK`/`SYS_STAT`/`SYS_FSTAT`, backed by a small per-task
+      fd table (`kernel/sched.h`); `SYS_READ` moved from a path-based custom shape to the real
+      `read(fd, buf, len)` Linux ABI to match — **breaking ABI change**, old test ELFs built
+      against the previous `SYS_READ` need rebuilding against `elfs/kinlibc.h`
+- [x] ASLR — PIE load bias, stack top, and mmap arena base are each randomized per `exec`
+      (`kernel/rand.c`, xorshift64* seeded from RDSEED-when-available + TSC/PIT)
+- [x] stack guard page — the page directly below every user stack is deliberately left
+      unmapped; a stack overflow takes an immediately-identified `#PF` (`idt.c` recognizes the
+      guard address specifically) instead of silently corrupting adjacent memory
+- [x] minimal `/proc` (`fs/procfs.c`): `/proc/version`, `/proc/cpuinfo`, `/proc/uptime`,
+      `/proc/self/status`, `/proc/self/exe`
+- [x] `elfs/kinlibc.h` — shared userland syscall-wrapper header (open/read/write/close/mmap/
+      mprotect/print helpers + the `_start` trampoline) so new test/example ELFs don't hand-roll
+      raw `syscall` asm every time
 - [x] ring-3 fault isolation — a userspace exception (`#PF`, `#GP`, etc.) now kills only the
       faulting task via `task_exit()`; the kernel and every other task keep running. Kernel-mode
       faults (CPL 0, e.g. `crash pf`) still halt the system as before
 - [x] unified kernel logging (`klog.c`/`klog.h`) — one call site fans out to dmesg/serial and
       the screen terminal together, level-tagged and colorized
 - [ ] musl static toolchain + fill in any remaining missing syscalls as discovered
-- [ ] real `envp` + shell-provided `argv` for `exec <path> arg1 arg2`
-- [ ] stack guard page + unmapped NULL page
+- [ ] real per-task `argv`/custom `envp` for `exec <path> arg1 arg2` (currently fixed defaults)
+- [ ] unmapped NULL page (guard page for the stack is done; low-address NULL-deref guard is not)
+- [ ] syscall allow-list / capability model per task (currently any ring-3 task can call any
+      wired syscall)
+- [ ] filesystem permission bits (FAT32 has none natively; any task with a valid fd can
+      read/write any file — no owner/mode enforcement yet)
 - [x] FAT32 (read + write, subdirectories flattened into VFS, file/dir creation and recursive
       deletion at any depth via FSInfo-backed allocator, long file names)
 - [x] PCI Enumeration (AHCI/SATA foundation) + memory space / bus mastering enable

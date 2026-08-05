@@ -28,7 +28,9 @@
 #include "fs/vfs.h"
 #include "fs/ramdisk.h"
 #include "fs/fat32.h"
+#include "fs/procfs.h"
 #include "kernel/sched.h"
+#include "kernel/rand.h"
 #include "shell/shell.h"
 
 __attribute__((used, section(".limine_requests_start")))
@@ -178,6 +180,7 @@ void kmain(void) {
 
     tsc_calibrate();
     idt_init();
+    krand_init();
     syscall_init();
 
     acpi_init(rsdp_request.response ? rsdp_request.response->address : NULL);
@@ -203,6 +206,7 @@ void kmain(void) {
 
     ramdisk_init();
     vfs_init();
+    procfs_init();
 
     pci_init();
 

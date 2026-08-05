@@ -557,18 +557,18 @@ void cmd_syscalls(void) {
     terminal_println("  %rax | Name       | Status      | Description");
     terminal_println("  -------------------------------------------------------------");
     
-    terminal_set_fg(0x88CC88); terminal_print("     0 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_READ   | Implemented | read from VFS node");
+    terminal_set_fg(0x88CC88); terminal_print("     0 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_READ   | Implemented | read(fd, buf, len) via fd table");
     terminal_set_fg(0x88CC88); terminal_print("     1 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_WRITE  | Implemented | write to terminal");
-    terminal_set_fg(0xCCBB88); terminal_print("     2 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_OPEN   | Stub        | open file");
-    terminal_set_fg(0xCCBB88); terminal_print("     3 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_CLOSE  | Stub        | close file");
-    terminal_set_fg(0xCCBB88); terminal_print("     4 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_STAT   | Stub        | file stats");
-    terminal_set_fg(0xCCBB88); terminal_print("     5 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_FSTAT  | Stub        | fd stats");
-    terminal_set_fg(0xCCBB88); terminal_print("     8 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_LSEEK  | Stub        | seek file");
-    terminal_set_fg(0x88CC88); terminal_print("     9 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MMAP   | Implemented | map memory (anonymous)");
-    terminal_set_fg(0xCCBB88); terminal_print("    10 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MPROTECT| Stub        | protect memory");
-    terminal_set_fg(0xCCBB88); terminal_print("    11 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MUNMAP | Stub        | unmap memory");
+    terminal_set_fg(0x88CC88); terminal_print("     2 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_OPEN   | Implemented | open file, returns fd");
+    terminal_set_fg(0x88CC88); terminal_print("     3 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_CLOSE  | Implemented | close fd");
+    terminal_set_fg(0x88CC88); terminal_print("     4 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_STAT   | Implemented | file stats (best-effort layout)");
+    terminal_set_fg(0x88CC88); terminal_print("     5 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_FSTAT  | Implemented | fd stats (best-effort layout)");
+    terminal_set_fg(0x88CC88); terminal_print("     8 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_LSEEK  | Implemented | seek file (SET/CUR/END)");
+    terminal_set_fg(0x88CC88); terminal_print("     9 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MMAP   | Implemented | map memory (anonymous, ASLR'd base)");
+    terminal_set_fg(0x88CC88); terminal_print("    10 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MPROTECT| Implemented | protect memory");
+    terminal_set_fg(0x88CC88); terminal_print("    11 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_MUNMAP | Implemented | unmap memory");
     terminal_set_fg(0x88CC88); terminal_print("    12 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_BRK    | Implemented | change heap size");
-    terminal_set_fg(0xCCBB88); terminal_print("    16 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_IOCTL  | Stub        | device control");
+    terminal_set_fg(0xCCBB88); terminal_print("    16 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_IOCTL  | Stub (ENOTTY)| device control");
     terminal_set_fg(0x88CC88); terminal_print("    24 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_YIELD  | Implemented | sched_yield");
     terminal_set_fg(0x88CC88); terminal_print("    35 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_SLEEP  | Implemented | nanosleep");
     terminal_set_fg(0x88CC88); terminal_print("    60 "); terminal_set_fg(COLOR_BODY); terminal_println("| SYS_EXIT   | Implemented | exit current task");
