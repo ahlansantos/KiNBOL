@@ -61,7 +61,7 @@ KiNBOL is a hobby OS I'm building from scratch to learn how operating systems ac
 
 ---
 
-## 0.08.3 changelog
+## 0.08.2 changelog
 
 - **fixed a ****`bkl`**** self-deadlock in ****`sleeptest`**** and ****`klog`** — several call sites wrapped already-self-locking terminal functions (`terminal_set_fg`, `terminal_print`, `terminal_println`) inside an *additional* manual `terminal_lock()`/`terminal_unlock()` pair. Since `bkl` is a non-reentrant spinlock and `terminal_lock()` disables interrupts before spinning, the second acquire attempt (same task, same core) spun forever with interrupts masked — looked like a random QEMU hang/reset, was actually a plain nested-lock bug. Added `_nolock` variants (`terminal_set_fg_nolock`, `terminal_print_nolock`, `terminal_println_nolock`, `terminal_putchar_nolock`, `terminal_print_int_nolock`) for code that legitimately needs to group multiple prints atomically under a manual lock; public `terminal_*` functions stay self-locking for standalone use.
 - **fixed dropped/delayed keystrokes while a compositor window is open** — `compositor_task` held the global `bkl` for the entire `gpipe_present()` call, including the pixel-copy blit itself, which scales with how much of the screen is dirty. Anything else doing `terminal_lock()` (which `cli`s before spinning on `bkl`) would busy-wait with interrupts *off* for the whole blit — during which IRQ1 (keyboard) couldn't fire, and since the PS/2 controller only buffers one byte, fast typing during a large blit lost keystrokes at the hardware level. Split `gpipe_present()` into `gpipe_take_dirty()` (snapshot + clear the dirty rect, cheap, still under `bkl`) and `gpipe_present_rect()` (the actual blit, no locking needed); `compositor_task`now holds `bkl` only for the cheap part.
@@ -339,7 +339,7 @@ Next big milestone: run real static binaries (musl-libc) in ring 3. Broken into 
 - [x] `elfs/kinlibc.h` — shared userland syscall-wrapper header (open/read/write/close/mmap/ mprotect/print helpers + the `_start` trampoline) so new test/example ELFs don't hand-roll raw `syscall` asm every time
 - [x] ring-3 fault isolation — a userspace exception (`#PF`, `#GP`, etc.) now kills only the faulting task via `task_exit()`; the kernel and every other task keep running. Kernel-mode faults (CPL 0, e.g. `crash pf`) still halt the system as before
 - [x] unified kernel logging (`klog.c`/`klog.h`) — one call site fans out to dmesg/serial and the screen terminal together, level-tagged and colorized
-- [x] fixed `bkl` nested-lock self-deadlock (`sleeptest`, `klog`) and keyboard input loss caused by the compositor holding `bkl`across its full present blit (see 0.08.3)
+- [x] fixed `bkl` nested-lock self-deadlock (`sleeptest`, `klog`) and keyboard input loss caused by the compositor holding `bkl`across its full present blit (see 0.08.2)
 - [ ] musl static toolchain + fill in any remaining missing syscalls as discovered
 - [ ] real per-task `argv`/custom `envp` for `exec <path> arg1 arg2` (currently fixed defaults)
 - [ ] unmapped NULL page (guard page for the stack is done; low-address NULL-deref guard is not)
