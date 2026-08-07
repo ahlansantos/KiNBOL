@@ -123,7 +123,7 @@ uint64_t pmm_get_highest_phys(void) {
 }
 
 void *pmm_alloc_pages_contiguous(uint64_t count) {
-    if (count == 0) return NULL;
+    if (count == 0 || count > total_pages) return NULL;
 
     uint64_t start = 0x100000 / PAGE_SIZE;
     for (uint64_t i = start; i <= total_pages - count; i++) {

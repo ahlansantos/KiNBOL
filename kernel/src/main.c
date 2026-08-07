@@ -136,10 +136,16 @@ static void compositor_task(void *arg) {
     for (;;) {
         gpipe_ctx_t *gc = gpipe_default();
         if (gc) {
+            gpipe_rect_t dirty;
+            bool has_dirty;
+
             bkl_acquire();
             cursor_update(gc);
-            gpipe_present(gc);
+            has_dirty = gpipe_take_dirty(gc, &dirty);
             bkl_release();
+
+            if (has_dirty)
+                gpipe_present_rect(gc, &dirty);
         }
         sleep_ms(20);
     }

@@ -15,11 +15,20 @@ static uint32_t ts   = 1;
 #define CELL_W (8u  * ts)
 #define CELL_H (16u * ts)
 
+#include "../kernel/dmesg.h"
+#include "../drivers/serial.h"
+
 uint64_t terminal_lock(void) {
     uint64_t flags;
     asm volatile("pushfq; popq %0" : "=r"(flags) :: "memory");
     asm volatile("cli" ::: "memory");
+    serial_print("[DIAG] terminal_lock: about to bkl_acquire, bkl=");
+    serial_hex((uint64_t)bkl);
+    serial_print(" bkl_ready=");
+    serial_hex((uint64_t)bkl_ready);
+    serial_print("\n");
     bkl_acquire();
+    serial_print("[DIAG] terminal_lock: acquired\n");
     return flags;
 }
 
@@ -170,6 +179,29 @@ void terminal_println(const char *s) {
     for (int i = 0; s[i]; i++) putchar_nolock(s[i]);
     putchar_nolock('\n');
     terminal_unlock(f);
+}
+
+void terminal_set_fg_nolock(uint32_t color) {
+    fg = color;
+}
+
+void terminal_putchar_nolock(char c) {
+    putchar_nolock(c);
+}
+
+void terminal_print_nolock(const char *s) {
+    for (int i = 0; s[i]; i++) putchar_nolock(s[i]);
+}
+
+void terminal_println_nolock(const char *s) {
+    for (int i = 0; s[i]; i++) putchar_nolock(s[i]);
+    putchar_nolock('\n');
+}
+
+void terminal_print_int_nolock(uint32_t n) {
+    char b[11]; int i = 10; b[i--] = 0;
+    do { b[i--] = '0' + n % 10; n /= 10; } while (n);
+    terminal_print_nolock(&b[i + 1]);
 }
 
 void terminal_ensure_newline(void) {

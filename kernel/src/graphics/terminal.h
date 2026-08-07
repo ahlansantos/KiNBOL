@@ -22,4 +22,10 @@ void terminal_print_int(uint32_t n);
 void terminal_print_hex(uint64_t n);
 void terminal_clear(void);
 
+void terminal_set_fg_nolock(uint32_t color);
+void terminal_putchar_nolock(char c);
+void terminal_print_nolock(const char *s);
+void terminal_println_nolock(const char *s);
+void terminal_print_int_nolock(uint32_t n);
+
 void terminal_cursor_draw(int visible);

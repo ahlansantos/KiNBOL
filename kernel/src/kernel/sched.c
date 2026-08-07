@@ -31,6 +31,13 @@ static void idle_task_entry(void *arg) {
 }
 
 void task_entry_wrapper(task_entry_t entry, void *arg) {
+    task_t *self = sched_current();
+    serial_print("[DIAG] task_entry_wrapper: pid ");
+    serial_hex(self ? self->id : 0xFFFFFFFF);
+    serial_print(" ('");
+    serial_print(self ? self->name : "?");
+    serial_print("') alive, about to call entry()\n");
+
     if (entry) {
         entry(arg);
     }
@@ -246,6 +253,12 @@ void sched_schedule(void) {
 
     if (chosen->kernel_stack)
         tss_set_rsp0((uint64_t)chosen->kernel_stack + chosen->stack_size);
+
+    if (chosen != idle_task) {
+        serial_print("[DIAG] sched_schedule: switching to pid ");
+        serial_hex(chosen->id);
+        serial_print(" ('"); serial_print(chosen->name); serial_print("')\n");
+    }
 
     bkl_release();
 

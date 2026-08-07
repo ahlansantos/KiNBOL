@@ -94,7 +94,7 @@ static void dmesg_sink(char c, void *ctx) {
 static void terminal_sink(char c, void *ctx) {
     (void)ctx;
     char s[2] = { c, 0 };
-    terminal_print(s);
+    terminal_print_nolock(s);
 }
 
 void vklog(klog_level_t level, const char *subsys, const char *fmt, va_list ap) {
@@ -113,18 +113,18 @@ void vklog(klog_level_t level, const char *subsys, const char *fmt, va_list ap) 
     if (level < screen_min_level) return;
 
     uint64_t tf = terminal_lock();
-    terminal_set_fg(level_color(level));
-    terminal_print("[");
-    terminal_print_int((uint32_t)uptime_ms());
-    terminal_print("ms] [");
-    terminal_print(level_tag[level]);
-    terminal_print("] ");
-    terminal_print(subsys);
-    terminal_print(": ");
+    terminal_set_fg_nolock(level_color(level));
+    terminal_print_nolock("[");
+    terminal_print_int_nolock((uint32_t)uptime_ms());
+    terminal_print_nolock("ms] [");
+    terminal_print_nolock(level_tag[level]);
+    terminal_print_nolock("] ");
+    terminal_print_nolock(subsys);
+    terminal_print_nolock(": ");
     va_copy(ap_copy, ap);
     klog_format(terminal_sink, NULL, fmt, ap_copy);
     va_end(ap_copy);
-    terminal_println("");
+    terminal_println_nolock("");
     terminal_unlock(tf);
 }
 

@@ -61,7 +61,7 @@ void tsc_calibrate(void) {
     dmesg("MHz max="); dmesg_int((uint32_t)(samples[CALIB_SAMPLES - 1] / 1000000ULL));
     dmesg("MHz\n");
 
-    if (tsc_hz < 100000000ULL) {
+    if (tsc_hz < 100000000ULL || tsc_hz > 10000000000ULL) {
         dmesg("[pit] measurement looked bogus, falling back to 1GHz assumption\n");
         tsc_hz = 1000000000ULL;
     }

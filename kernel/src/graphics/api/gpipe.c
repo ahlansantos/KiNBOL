@@ -163,3 +163,19 @@ void gpipe_present(gpipe_ctx_t *ctx) {
     gpipe_flip_rect(ctx, ctx->dirty.x, ctx->dirty.y, ctx->dirty.w, ctx->dirty.h);
     ctx->dirty = (gpipe_rect_t){0, 0, 0, 0};
 }
+
+bool gpipe_take_dirty(gpipe_ctx_t *ctx, gpipe_rect_t *out) {
+    if (!ctx || !out) return false;
+    if (ctx->dirty.w <= 0 || ctx->dirty.h <= 0) return false;
+
+    *out = ctx->dirty;
+    ctx->dirty = (gpipe_rect_t){0, 0, 0, 0};
+    return true;
+}
+
+void gpipe_present_rect(gpipe_ctx_t *ctx, const gpipe_rect_t *rect) {
+    if (!ctx || !ctx->fb || !ctx->back || !rect) return;
+    if (rect->w <= 0 || rect->h <= 0) return;
+
+    gpipe_flip_rect(ctx, rect->x, rect->y, rect->w, rect->h);
+}

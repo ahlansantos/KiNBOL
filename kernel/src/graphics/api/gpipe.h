@@ -33,8 +33,9 @@ void gpipe_sync_from_fb(gpipe_ctx_t *ctx);
 
 void gpipe_flip(gpipe_ctx_t *ctx);
 void gpipe_flip_full(gpipe_ctx_t *ctx);
-
 void gpipe_present(gpipe_ctx_t *ctx);
+bool gpipe_take_dirty(gpipe_ctx_t *ctx, gpipe_rect_t *out);
+void gpipe_present_rect(gpipe_ctx_t *ctx, const gpipe_rect_t *rect);
 
 void gpipe_mark_dirty(gpipe_ctx_t *ctx, int x, int y, int w, int h);
 

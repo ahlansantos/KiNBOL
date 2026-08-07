@@ -368,6 +368,7 @@ void cmd_schedtest(void) {
     for (int i = 0; i < 20; i++) {
         sched_yield();
     }
+    task_reaper();
 
     uint64_t free_pages_after = pmm_get_free_page_count();
     uint32_t heap_free_after = kmalloc_free_space();
@@ -391,27 +392,21 @@ void cmd_schedtest(void) {
 
 static void sleeptest_task_A(void *arg) {
     (void)arg;
-    uint64_t f = terminal_lock();
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("[A] before sleep");
-    terminal_unlock(f);
 
     sleep_ms(1000);
 
-    f = terminal_lock();
     terminal_set_fg(COLOR_SUCCESS);
     terminal_println("[A] after sleep");
-    terminal_unlock(f);
     task_exit();
 }
 
 static void sleeptest_task_B(void *arg) {
     (void)arg;
     for (int i = 0; i < 5; i++) {
-        uint64_t f = terminal_lock();
         terminal_set_fg(COLOR_BODY);
         terminal_println("[B] running");
-        terminal_unlock(f);
         sleep_ms(200);
     }
     task_exit();
@@ -421,10 +416,10 @@ static void sleeptest_task_multi(void *arg) {
     uint32_t delay = (uint32_t)(uint64_t)arg;
     sleep_ms(delay);
     uint64_t f = terminal_lock();
-    terminal_set_fg(COLOR_SUCCESS);
-    terminal_print("Task woke up after ");
-    terminal_print_int(delay);
-    terminal_println("ms");
+    terminal_set_fg_nolock(COLOR_SUCCESS);
+    terminal_print_nolock("Task woke up after ");
+    terminal_print_int_nolock(delay);
+    terminal_println_nolock("ms");
     terminal_unlock(f);
     task_exit();
 }

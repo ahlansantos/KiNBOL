@@ -35,7 +35,7 @@ extern uint64_t tsc_hz;
 #define COL_LABEL     0x5A5A5A
 #define COL_ACCENT    0x3D7BFF
 #define COL_BTNFACE   0xE4E4E4
-#define COL_BTNHOVER  0xD64C4C
+#define COL_BTNHOVER  0xE0525D
 #define COL_BTNBORDER 0xB0B0B0
 #define COL_SHADOW    0x000000
 
@@ -152,7 +152,7 @@ static void draw_window(gpipe_ctx_t *ctx) {
         uint32_t c = row < TITLEBAR_H / 2 ? COL_TITLEBAR : COL_TITLEBAR2;
         gpipe_line(ctx, win_x + 2, win_y + 2 + row, win_x + WIN_W - 3, win_y + 2 + row, c);
     }
-    gpipe_text(ctx, win_x + 8, win_y + 4, "About the WM", COL_TITLETEXT, GPIPE_TEXT_TRANSPARENT);
+    gpipe_text(ctx, win_x + 8, win_y + 4, "KiNBOL // Window Manager", COL_TITLETEXT, GPIPE_TEXT_TRANSPARENT);
     gpipe_rect_fill(ctx, win_x + 1, win_y + 1 + TITLEBAR_H, WIN_W - 2, 3, COL_ACCENT);
 
     draw_button(ctx, win_x + WIN_W - BTN_W * 2 - 8, win_y + 3, "-", false);
@@ -161,9 +161,9 @@ static void draw_window(gpipe_ctx_t *ctx) {
     int ty = win_y + TITLEBAR_H + 18;
     int lx = win_x + 20;
 
-    gpipe_text(ctx, lx, ty, "KiNBOL initial WM", COL_TEXT, GPIPE_TEXT_TRANSPARENT);
+    gpipe_text(ctx, lx, ty, "KiNBOL Window Manager", COL_TEXT, GPIPE_TEXT_TRANSPARENT);
     ty += 22;
-    gpipe_text(ctx, lx, ty, "windows drawn straight into the GPipe back buffer", COL_LABEL, GPIPE_TEXT_TRANSPARENT);
+    gpipe_text(ctx, lx, ty, "native GPipe compositor // framebuffer UI", COL_LABEL, GPIPE_TEXT_TRANSPARENT);
     ty += 28;
 
     char line[96];
