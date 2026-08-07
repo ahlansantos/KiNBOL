@@ -1,4 +1,5 @@
 #include "gpipe_prim.h"
+#include "../font.h"
 #include <stddef.h>
 
 static inline int iabs(int x) { return x < 0 ? -x : x; }
@@ -190,4 +191,47 @@ int gpipe_bmp_draw(gpipe_ctx_t *ctx, int x, int y, const uint8_t *bmp_data, uint
 
     gpipe_mark_dirty(ctx, x, y, img_w, img_h);
     return GPIPE_BMP_OK;
+}
+
+void gpipe_text(gpipe_ctx_t *ctx, int x, int y, const char *s, uint32_t fg, uint32_t bg) {
+    if (!ctx || !ctx->back || !s) return;
+
+    int px = x;
+    while (*s) {
+        if (*s == '\n') {
+            px = x;
+            y += 16;
+            s++;
+            continue;
+        }
+
+        const uint8_t *g = font[(unsigned char)*s];
+        for (int row = 0; row < 16; row++) {
+            uint8_t bits = g[row];
+            int py = y + row;
+            if (py < 0 || py >= (int)ctx->height) continue;
+            for (int col = 0; col < 8; col++) {
+                int cx = px + col;
+                if (cx < 0 || cx >= (int)ctx->width) continue;
+                uint32_t color = (bits & (1 << (7 - col))) ? fg : bg;
+                if (color == GPIPE_TEXT_TRANSPARENT) continue;
+                ctx->back[(uint32_t)py * ctx->pw + (uint32_t)cx] = color;
+            }
+        }
+
+        px += 8;
+        s++;
+    }
+
+    gpipe_mark_dirty(ctx, x, y, px - x, 16);
+}
+
+int gpipe_text_width(const char *s) {
+    int w = 0, max_w = 0;
+    while (*s) {
+        if (*s == '\n') { if (w > max_w) max_w = w; w = 0; }
+        else w += 8;
+        s++;
+    }
+    return w > max_w ? w : max_w;
 }

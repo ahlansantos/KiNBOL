@@ -2,7 +2,14 @@
 #include "keyboard.h"
 #include "../kernel/pit.h"
 #include "../kernel/sched.h"
+#include "../kernel/idt.h"
+#include "../kernel/ioapic.h"
+#include "../kernel/lapic.h"
+#include "../kernel/dmesg.h"
 extern void terminal_putchar(char c);
+
+#define KEYBOARD_VECTOR 33
+#define KEYBOARD_IRQ    1
 
 static inline uint8_t inb(uint16_t port) {
     uint8_t val;
@@ -26,11 +33,42 @@ static void kb_track_scancode(uint8_t sc) {
     else           key_state[sc] = 1;
 }
 
+#define KB_RING_SIZE 64
+static volatile uint8_t  kb_ring[KB_RING_SIZE];
+static volatile uint32_t kb_head = 0;
+static volatile uint32_t kb_tail = 0;
+
+static void keyboard_isr(void) {
+    uint8_t sc = inb(0x60);
+    kb_track_scancode(sc);
+
+    uint32_t next = (kb_head + 1) % KB_RING_SIZE;
+    if (next != kb_tail) {
+        kb_ring[kb_head] = sc;
+        kb_head = next;
+    }
+
+    lapic_eoi();
+}
+
+static int kb_ring_pop(uint8_t *out) {
+    if (kb_tail == kb_head) return 0;
+    *out = kb_ring[kb_tail];
+    kb_tail = (kb_tail + 1) % KB_RING_SIZE;
+    return 1;
+}
+
 void keyboard_init(void) {
     int guard = 0;
     while ((inb(0x64) & 1) && guard < 256) {
-        (void)inb(0x60);
+        if (!(inb(0x64) & 0x20)) (void)inb(0x60);
+        else break;
         guard++;
+    }
+
+    irq_register(KEYBOARD_VECTOR, keyboard_isr);
+    if (!ioapic_route_isa_irq(KEYBOARD_IRQ, KEYBOARD_VECTOR, lapic_get_id(), false)) {
+        dmesg("[keyboard] failed to route IRQ1\n");
     }
 }
 
@@ -75,7 +113,8 @@ void keyboard_readline(char *buf, int max) {
     if (cursor_cb) cursor_cb(1);
 
     while (i < max - 1) {
-        if (!(inb(0x64) & 1)) {
+        uint8_t sc;
+        if (!kb_ring_pop(&sc)) {
             sched_yield();
             asm volatile("pause");
 
@@ -88,8 +127,6 @@ void keyboard_readline(char *buf, int max) {
             continue;
         }
         if (cursor_cb) cursor_cb(0);
-        uint8_t sc = inb(0x60);
-        kb_track_scancode(sc);
 
         if (sc == 0xE0) { extended = 1; goto next; }
 
@@ -182,13 +219,13 @@ void keyboard_readline(char *buf, int max) {
     if (cursor_cb) cursor_cb(0);
 }
 uint8_t keyboard_peek(void) {
-    if (!(inb(0x64) & 1)) return 0;
-    return inb(0x60);
+    uint8_t sc;
+    if (!kb_ring_pop(&sc)) return 0;
+    return sc;
 }
 void keyboard_update(void) {
-    while (inb(0x64) & 1) {
-        kb_track_scancode(inb(0x60));
-    }
+    uint8_t sc;
+    while (kb_ring_pop(&sc)) { }
 }
 
 int keyboard_held(uint8_t scancode) {

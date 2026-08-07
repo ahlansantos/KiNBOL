@@ -25,3 +25,8 @@ void gpipe_circle(gpipe_ctx_t *ctx, int cx, int cy, int r, uint32_t color);
 void gpipe_circle_fill(gpipe_ctx_t *ctx, int cx, int cy, int r, uint32_t color);
 
 int gpipe_bmp_draw(gpipe_ctx_t *ctx, int x, int y, const uint8_t *bmp_data, uint32_t bmp_size);
+
+void gpipe_text(gpipe_ctx_t *ctx, int x, int y, const char *s, uint32_t fg, uint32_t bg);
+int  gpipe_text_width(const char *s);
+
+#define GPIPE_TEXT_TRANSPARENT 0xFF000001

@@ -78,6 +78,8 @@ uint32_t lapic_get_id(void) {
     return rd(REG_ID) >> 24;
 }
 
+#define LAPIC_CALIB_SAMPLES 5
+
 void lapic_timer_init(uint32_t hz, uint8_t vector) {
     if (!lapic_base || !tsc_hz) {
         dmesg("[lapic] timer init skipped, lapic/tsc not ready\n");
@@ -85,26 +87,40 @@ void lapic_timer_init(uint32_t hz, uint8_t vector) {
     }
 
     wr(REG_TIMER_DIV, 0x3);
-
     wr(REG_LVT_TIMER, LVT_MASKED);
 
     uint64_t window_ticks = tsc_hz / 10;
-    uint64_t t0 = rdtsc_();
-    wr(REG_TIMER_INIT, 0xFFFFFFFF);
-    while (rdtsc_() - t0 < window_ticks) asm volatile("pause");
+    uint32_t elapsed_samples[LAPIC_CALIB_SAMPLES];
+    int n = 0;
 
-    uint32_t elapsed = 0xFFFFFFFF - rd(REG_TIMER_CUR);
+    for (int i = 0; i < LAPIC_CALIB_SAMPLES; i++) {
+        uint64_t t0 = rdtsc_();
+        wr(REG_TIMER_INIT, 0xFFFFFFFF);
+        while (rdtsc_() - t0 < window_ticks) asm volatile("pause");
+        uint32_t elapsed = 0xFFFFFFFF - rd(REG_TIMER_CUR);
 
-    if (elapsed >= 0xFFFFFFF0) {
-        dmesg("[lapic] timer calibration saturated (bad window), aborting\n");
+        if (elapsed >= 0xFFFFFFF0) continue;
+        elapsed_samples[n++] = elapsed;
+    }
+
+    if (n == 0) {
+        dmesg("[lapic] timer calibration saturated on every sample, aborting\n");
         return;
     }
+
+    for (int i = 1; i < n; i++) {
+        uint32_t key = elapsed_samples[i];
+        int j = i - 1;
+        while (j >= 0 && elapsed_samples[j] > key) { elapsed_samples[j + 1] = elapsed_samples[j]; j--; }
+        elapsed_samples[j + 1] = key;
+    }
+    uint32_t elapsed = elapsed_samples[n / 2];
 
     uint64_t lapic_hz = (uint64_t)elapsed * 10;
 
     dmesg("[lapic] calib: elapsed="); dmesg_hex(elapsed);
     dmesg(" lapic_hz="); dmesg_int((uint32_t)(lapic_hz / 1000));
-    dmesg(" kHz\n");
+    dmesg(" kHz (median of "); dmesg_int(n); dmesg(" samples)\n");
 
     if (lapic_hz < 1000) {
         dmesg("[lapic] timer calibration looked bogus, aborting\n");

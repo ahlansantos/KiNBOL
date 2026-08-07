@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <limine.h>
 
-#define GPIPE_VERSION "1.0"
+#define GPIPE_VERSION "1.2"
 
 typedef struct gpipe_rect {
     int x, y, w, h;
@@ -30,8 +30,12 @@ gpipe_ctx_t *gpipe_default(void);
 void         gpipe_set_default(gpipe_ctx_t *ctx);
 
 void gpipe_sync_from_fb(gpipe_ctx_t *ctx);
+
 void gpipe_flip(gpipe_ctx_t *ctx);
 void gpipe_flip_full(gpipe_ctx_t *ctx);
+
+void gpipe_present(gpipe_ctx_t *ctx);
+
 void gpipe_mark_dirty(gpipe_ctx_t *ctx, int x, int y, int w, int h);
 
 void gpipe_get_draw_target(gpipe_ctx_t *ctx, uint32_t **out_ptr, uint32_t *out_pitch);

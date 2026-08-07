@@ -83,6 +83,7 @@ void shell_run(void) {
             else { terminal_set_fg(COLOR_ERROR); terminal_println("  Usage: exec <path>"); }
         }
         else if (!strcmp(in, "mstat"))        cmd_mstat();
+        else if (!strcmp(in, "about-wm"))     cmd_about();
         else if (sh_startswith(in, "gpipe "))    cmd_gpipe(in + 6);
         else if (!strcmp(in, "ls"))          cmd_vfsls();
         else if (!strcmp(in, "ls -a"))       cmd_vfsls_ex(1);

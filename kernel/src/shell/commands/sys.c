@@ -127,7 +127,6 @@ void cmd_help(void) {
     terminal_set_fg(COLOR_BODY);
     terminal_println("  usertest        run built-in ring 3 test blob (syscall demo)");
     terminal_println("  exec <path>     load and run a real ELF64 binary (e.g. exec sda/test.elf)");
-
     terminal_set_fg(COLOR_HEADER);
     terminal_println("\n  Utilities");
     terminal_set_fg(COLOR_DIM);
@@ -135,6 +134,7 @@ void cmd_help(void) {
     terminal_set_fg(COLOR_BODY);
     terminal_println("  calc <expr>   calculator (hex, +-*/&|^~)");
     terminal_println("  ascii         ASCII table");
+    terminal_println("  about-wm      about the initial WM / GPipe (GUI popup)");
     terminal_println("  anim          animation test\n");
 }
 

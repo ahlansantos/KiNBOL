@@ -147,15 +147,19 @@ static void gpipe_flip_rect(gpipe_ctx_t *ctx, int x, int y, int w, int h) {
 }
 
 void gpipe_flip(gpipe_ctx_t *ctx) {
+
+    (void)ctx;
+}
+
+void gpipe_flip_full(gpipe_ctx_t *ctx) {
+    if (!ctx) return;
+    gpipe_mark_dirty(ctx, 0, 0, (int)ctx->width, (int)ctx->height);
+}
+
+void gpipe_present(gpipe_ctx_t *ctx) {
     if (!ctx || !ctx->fb || !ctx->back) return;
     if (ctx->dirty.w <= 0 || ctx->dirty.h <= 0) return;
 
     gpipe_flip_rect(ctx, ctx->dirty.x, ctx->dirty.y, ctx->dirty.w, ctx->dirty.h);
-    ctx->dirty = (gpipe_rect_t){0, 0, 0, 0};
-}
-
-void gpipe_flip_full(gpipe_ctx_t *ctx) {
-    if (!ctx || !ctx->fb || !ctx->back) return;
-    gpipe_flip_rect(ctx, 0, 0, (int)ctx->width, (int)ctx->height);
     ctx->dirty = (gpipe_rect_t){0, 0, 0, 0};
 }

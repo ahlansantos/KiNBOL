@@ -50,7 +50,7 @@ KiNBOL is a hobby OS I'm building from scratch to learn how operating systems ac
 | unified kernel logging (`klog`) | ✅ single call site (`KLOG_I`/`KLOG_W`/`KLOG_E`/`KLOG_D`/`KLOG_T`) fans out to the dmesg ring buffer + serial *and* the screen terminal at once, level-tagged and colorized, no more drifting between two separate hand-rolled log paths |
 | VFS + ramdisk | ✅ /dev nodes + in-memory fs |
 | AHCI + FAT32 | ✅ PCI enum + bus mastering, real read/write DMA, `/dev/sda` mounted as FAT32 (read+write, subdirectories) |
-| framebuffer (1080p) | ✅ text terminal + GPipe 1.0 unified — both draw into the same back buffer, only `gpipe_flip`/`gpipe_flip_full` touches real VRAM |
+| framebuffer (1080p) | ✅ text terminal + GPipe 1.2 unified — both draw into the same back buffer, only `gpipe_flip`/`gpipe_flip_full` touches real VRAM |
 | shell | ✅ commands + history + tab completion (subcommands) |
 
 > scheduling is cooperative with intelligent preemption: tasks give up the CPU voluntarily (`sleep_ms`, `task_exit`, explicit yield). the LAPIC timer fires at 100Hz and hooks into the scheduler, but **kernel tasks and the shell are protected from preemption** (tasks with names starting with `[` are never preempted). this means the terminal/keyboard remain responsive at all times, while user-mode tasks (`usertest`, `schedtest`, etc.) are preempted automatically. **this matters for ring 3**: a user-mode program is CPL-isolated from crashing the kernel, and now also can't hang it indefinitely — the scheduler will preempt spinning userspace tasks. the Big Kernel Lock provides the locking foundation for this, preventing context switches mid-operation on unprotected shared state.
@@ -58,6 +58,16 @@ KiNBOL is a hobby OS I'm building from scratch to learn how operating systems ac
 > every syscall entry validates the user-supplied pointers it's handed (`syscall_check_user_ptr()`, backed by `vmm_check_user_range()` walking the 4-level page tables). we also validate the RSP the task trapped in with (`syscall_check_user_rsp()`). the RSP check exists because if a task forges a garbage RSP before invoking `syscall`, nothing stops the kernel from handing it straight back on the way out via `sysret`, which corrompts the task's own return into userspace. a task that fails either check gets killed via `task_exit()` instead of being allowed to run the syscall.
 >
 > ring 3 tasks now have full process isolation via per-task address spaces! `task_create_user()` clones a new pagemap (`vmm_create_pagemap()`) for every user task, and `CR3` context switches automatically inside the scheduler. This guarantees that one user program cannot read or write another user program's memory.
+
+---
+
+## 0.08.2 changelog
+
+- **keyboard is now IRQ-driven (IRQ1)**, matching the mouse (IRQ12), instead of raw-polling the 8042 output buffer. Fixes ghost keystrokes and a race where mouse packet bytes could get misread as scancodes.
+- **`about` window is now its own cooperative task (`[about]`)** instead of a blocking loop inside the shell — the prompt stays responsive while it's open.
+- **windows no longer get torn apart by the terminal** — `terminal_lock`/`terminal_unlock` now also take the Big Kernel Lock, so typing, scrolling, and cursor blink can't write through a window mid-frame.
+- the `[about]` window is now **movable** — drag it by the titlebar.
+- GPipe bumped to **1.2**.
 
 ---
 
@@ -86,12 +96,13 @@ needs: `make`, `x86_64-elf-gcc`, `nasm`, `qemu-system-x86_64`, `xorriso`, `mtool
 | ring 3 | `usertest` — spawns a task, enters ring 3 via `iretq`, runs a hand-written user blob that calls `SYS_WRITE`/`SYS_SLEEP`/`SYS_EXIT` through the modern `syscall` instruction (Linux ABI) · `exec <path>` — loads a real ELF64 binary off the VFS via `elf_load()`, builds a real Linux-shaped initial stack (`argc`/`argv[0]`/auxv), and enters ring 3 at its `e_entry` (`envp` still empty, no dynamic linking) |
 | debug | `crash de`, `crash ud`, `crash pf`, `crash gp` — deterministic faults for exercising the exception dump (no UB; `crash gp` triggers via `wrmsr`, run from ring 0) |
 | utilities | `calc`, `ascii`, `anim`, `mstat` |
+| gui | `about-wm` — spawns a movable "About the WM" window as its own task (`[about]`), showing GPipe/WM info; shell keeps running while it's open, drag the titlebar to move it, ESC or the X button closes it |
 
 ---
 
 ## GPipe replaces BareGL
 
-BareGL is fully deprecated, moved to `src/graphics/api/deprecated-legacy/`. GPipe 1.0 is the active graphics API:
+BareGL is fully deprecated, moved to `src/graphics/api/deprecated-legacy/`. GPipe 1.2 is the active graphics API:
 
 - explicit context (`gpipe_ctx_t`) instead of hidden global state
 - back buffer allocated straight from the PMM (`pmm_alloc_pages_contiguous`), not the small-block heap

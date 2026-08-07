@@ -23,7 +23,7 @@ static uint16_t pit_read(void) {
     return (uint16_t)inb(0x40) | ((uint16_t)inb(0x40) << 8);
 }
 
-void tsc_calibrate(void) {
+static uint64_t tsc_calibrate_sample(void) {
     outb(0x43, 0x34); outb(0x40, 0xFF); outb(0x40, 0xFF);
     while (pit_read() < 60000) asm volatile("pause");
     while (pit_read() < 60000) asm volatile("pause");
@@ -32,10 +32,35 @@ void tsc_calibrate(void) {
     uint16_t target = start - 40000;
     while (pit_read() > target) asm volatile("pause");
     uint64_t cycles = rdtsc() - t0;
-    tsc_hz = (cycles * 1193182ULL) / 40000ULL;
+    return (cycles * 1193182ULL) / 40000ULL;
+}
+
+static void sort_u64(uint64_t *a, int n) {
+    for (int i = 1; i < n; i++) {
+        uint64_t key = a[i];
+        int j = i - 1;
+        while (j >= 0 && a[j] > key) { a[j + 1] = a[j]; j--; }
+        a[j + 1] = key;
+    }
+}
+
+#define CALIB_SAMPLES 7
+
+void tsc_calibrate(void) {
+    uint64_t samples[CALIB_SAMPLES];
+    for (int i = 0; i < CALIB_SAMPLES; i++)
+        samples[i] = tsc_calibrate_sample();
+
+    sort_u64(samples, CALIB_SAMPLES);
+    tsc_hz = samples[CALIB_SAMPLES / 2];
+
     dmesg("[pit] measured tsc_hz=");
     dmesg_int((uint32_t)(tsc_hz / 1000000ULL));
-    dmesg(" MHz\n");
+    dmesg(" MHz (median of "); dmesg_int(CALIB_SAMPLES); dmesg(" samples)\n");
+    dmesg("[pit] spread: min="); dmesg_int((uint32_t)(samples[0] / 1000000ULL));
+    dmesg("MHz max="); dmesg_int((uint32_t)(samples[CALIB_SAMPLES - 1] / 1000000ULL));
+    dmesg("MHz\n");
+
     if (tsc_hz < 100000000ULL) {
         dmesg("[pit] measurement looked bogus, falling back to 1GHz assumption\n");
         tsc_hz = 1000000000ULL;
@@ -54,13 +79,6 @@ void sleep_ms(uint32_t ms) {
         uint64_t wake = uptime_ms() + ms;
         curr->wake_time_ms = wake;
         curr->state = TASK_BLOCKED;
-
-        dmesg("[sched] task ");
-        dmesg_int(curr->id);
-        dmesg(" blocked until tick ");
-        dmesg_int((uint32_t)wake);
-        dmesg("\n");
-
         sched_yield();
         return;
     }

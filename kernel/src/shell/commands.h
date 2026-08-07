@@ -47,3 +47,4 @@ void cmd_usertest(void);
 void cmd_exec(const char *path);
 void cmd_mstat(void);
 void cmd_syscalls(void);
+void cmd_about(void);

@@ -1,6 +1,7 @@
 #include "terminal.h"
 #include "../graphics/font.h"
 #include "api/gpipe.h"
+#include "../kernel/lock.h"
 #include <stdint.h>
 
 static struct limine_framebuffer *fbi = 0;
@@ -18,10 +19,12 @@ uint64_t terminal_lock(void) {
     uint64_t flags;
     asm volatile("pushfq; popq %0" : "=r"(flags) :: "memory");
     asm volatile("cli" ::: "memory");
+    bkl_acquire();
     return flags;
 }
 
 void terminal_unlock(uint64_t flags) {
+    bkl_release();
     asm volatile("pushq %0; popfq" :: "r"(flags) : "memory", "cc");
 }
 

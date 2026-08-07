@@ -331,9 +331,6 @@ void sched_update_blocked_tasks(void) {
             if (now >= iter->wake_time_ms) {
                 iter->state = TASK_READY;
                 iter->wake_time_ms = 0;
-                dmesg("[sched] task ");
-                dmesg_int(iter->id);
-                dmesg(" woke up\n");
             }
         }
         iter = iter->next;

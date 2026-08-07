@@ -11,6 +11,7 @@
 #include "graphics/terminal.h"
 #include "graphics/api/gpipe.h"
 #include "graphics/api/gpipe_prim.h"
+#include "graphics/cursor.h"
 #include "graphics/font.h"
 #include "kernel/gdt.h"
 #include "kernel/idt.h"
@@ -129,6 +130,21 @@ static void timer_isr(void) {
     }
 }
 
+static void compositor_task(void *arg) {
+    (void)arg;
+
+    for (;;) {
+        gpipe_ctx_t *gc = gpipe_default();
+        if (gc) {
+            bkl_acquire();
+            cursor_update(gc);
+            gpipe_present(gc);
+            bkl_release();
+        }
+        sleep_ms(20);
+    }
+}
+
 void kmain(void) {
 
     dmesg_init();
@@ -197,6 +213,7 @@ void kmain(void) {
         lapic_timer_init(100, TIMER_VECTOR);
 
         mouse_init();
+        cursor_init(gpipe_default());
 
         dmesg("[boot] LAPIC/IOAPIC timer online\n");
     } else {
@@ -218,6 +235,8 @@ void kmain(void) {
     }
 
     sched_init();
+
+    task_create("[compositor]", compositor_task, NULL);
 
     keyboard_init();
 
