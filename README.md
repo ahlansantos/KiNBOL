@@ -1,10 +1,9 @@
-\<p align="center"> \<img src="pictures/kinbol.png" alt="KiNBOL logo" width="220"/> \</p>
 
-# KiNBOL
+# KiNBOL - will be abandoned soon, no more update
 
 > **this Kernel is Not Based On Linux**
 
-x86\_64 · UEFI · Limine · Ring 0 + Ring 3
+x86\_64 · UEFI · Limine · Ring 0 + Ring 3 · Linux ABI
 
 ---
 
