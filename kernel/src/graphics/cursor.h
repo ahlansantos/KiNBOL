@@ -11,3 +11,5 @@ void cursor_set_visible(bool visible);
 
 void cursor_update(gpipe_ctx_t *ctx);
 void cursor_get_pos(int *x, int *y);
+
+void cursor_erase_for_scroll(gpipe_ctx_t *ctx);

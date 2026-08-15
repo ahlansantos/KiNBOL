@@ -6,3 +6,7 @@
 *.img
 data.img
 fat32/
+
+#zip souce
+kernel.zip
+*.zip

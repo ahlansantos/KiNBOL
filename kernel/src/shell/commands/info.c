@@ -13,7 +13,7 @@ extern uint64_t tsc_hz;
 void cmd_fastfetch(void) {
     terminal_clear();
 
-    terminal_set_fg(0x88AACC);
+    terminal_set_fg(COLOR_HEADER);
     terminal_println(" ___  __    ___  ________   ________  ________  ___          ");
     terminal_println("|\\  \\|\\  \\ |\\  \\|\\   ___  \\|\\   __  \\|\\   __  \\|\\  \\         ");
     terminal_println("\\ \\  \\/  /|\\ \\  \\ \\  \\\\ \\  \\ \\  \\|\\ /\\ \\  \\|\\  \\ \\  \\        ");
@@ -23,34 +23,34 @@ void cmd_fastfetch(void) {
     terminal_println("    \\|__| \\|__|\\|__|\\|__| \\|__|\\|_______|\\|_______|\\|_______\\");
     terminal_println("");
 
-    terminal_set_fg(0x88CC88);
-    terminal_println("  KiNBOL 0.08");
-    terminal_set_fg(0xAAAAAA);
+    terminal_set_fg(COLOR_WHITE);
+    terminal_println("  KiNBOL 0.08.2");
+    terminal_set_fg(COLOR_DIM);
     terminal_println("  this Kernel is Not Based On Linux");
     terminal_println("");
 
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_println("  kernel@KiNBOL");
-    terminal_set_fg(0xAAAAAA);
+    terminal_set_fg(COLOR_DIM);
     terminal_println("  -----------");
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  OS:       ");
-    terminal_set_fg(0x88CC88);
-    terminal_println("KiNBOL 0.08");
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_WHITE);
+    terminal_println("KiNBOL 0.08.2");
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  Kernel:   ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_println("x86_64 Limine UEFI");
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  Shell:    ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_println("kinsh 2");
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  VFS:      ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_print_int(vfs_node_count());
     terminal_println(" nodes");
 
@@ -60,18 +60,18 @@ void cmd_fastfetch(void) {
     uint32_t m = (s % 3600) / 60;
     s = s % 60;
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  Uptime:   ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
 
     if (h) { terminal_print_int(h); terminal_print("h "); }
     if (m) { terminal_print_int(m); terminal_print("m "); }
     terminal_print_int(s);
     terminal_println("s");
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  Display:  ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_print_int(fbi->width);
     terminal_print("x");
     terminal_print_int(fbi->height);
@@ -79,24 +79,24 @@ void cmd_fastfetch(void) {
     terminal_print_int(fbi->bpp);
     terminal_println("bpp");
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  GPipe:    ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_println(GPIPE_VERSION);
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  Libk:     ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_println("Lib-kin v0.1");
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  Userland: ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_println("musl (static, x86_64-linux-musl target) [ELF loader WIP]");
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  CPU:      ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
 
     uint32_t eax, ebx, ecx, edx;
     char cpu[49] = {0};
@@ -131,20 +131,20 @@ void cmd_fastfetch(void) {
     while (cpu[cp] == ' ') cp++;
     terminal_println(&cpu[cp]);
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  TSC:      ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_print_int((uint32_t)(tsc_hz / 1000000));
     terminal_println(" MHz");
 
-    terminal_set_fg(0xDDDDDD);
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  PMM:      ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_print_int((uint32_t)pmm_get_free_page_count());
     terminal_println(" pages free");
 
     terminal_println("");
-    uint32_t cols[] = {0xCC88AA, 0xCCCC88, 0x88CC88, 0x88AACC, 0x8888CC};
+    uint32_t cols[] = { COLOR_ERROR, COLOR_WARNING, COLOR_SUCCESS, COLOR_ACCENT, COLOR_CMD };
 
     for (int r = 0; r < 5; r++) {
         terminal_print("  ");

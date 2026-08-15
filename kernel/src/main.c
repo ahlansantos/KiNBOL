@@ -33,6 +33,7 @@
 #include "kernel/sched.h"
 #include "kernel/rand.h"
 #include "shell/shell.h"
+#include "shell/commands/util.h"
 
 __attribute__((used, section(".limine_requests_start")))
 static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
@@ -68,7 +69,7 @@ static void hcf(void) { for (;;) asm("hlt"); }
 static void print_banner(void) {
     terminal_clear();
 
-    terminal_set_fg(0x88AACC);
+    terminal_set_fg(COLOR_HEADER);
     terminal_println(" ___  __    ___  ________   ________  ________  ___          ");
     terminal_println("|\\  \\|\\  \\ |\\  \\|\\   ___  \\|\\   __  \\|\\   __  \\|\\  \\         ");
     terminal_println("\\ \\  \\/  /|\\ \\  \\ \\  \\\\ \\  \\ \\  \\|\\ /\\ \\  \\|\\  \\ \\  \\        ");
@@ -78,18 +79,18 @@ static void print_banner(void) {
     terminal_println("    \\|__| \\|__|\\|__|\\|__| \\|__|\\|_______|\\|_______|\\|_______\\");
     terminal_println("");
 
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_WHITE);
     terminal_println("  KiNBOL 0.08");
-    terminal_set_fg(0xAAAAAA);
+    terminal_set_fg(COLOR_DIM);
     terminal_println("  this Kernel is Not Based On Linux");
     terminal_println("");
 
-    terminal_set_fg(0xDDDDDD); terminal_print("  Framebuffer: ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_ACCENT); terminal_print("  Framebuffer: ");
+    terminal_set_fg(COLOR_WHITE);
     terminal_print_int(fbi->width); terminal_print("x"); terminal_print_int(fbi->height); terminal_println("");
 
-    terminal_set_fg(0xDDDDDD); terminal_print("  RAM:         ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_ACCENT); terminal_print("  RAM:         ");
+    terminal_set_fg(COLOR_WHITE);
     if (total_ram >= 1073741824) {
         uint64_t whole = total_ram / 1073741824;
         uint64_t tenths = (total_ram % 1073741824) * 10 / 1073741824;
@@ -99,20 +100,20 @@ static void print_banner(void) {
         terminal_print_int((uint32_t)(total_ram / 1048576)); terminal_println(" MB");
     }
 
-    terminal_set_fg(0xDDDDDD); terminal_print("  PMM:         ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_ACCENT); terminal_print("  PMM:         ");
+    terminal_set_fg(COLOR_WHITE);
     terminal_print_int((uint32_t)pmm_get_free_page_count()); terminal_println(" pages free");
 
-    terminal_set_fg(0xDDDDDD); terminal_print("  VFS:         ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_ACCENT); terminal_print("  VFS:         ");
+    terminal_set_fg(COLOR_WHITE);
     terminal_print_int(vfs_node_count()); terminal_println(" nodes");
 
-    terminal_set_fg(0xDDDDDD); terminal_print("  GPipe:       ");
-    terminal_set_fg(0x88CC88);
+    terminal_set_fg(COLOR_ACCENT); terminal_print("  GPipe:       ");
+    terminal_set_fg(COLOR_WHITE);
     terminal_println(GPIPE_VERSION);
 
     terminal_println("");
-    terminal_set_fg(0xAAAAAA); terminal_println("  Type 'help' for available commands."); terminal_println("");
+    terminal_set_fg(COLOR_DIM); terminal_println("  Type 'help' for available commands."); terminal_println("");
 }
 
 #define TIMER_VECTOR    32

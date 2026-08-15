@@ -124,3 +124,9 @@ void cursor_get_pos(int *x, int *y) {
     if (x) *x = cx;
     if (y) *y = cy;
 }
+
+void cursor_erase_for_scroll(gpipe_ctx_t *ctx) {
+    
+    if (saved_valid) cursor_restore(ctx);
+    saved_valid = false;
+}

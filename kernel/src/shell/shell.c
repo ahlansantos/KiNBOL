@@ -28,9 +28,9 @@ void shell_run(void) {
         if      (!strcmp(in, "help"))      cmd_help();
         else if (!strcmp(in, "clear"))     terminal_clear();
         else if (!strcmp(in, "uname")) {
-            terminal_set_fg(0x88CC88);
+            terminal_set_fg(0x64D2FF);
             terminal_println("  KiNBOL 0.08 x86_64-uefi Limine");
-            terminal_set_fg(0xAAAAAA);
+            terminal_set_fg(COLOR_DIM);
         }
         else if (sh_startswith(in, "echo ")) {
             terminal_set_fg(COLOR_SUCCESS);

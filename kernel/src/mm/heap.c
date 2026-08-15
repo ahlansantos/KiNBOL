@@ -24,13 +24,22 @@ static uint32_t g_used_blocks  = 0;
 
 
 
-static block_t *heap_new_page(void) {
-    void *phys = pmm_alloc_page();
+static block_t *heap_new_block(size_t min_size) {
+    uint64_t need = (uint64_t)min_size + sizeof(block_t);
+    uint64_t pages = (need + PAGE_SIZE - 1) / PAGE_SIZE;
+    if (pages < 1) pages = 1;
+
+    void *phys;
+    if (pages == 1) {
+        phys = pmm_alloc_page();
+    } else {
+        phys = pmm_alloc_pages_contiguous(pages);
+    }
     if (!phys) return NULL;
-    g_pages++;
+    g_pages += (uint32_t)pages;
 
     block_t *blk = (block_t *)pmm_phys_to_virt((uint64_t)phys);
-    blk->size  = PAGE_SIZE - sizeof(block_t);
+    blk->size  = (size_t)(pages * PAGE_SIZE - sizeof(block_t));
     blk->used  = false;
     blk->magic = HEAP_MAGIC;
     blk->next  = NULL;
@@ -76,7 +85,7 @@ void *kmalloc(size_t size) {
     size = (size + 15) & ~(size_t)15;
 
     if (!free_list) {
-        free_list = heap_new_page();
+        free_list = heap_new_block(size);
         if (!free_list) return NULL;
     }
 
@@ -92,7 +101,7 @@ void *kmalloc(size_t size) {
         curr = curr->next;
     }
 
-    block_t *new_blk = heap_new_page();
+    block_t *new_blk = heap_new_block(size);
     if (!new_blk) return NULL;
 
     block_t *tail = free_list;

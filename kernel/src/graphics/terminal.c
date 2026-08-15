@@ -1,6 +1,8 @@
 #include "terminal.h"
 #include "../graphics/font.h"
 #include "api/gpipe.h"
+#include "cursor.h"
+#include "windowm/wm.h"
 #include "../kernel/lock.h"
 #include <stdint.h>
 
@@ -8,8 +10,8 @@ static struct limine_framebuffer *fbi = 0;
 static uint32_t pw   = 0;
 static uint32_t gx   = 8;
 static uint32_t gy   = 8;
-static uint32_t fg   = 0xFFFFFF;
-static uint32_t bg   = 0x101418;
+static uint32_t fg   = 0xEAEFF7;
+static uint32_t bg   = 0x06070B;
 static uint32_t ts   = 1;
 
 #define CELL_W (8u  * ts)
@@ -99,6 +101,10 @@ static void chr(uint32_t x, uint32_t y, char c, uint32_t cf, uint32_t cb) {
         }
     }
 
+    if (wm_any_open_over((int)x, (int)y, (int)CELL_W, (int)CELL_H)) {
+        wm_repaint_over(gctx, (int)x, (int)y, (int)CELL_W, (int)CELL_H);
+    }
+
     if (target) {
         gpipe_mark_dirty(gctx, (int)x, (int)y, (int)CELL_W, (int)CELL_H);
         gpipe_flip(gctx);
@@ -129,6 +135,9 @@ static void scroll(void) {
         pitch = pw;
     }
 
+    cursor_erase_for_scroll(gctx);
+    wm_erase_all_for_scroll(gctx);
+
     uint32_t copy_rows = fbi->height - CELL_H;
     fb_scroll_copy(fbb, fbb + (size_t)CELL_H * pitch, copy_rows * pitch);
 
@@ -137,6 +146,8 @@ static void scroll(void) {
         for (uint32_t c = 0; c < fbi->width; c++) p[c] = bg;
     }
     gy = fbi->height - CELL_H;
+
+    wm_repaint_all_after_scroll(gctx);
 
     if (target) {
         gpipe_mark_dirty(gctx, 0, 0, (int)fbi->width, (int)fbi->height);
@@ -242,12 +253,17 @@ void terminal_clear(void) {
         pitch = pw;
     }
 
+    cursor_erase_for_scroll(gctx);
+    wm_erase_all_for_scroll(gctx);
+
     uint32_t total_pixels = pitch * fbi->height;
     for (uint32_t i = 0; i < total_pixels; i++) {
         fb[i] = bg;
     }
     gx = 8;
     gy = 8;
+
+    wm_repaint_all_after_scroll(gctx);
 
     if (target) {
         gpipe_mark_dirty(gctx, 0, 0, (int)fbi->width, (int)fbi->height);
