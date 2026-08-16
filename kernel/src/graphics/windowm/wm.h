@@ -3,24 +3,34 @@
 #include <stdbool.h>
 #include "../api/gpipe.h"
 
-#define WM_TITLEBAR_H  46
-#define WM_BTN_W       26
-#define WM_BTN_H       26
-#define WM_SHADOW_OFF  10
-#define WM_CORNER_R    10
+#define WM_TITLEBAR_H_BASE  46
+#define WM_BTN_W_BASE       26
+#define WM_BTN_H_BASE       26
+#define WM_SHADOW_OFF_BASE  10
+#define WM_CORNER_R_BASE    10
+#define WM_SCALE_MAX        8
 
-#define WM_COL_BORDER    0x0A246A
-#define WM_COL_BORDER_HI 0x4C7BD9
-#define WM_COL_TITLEBAR  0x1A3A7A
-#define WM_COL_TITLEBAR2 0x0A2050
-#define WM_COL_TITLETEXT 0xFFFFFF
-#define WM_COL_FACE      0xEFEFEF
-#define WM_COL_TEXT      0xF2F4F8
-#define WM_COL_LABEL     0xAEB6C4
-#define WM_COL_ACCENT    0x0A84FF
-#define WM_COL_BTNFACE   0xE4E4E4
-#define WM_COL_BTNHOVER  0xD64C4C
-#define WM_COL_BTNBORDER 0xB0B0B0
+#define WM_COL_BORDER    0x484B54
+#define WM_COL_BORDER_HI 0x8B93A7
+#define WM_COL_TITLEBAR  0x3A3D45
+#define WM_COL_TITLEBAR2 0x2E3138
+#define WM_COL_TITLETEXT 0xF3F4F6
+#define WM_COL_FACE      0x444850
+#define WM_COL_TEXT      0xF0F2F5
+#define WM_COL_LABEL     0x9CA3AF
+#define WM_COL_ACCENT    0x5E9EFF
+#define WM_COL_BTNFACE   0x565C68
+#define WM_COL_BTNHOVER  0xEF4444
+#define WM_COL_BTNBORDER 0x727888
+
+int  wm_titlebar_h(void);
+int  wm_btn_w(void);
+int  wm_btn_h(void);
+int  wm_shadow_off(void);
+int  wm_corner_r(void);
+int  wm_ui_scale(void);
+void wm_set_ui_scale(uint32_t scale);
+void wm_repaint_all(gpipe_ctx_t *ctx);
 
 typedef struct wm_window wm_window_t;
 

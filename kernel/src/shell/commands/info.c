@@ -49,6 +49,11 @@ void cmd_fastfetch(void) {
     terminal_println("kinsh 2");
 
     terminal_set_fg(COLOR_ACCENT);
+    terminal_print("  Font:     ");
+    terminal_set_fg(COLOR_WHITE);
+    terminal_println("JetBrains Mono Bold");
+
+    terminal_set_fg(COLOR_ACCENT);
     terminal_print("  VFS:      ");
     terminal_set_fg(COLOR_WHITE);
     terminal_print_int(vfs_node_count());

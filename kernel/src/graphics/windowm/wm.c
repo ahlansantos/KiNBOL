@@ -1,5 +1,6 @@
 #include "wm.h"
 #include "../api/gpipe_prim.h"
+#include "../font_ttf.h"
 #include "../cursor.h"
 #include "../../drivers/mouse.h"
 #include "../../kernel/lock.h"
@@ -7,6 +8,23 @@
 #include "../../libk/string.h"
 
 #define WM_MAX_WINDOWS 8
+
+static uint32_t g_wm_scale = 1;
+
+int wm_titlebar_h(void)  { return WM_TITLEBAR_H_BASE  * (int)g_wm_scale; }
+int wm_btn_w(void)       { return WM_BTN_W_BASE       * (int)g_wm_scale; }
+int wm_btn_h(void)       { return WM_BTN_H_BASE       * (int)g_wm_scale; }
+int wm_shadow_off(void)  { return WM_SHADOW_OFF_BASE  * (int)g_wm_scale; }
+int wm_corner_r(void)    { return WM_CORNER_R_BASE    * (int)g_wm_scale; }
+int wm_ui_scale(void)    { return (int)g_wm_scale; }
+
+void wm_set_ui_scale(uint32_t scale) {
+    if (scale < 1) scale = 1;
+    if (scale > WM_SCALE_MAX) scale = WM_SCALE_MAX;
+    if (scale == g_wm_scale) return;
+    g_wm_scale = scale;
+    font_ttf_set_ui_scale(scale);
+}
 
 struct wm_window {
     int x, y, w, h;
@@ -59,20 +77,22 @@ static bool glass_mask(int lx, int ly, int rw, int rh, int radius) {
 }
 
 void wm_draw_button(gpipe_ctx_t *ctx, int x, int y, const char *label, bool danger) {
-    int cx = x + WM_BTN_W / 2, cy = y + WM_BTN_H / 2;
-    int r  = WM_BTN_W / 2 - 1;
+    int bw = wm_btn_w(), bh = wm_btn_h();
+    int cx = x + bw / 2, cy = y + bh / 2;
+    int r  = bw / 2 - g_wm_scale;
 
     for (int row = -r; row <= r; row++) {
         for (int col = -r; col <= r; col++) {
             if (col * col + row * row > r * r) continue;
-            uint32_t tint = danger ? 0x50FF5C4A : 0x30FFFFFF;
+            uint32_t tint = danger ? 0x40EF4444 : 0x28FFFFFF;
             gpipe_pixel_blend(ctx, cx + col, cy + row, tint);
         }
     }
-    gpipe_circle(ctx, cx, cy, r, danger ? 0xFF7A68 : 0x8A93A6);
+    gpipe_circle(ctx, cx, cy, r, danger ? WM_COL_BTNHOVER : WM_COL_BTNBORDER);
 
     int tw = gpipe_text_width(label);
-    gpipe_text(ctx, cx - tw / 2, cy - 8, label, 0xFFFFFF, GPIPE_TEXT_TRANSPARENT);
+    int th = (int)font_ttf_ui_cell_h();
+    gpipe_text(ctx, cx - tw / 2, cy - th / 2, label, WM_COL_TITLETEXT, GPIPE_TEXT_TRANSPARENT);
 }
 
 static void save_region(wm_window_t *win, gpipe_ctx_t *ctx) {
@@ -95,23 +115,26 @@ static void restore_region(wm_window_t *win, gpipe_ctx_t *ctx) {
 }
 
 static void draw_chrome(wm_window_t *win, gpipe_ctx_t *ctx) {
-    int rw = win->w, rh = win->h, radius = WM_CORNER_R;
+    int rw = win->w, rh = win->h, radius = wm_corner_r();
+    int shadow = wm_shadow_off();
+    int titlebar = wm_titlebar_h();
+    int bw = wm_btn_w(), bh = wm_btn_h();
     if (radius * 2 > rw) radius = rw / 2;
     if (radius * 2 > rh) radius = rh / 2;
 
-    int sx = win->x + WM_SHADOW_OFF, sy = win->y + WM_SHADOW_OFF;
+    int sx = win->x + shadow, sy = win->y + shadow;
     for (int row = 0; row < rh; row++) {
         for (int col = 0; col < rw; col++) {
             if (!glass_mask(col, row, rw, rh, radius)) continue;
-            gpipe_pixel_blend(ctx, sx + col, sy + row, 0x3A000000);
+            gpipe_pixel_blend(ctx, sx + col, sy + row, 0x28000000);
         }
     }
 
     for (int row = 0; row < rh; row++) {
-        uint32_t top_boost = (uint32_t)(70 * (rh - row)) / (uint32_t)rh;
-        uint32_t alpha = 0x70 + top_boost;
-        if (alpha > 0xC8) alpha = 0xC8;
-        uint32_t tint = (alpha << 24) | 0x0D111C;
+        uint32_t top_boost = (uint32_t)(50 * (rh - row)) / (uint32_t)rh;
+        uint32_t alpha = 0x88 + top_boost;
+        if (alpha > 0xB8) alpha = 0xB8;
+        uint32_t tint = (alpha << 24) | WM_COL_FACE;
 
         for (int col = 0; col < rw; col++) {
             if (!glass_mask(col, row, rw, rh, radius)) continue;
@@ -120,20 +143,25 @@ static void draw_chrome(wm_window_t *win, gpipe_ctx_t *ctx) {
             bool near_edge = (row < 2) || (col < 2) || (row >= rh - 2) || (col >= rw - 2);
             if (near_edge) {
                 if (row < 2 || col < 2) {
-                    gpipe_pixel_blend(ctx, win->x + col, win->y + row, 0x50FFFFFF);
+                    gpipe_pixel_blend(ctx, win->x + col, win->y + row, 0x38FFFFFF);
                 } else {
-                    gpipe_pixel_blend(ctx, win->x + col, win->y + row, 0x30000000);
+                    gpipe_pixel_blend(ctx, win->x + col, win->y + row, 0x20000000);
                 }
             }
         }
     }
 
-    gpipe_rect_fill(ctx, win->x + 18, win->y + WM_TITLEBAR_H - 6, rw - 36, 1, 0x1AFFFFFF);
+    gpipe_rect_fill(ctx, win->x + 18 * (int)g_wm_scale, win->y + titlebar - 4 * (int)g_wm_scale,
+                    rw - 36 * (int)g_wm_scale, 1, WM_COL_BORDER_HI);
 
-    gpipe_text(ctx, win->x + 20, win->y + 14, win->title, WM_COL_TITLETEXT, GPIPE_TEXT_TRANSPARENT);
+    gpipe_text(ctx, win->x + 20 * (int)g_wm_scale,
+               win->y + (titlebar - (int)font_ttf_ui_cell_h()) / 2,
+               win->title, WM_COL_TITLETEXT, GPIPE_TEXT_TRANSPARENT);
 
-    wm_draw_button(ctx, win->x + win->w - WM_BTN_W * 2 - 14, win->y + 10, "-", false);
-    wm_draw_button(ctx, win->x + win->w - WM_BTN_W - 8, win->y + 10, "X", true);
+    wm_draw_button(ctx, win->x + win->w - bw * 2 - 14 * (int)g_wm_scale,
+                   win->y + (titlebar - bh) / 2, "-", false);
+    wm_draw_button(ctx, win->x + win->w - bw - 8 * (int)g_wm_scale,
+                   win->y + (titlebar - bh) / 2, "X", true);
 }
 
 static void draw_all(wm_window_t *win, gpipe_ctx_t *ctx) {
@@ -163,7 +191,7 @@ wm_window_t *wm_create(int x, int y, int w, int h, const char *title, void *user
     wm_window_t *win = kmalloc(sizeof(wm_window_t));
     if (!win) return NULL;
 
-    int rw = w + WM_SHADOW_OFF, rh = h + WM_SHADOW_OFF;
+    int rw = w + wm_shadow_off(), rh = h + wm_shadow_off();
     win->saved = kmalloc((size_t)rw * rh * sizeof(uint32_t));
     if (!win->saved) { kfree(win); return NULL; }
     win->owns_saved = true;
@@ -249,14 +277,22 @@ void wm_redraw(wm_window_t *win, gpipe_ctx_t *ctx) {
     gpipe_present(ctx);
 }
 
+void wm_repaint_all(gpipe_ctx_t *ctx) {
+    for (int i = 0; i < WM_MAX_WINDOWS; i++) {
+        wm_window_t *win = g_windows[i];
+        if (win && win->open)
+            wm_redraw(win, ctx);
+    }
+}
+
 void wm_get_pos(wm_window_t *win, int *x, int *y) {
     if (x) *x = win->x;
     if (y) *y = win->y;
 }
 int wm_width(wm_window_t *win)  { return win->w; }
 int wm_height(wm_window_t *win) { return win->h; }
-int wm_region_w(wm_window_t *win) { return win->w + WM_SHADOW_OFF; }
-int wm_region_h(wm_window_t *win) { return win->h + WM_SHADOW_OFF; }
+int wm_region_w(wm_window_t *win) { return win->w + wm_shadow_off(); }
+int wm_region_h(wm_window_t *win) { return win->h + wm_shadow_off(); }
 
 bool wm_step(wm_window_t *win, gpipe_ctx_t *ctx, bool esc_pressed, bool *min_clicked) {
     if (min_clicked) *min_clicked = false;
@@ -266,20 +302,22 @@ bool wm_step(wm_window_t *win, gpipe_ctx_t *ctx, bool esc_pressed, bool *min_cli
     int mx, my;
     cursor_get_pos(&mx, &my);
 
-    int close_x = win->x + win->w - WM_BTN_W - 4;
-    int min_x   = win->x + win->w - WM_BTN_W * 2 - 8;
-    int btn_y   = win->y + 3;
+    int titlebar = wm_titlebar_h();
+    int bw = wm_btn_w(), bh = wm_btn_h();
+    int close_x = win->x + win->w - bw - 4 * (int)g_wm_scale;
+    int min_x   = win->x + win->w - bw * 2 - 8 * (int)g_wm_scale;
+    int btn_y   = win->y + (titlebar - bh) / 2;
 
     bool click_edge = ms.left && !win->prev_left;
 
     if (click_edge) {
-        if (wm_point_in(mx, my, close_x, btn_y, WM_BTN_W, WM_BTN_H)) {
+        if (wm_point_in(mx, my, close_x, btn_y, bw, bh)) {
             win->prev_left = ms.left;
             return true;
         }
-        if (wm_point_in(mx, my, min_x, btn_y, WM_BTN_W, WM_BTN_H)) {
+        if (wm_point_in(mx, my, min_x, btn_y, bw, bh)) {
             if (min_clicked) *min_clicked = true;
-        } else if (wm_point_in(mx, my, win->x + 1, win->y + 1, win->w - 2, WM_TITLEBAR_H)) {
+        } else if (wm_point_in(mx, my, win->x + 1, win->y + 1, win->w - 2, titlebar)) {
             win->dragging = true;
             win->drag_dx = mx - win->x;
             win->drag_dy = my - win->y;

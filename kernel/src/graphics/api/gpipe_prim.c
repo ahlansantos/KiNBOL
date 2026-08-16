@@ -1,5 +1,6 @@
 #include "gpipe_prim.h"
-#include "../font.h"
+#include "../font_ttf.h"
+#include "../../mm/heap.h"
 #include <stddef.h>
 
 static inline int iabs(int x) { return x < 0 ? -x : x; }
@@ -8,6 +9,17 @@ static inline int iclamp(int v, int lo, int hi) {
     if (v < lo) return lo;
     if (v > hi) return hi;
     return v;
+}
+
+static uint32_t blend_px(uint32_t bgc, uint32_t fgc, uint8_t a) {
+    if (a == 0)   return bgc;
+    if (a == 255) return fgc;
+    uint32_t br = (bgc >> 16) & 0xFF, bgg = (bgc >> 8) & 0xFF, bb = bgc & 0xFF;
+    uint32_t fr = (fgc >> 16) & 0xFF, fgg = (fgc >> 8) & 0xFF, fb2 = fgc & 0xFF;
+    uint32_t r = (fr * a + br * (255 - a)) / 255;
+    uint32_t g = (fgg * a + bgg * (255 - a)) / 255;
+    uint32_t b = (fb2 * a + bb * (255 - a)) / 255;
+    return (r << 16) | (g << 8) | b;
 }
 
 static bool clip_rect(gpipe_ctx_t *ctx, int x, int y, int w, int h,
@@ -194,75 +206,11 @@ int gpipe_bmp_draw(gpipe_ctx_t *ctx, int x, int y, const uint8_t *bmp_data, uint
 }
 
 void gpipe_text(gpipe_ctx_t *ctx, int x, int y, const char *s, uint32_t fg, uint32_t bg) {
-    if (!ctx || !ctx->back || !s) return;
+    if (!ctx || !ctx->back || !s || !font_ttf_ready()) return;
 
-    int px = x;
-    while (*s) {
-        if (*s == '\n') {
-            px = x;
-            y += 16;
-            s++;
-            continue;
-        }
-
-        const uint8_t *g = font[(unsigned char)*s];
-        for (int row = 0; row < 16; row++) {
-            uint8_t bits = g[row];
-            int py = y + row;
-            if (py < 0 || py >= (int)ctx->height) continue;
-            for (int col = 0; col < 8; col++) {
-                int cx = px + col;
-                if (cx < 0 || cx >= (int)ctx->width) continue;
-                uint32_t color = (bits & (1 << (7 - col))) ? fg : bg;
-                if (color == GPIPE_TEXT_TRANSPARENT) continue;
-                ctx->back[(uint32_t)py * ctx->pw + (uint32_t)cx] = color;
-            }
-        }
-
-        px += 8;
-        s++;
-    }
-
-    gpipe_mark_dirty(ctx, x, y, px - x, 16);
-}
-
-int gpipe_text_width(const char *s) {
-    int w = 0, max_w = 0;
-    while (*s) {
-        if (*s == '\n') { if (w > max_w) max_w = w; w = 0; }
-        else w += 8;
-        s++;
-    }
-    return w > max_w ? w : max_w;
-}
-
-static inline uint32_t gpipe_mix2(uint32_t a, uint32_t b, float t) {
-    if (t <= 0.0f) return b;
-    if (t >= 1.0f) return a;
-
-    int ta = (int)(t * 255.99f);
-    if (ta <= 0) return b;
-    if (ta >= 255) return a;
-
-    uint8_t ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
-    uint8_t br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
-    uint8_t r = (uint8_t)((ar * ta + br * (255 - ta)) / 255);
-    uint8_t g = (uint8_t)((ag * ta + bg * (255 - ta)) / 255);
-    uint8_t bv = (uint8_t)((ab * ta + bb * (255 - ta)) / 255);
-    return ((uint32_t)r << 16) | ((uint32_t)g << 8) | bv;
-}
-
-void gpipe_text_scaled(gpipe_ctx_t *ctx, int x, int y, const char *s,
-                       uint32_t fg, uint32_t bg, float scale) {
-    if (!ctx || !ctx->back || !s) return;
-    if (scale <= 0.0f) scale = 1.0f;
-
-    int cell_w = (int)(8.0f * scale);
-    int cell_h = (int)(16.0f * scale);
-    if (cell_w < 1) cell_w = 1;
-    if (cell_h < 1) cell_h = 1;
-
-    bool bg_is_transp = (bg == GPIPE_TEXT_TRANSPARENT);
+    int cell_w = (int)font_ttf_ui_cell_w();
+    int cell_h = (int)font_ttf_ui_cell_h();
+    bool bg_transp = (bg == GPIPE_TEXT_TRANSPARENT);
 
     int px = x;
     while (*s) {
@@ -273,48 +221,25 @@ void gpipe_text_scaled(gpipe_ctx_t *ctx, int x, int y, const char *s,
             continue;
         }
 
-        const uint8_t *g = font[(unsigned char)*s];
-
-        for (int dy = 0; dy < cell_h; dy++) {
-            int py = y + dy;
+        for (int row = 0; row < cell_h; row++) {
+            const uint8_t *cov = font_ttf_ui_glyph_row((unsigned char)*s, row);
+            int py = y + row;
             if (py < 0 || py >= (int)ctx->height) continue;
-
-            float fy0  = (float)dy / scale;
-            int   sy0  = (int)fy0;
-            if (sy0 > 15) sy0 = 15;
-            int   sy1  = (sy0 + 1 <= 15) ? sy0 + 1 : 15;
-            float fy   = fy0 - (float)sy0;
-
-            uint32_t *row = &ctx->back[(uint32_t)py * ctx->pw + (uint32_t)px];
-
-            for (int dx = 0; dx < cell_w; dx++) {
-                int cx = px + dx;
+            for (int col = 0; col < cell_w; col++) {
+                int cx = px + col;
                 if (cx < 0 || cx >= (int)ctx->width) continue;
-
-                float fx0 = (float)dx / scale;
-                int   sx0 = (int)fx0;
-                if (sx0 > 7) sx0 = 7;
-                int   sx1 = (sx0 + 1 <= 7) ? sx0 + 1 : 7;
-                float fx  = fx0 - (float)sx0;
-
-                uint8_t b00 = (g[sy0] >> (7 - sx0)) & 1;
-                uint8_t b10 = (g[sy0] >> (7 - sx1)) & 1;
-                uint8_t b01 = (g[sy1] >> (7 - sx0)) & 1;
-                uint8_t b11 = (g[sy1] >> (7 - sx1)) & 1;
-
-                float row0 = b00 * (1.0f - fx) + b10 * fx;
-                float row1 = b01 * (1.0f - fx) + b11 * fx;
-                float cov  = row0 * (1.0f - fy) + row1 * fy;
-
-                if (bg_is_transp) {
-                    if (cov > 0.004f) {
-                        int  a = (int)(cov * 255.0f);
-                        if (a > 255) a = 255;
+                uint8_t a = cov[col];
+                if (a == 0) continue;
+                if (bg_transp) {
+                    if (a == 255)
+                        ctx->back[(uint32_t)py * ctx->pw + (uint32_t)cx] = fg;
+                    else {
                         uint32_t src = ((uint32_t)a << 24) | (fg & 0xFFFFFF);
                         gpipe_pixel_blend(ctx, cx, py, src);
                     }
                 } else {
-                    row[dx] = gpipe_mix2(fg, bg, cov);
+                    ctx->back[(uint32_t)py * ctx->pw + (uint32_t)cx] =
+                        blend_px(bg, fg, a);
                 }
             }
         }
@@ -326,14 +251,91 @@ void gpipe_text_scaled(gpipe_ctx_t *ctx, int x, int y, const char *s,
     gpipe_mark_dirty(ctx, x, y, px - x, cell_h);
 }
 
+int gpipe_text_width(const char *s) {
+    int w = 0, max_w = 0;
+    int cell_w = (int)font_ttf_ui_cell_w();
+    while (*s) {
+        if (*s == '\n') { if (w > max_w) max_w = w; w = 0; }
+        else w += cell_w;
+        s++;
+    }
+    return w > max_w ? w : max_w;
+}
+
+void gpipe_text_scaled(gpipe_ctx_t *ctx, int x, int y, const char *s,
+                       uint32_t fg, uint32_t bg, float scale) {
+    if (!ctx || !ctx->back || !s || !font_ttf_ready()) return;
+    if (scale <= 0.0f) scale = 1.0f;
+
+    bool bg_transp = (bg == GPIPE_TEXT_TRANSPARENT);
+    float pixel_height = FONT_TTF_BAKE_HEIGHT * scale;
+    int cell_w = (int)(FONT_TTF_BASE_CELL_W * scale);
+    int cell_h = (int)(FONT_TTF_BASE_CELL_H * scale);
+    if (cell_w < 1) cell_w = 1;
+    if (cell_h < 1) cell_h = 1;
+
+    int px = x;
+    int start_x = x;
+    int start_y = y;
+
+    while (*s) {
+        if (*s == '\n') {
+            px = x;
+            y += cell_h;
+            s++;
+            continue;
+        }
+
+        uint8_t *pixels = NULL;
+        int gw = 0, gh = 0, xoff = 0, yoff = 0;
+        if (!font_ttf_rasterize_char((unsigned char)*s, pixel_height,
+                                     &pixels, &gw, &gh, &xoff, &yoff)) {
+            px += cell_w;
+            s++;
+            continue;
+        }
+
+        int baseline = (FONT_TTF_BASELINE_ROW * cell_h) / FONT_TTF_BASE_CELL_H;
+
+        for (int r = 0; r < gh; r++) {
+            int py = y + baseline + yoff + r;
+            if (py < 0 || py >= (int)ctx->height) continue;
+            for (int c = 0; c < gw; c++) {
+                int cx = px + xoff + c;
+                if (cx < 0 || cx >= (int)ctx->width) continue;
+                uint8_t a = pixels[r * gw + c];
+                if (a == 0) continue;
+                if (bg_transp) {
+                    if (a == 255)
+                        ctx->back[(uint32_t)py * ctx->pw + (uint32_t)cx] = fg;
+                    else {
+                        uint32_t src = ((uint32_t)a << 24) | (fg & 0xFFFFFF);
+                        gpipe_pixel_blend(ctx, cx, py, src);
+                    }
+                } else {
+                    ctx->back[(uint32_t)py * ctx->pw + (uint32_t)cx] =
+                        blend_px(bg, fg, a);
+                }
+            }
+        }
+
+        kfree(pixels);
+        px += cell_w;
+        s++;
+    }
+
+    gpipe_mark_dirty(ctx, start_x, start_y, px - start_x, cell_h);
+}
+
 int gpipe_text_scaled_width(const char *s, float scale) {
     if (scale <= 0.0f) scale = 1.0f;
+    float cell_w = FONT_TTF_BASE_CELL_W * scale;
     float w = 0.0f, max_w = 0.0f;
     while (*s) {
         if (*s == '\n') { if (w > max_w) max_w = w; w = 0.0f; }
-        else w += 8.0f;
+        else w += cell_w;
         s++;
     }
     if (w > max_w) max_w = w;
-    return (int)(max_w * scale);
+    return (int)max_w;
 }

@@ -3,6 +3,7 @@
 #include "../../graphics/api/gpipe.h"
 #include "../../graphics/api/gpipe_prim.h"
 #include "../../graphics/windowm/wm.h"
+#include "../../graphics/font_ttf.h"
 #include "../../drivers/keyboard.h"
 #include "../../fs/vfs.h"
 #include "../../mm/pmm.h"
@@ -17,9 +18,11 @@ extern uint64_t tsc_hz;
 
 #define WIN_W 460
 #define WIN_H 300
+#define ABOUT_BUF_W (WIN_W + WM_SHADOW_OFF_BASE * WM_SCALE_MAX)
+#define ABOUT_BUF_H (WIN_H + WM_SHADOW_OFF_BASE * WM_SCALE_MAX)
 
 static bool about_running = false;
-static uint32_t about_saved_buf[(WIN_W + WM_SHADOW_OFF) * (WIN_H + WM_SHADOW_OFF)];
+static uint32_t about_saved_buf[ABOUT_BUF_W * ABOUT_BUF_H];
 
 static void get_cpu_name(char *out) {
     uint32_t eax, ebx, ecx, edx;
@@ -73,34 +76,39 @@ static void draw_about_content(gpipe_ctx_t *ctx, wm_window_t *win, void *user) {
     int win_x, win_y;
     wm_get_pos(win, &win_x, &win_y);
 
-    int ty = win_y + WM_TITLEBAR_H + 14;
-    int lx = win_x + 20;
+    int cell_h = (int)font_ttf_ui_cell_h();
+    int pad = 20 * wm_ui_scale();
+    int lh = cell_h + 2 * wm_ui_scale();
+    int gap = 4 * wm_ui_scale();
+
+    int ty = win_y + wm_titlebar_h() + 14 * wm_ui_scale();
+    int lx = win_x + pad;
 
     gpipe_text(ctx, lx, ty, "KiNBOL 0.08.2", WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT);
-    ty += 22;
+    ty += lh + gap;
     gpipe_text(ctx, lx, ty, "this Kernel is Not Based On Linux", WM_COL_LABEL, GPIPE_TEXT_TRANSPARENT);
-    ty += 26;
+    ty += lh + gap * 2;
 
     char line[96];
     char num[12];
 
     line[0] = 0;
     str_cat(line, "Kernel:   x86_64 Limine UEFI");
-    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += 18;
+    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += lh;
 
     char cpu[49];
     get_cpu_name(cpu);
     line[0] = 0;
     str_cat(line, "CPU:      ");
     str_cat(line, cpu);
-    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += 18;
+    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += lh;
 
     line[0] = 0;
     str_cat(line, "TSC:      ");
     uint_to_str((uint32_t)(tsc_hz / 1000000), num);
     str_cat(line, num);
     str_cat(line, " MHz");
-    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += 18;
+    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += lh;
 
     line[0] = 0;
     str_cat(line, "Display:  ");
@@ -113,21 +121,21 @@ static void draw_about_content(gpipe_ctx_t *ctx, wm_window_t *win, void *user) {
     uint_to_str(fbi->bpp, num);
     str_cat(line, num);
     str_cat(line, "bpp");
-    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += 18;
+    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += lh;
 
     line[0] = 0;
     str_cat(line, "VFS:      ");
     uint_to_str((uint32_t)vfs_node_count(), num);
     str_cat(line, num);
     str_cat(line, " nodes");
-    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += 18;
+    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += lh;
 
     line[0] = 0;
     str_cat(line, "PMM:      ");
     uint_to_str((uint32_t)pmm_get_free_page_count(), num);
     str_cat(line, num);
     str_cat(line, " pages free");
-    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += 18;
+    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += lh;
 
     uint64_t ms = uptime_ms();
     uint32_t s = (uint32_t)(ms / 1000);
@@ -140,7 +148,7 @@ static void draw_about_content(gpipe_ctx_t *ctx, wm_window_t *win, void *user) {
     if (h) { uint_to_str(h, num); str_cat(line, num); str_cat(line, "h "); }
     if (m) { uint_to_str(m, num); str_cat(line, num); str_cat(line, "m "); }
     uint_to_str(s, num); str_cat(line, num); str_cat(line, "s");
-    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += 28;
+    gpipe_text(ctx, lx, ty, line, WM_COL_TEXT, GPIPE_TEXT_TRANSPARENT); ty += lh + gap * 3;
 
     gpipe_text(ctx, lx, ty, "kernel@KiNBOL - drag titlebar to move, ESC/X to close", WM_COL_LABEL, GPIPE_TEXT_TRANSPARENT);
 }
@@ -155,8 +163,8 @@ static void about_task(void *arg) {
     int win_y = ((int)ctx->height - WIN_H) / 2;
     if (win_x < 0) win_x = 0;
     if (win_y < 0) win_y = 0;
-    if (win_x > (int)ctx->width  - (WIN_W + WM_SHADOW_OFF)) win_x = (int)ctx->width  - (WIN_W + WM_SHADOW_OFF);
-    if (win_y > (int)ctx->height - (WIN_H + WM_SHADOW_OFF)) win_y = (int)ctx->height - (WIN_H + WM_SHADOW_OFF);
+    if (win_x > (int)ctx->width  - (WIN_W + wm_shadow_off())) win_x = (int)ctx->width  - (WIN_W + wm_shadow_off());
+    if (win_y > (int)ctx->height - (WIN_H + wm_shadow_off())) win_y = (int)ctx->height - (WIN_H + wm_shadow_off());
 
     wm_window_t *win = wm_create_static(win_x, win_y, WIN_W, WIN_H, "About KiNBOL", NULL, about_saved_buf);
     if (!win) { about_running = false; return; }

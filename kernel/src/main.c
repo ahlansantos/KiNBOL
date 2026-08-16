@@ -12,7 +12,7 @@
 #include "graphics/api/gpipe.h"
 #include "graphics/api/gpipe_prim.h"
 #include "graphics/cursor.h"
-#include "graphics/font.h"
+#include "graphics/font_ttf.h"
 #include "kernel/gdt.h"
 #include "kernel/idt.h"
 #include "kernel/usermode.h"
@@ -189,6 +189,9 @@ void kmain(void) {
     dmesg("[pmm] initializing\n");
     pmm_init(memmap_request.response, hhdm_offset);
     dmesg("[pmm] OK\n");
+
+    font_ttf_init();
+    dmesg(font_ttf_ready() ? "[font] JetBrains Mono Bold TTF baked OK\n" : "[font] TTF init FAILED\n");
 
     vmm_init();
     dmesg("[vmm] OK\n");

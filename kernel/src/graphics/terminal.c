@@ -1,5 +1,5 @@
 #include "terminal.h"
-#include "../graphics/font.h"
+#include "../graphics/font_ttf.h"
 #include "api/gpipe.h"
 #include "cursor.h"
 #include "windowm/wm.h"
@@ -10,12 +10,12 @@ static struct limine_framebuffer *fbi = 0;
 static uint32_t pw   = 0;
 static uint32_t gx   = 8;
 static uint32_t gy   = 8;
-static uint32_t fg   = 0xEAEFF7;
-static uint32_t bg   = 0x06070B;
+static uint32_t fg   = 0xEEF1F6;
+static uint32_t bg   = 0x12141A;
 static uint32_t ts   = 1;
 
-#define CELL_W (8u  * ts)
-#define CELL_H (16u * ts)
+#define CELL_W font_ttf_cell_w()
+#define CELL_H font_ttf_cell_h()
 
 #include "../kernel/dmesg.h"
 #include "../drivers/serial.h"
@@ -63,10 +63,22 @@ void terminal_set_scale(uint32_t scale) {
     if (scale < 1) scale = 1;
     if (scale > 8) scale = 8;
     ts = scale;
+    font_ttf_set_scale(scale);
     gx = 8; gy = 8;
     terminal_unlock(f);
 }
 uint32_t terminal_get_scale(void) { return ts; }
+
+static uint32_t blend_px(uint32_t bgc, uint32_t fgc, uint8_t a) {
+    if (a == 0)   return bgc;
+    if (a == 255) return fgc;
+    uint32_t br = (bgc >> 16) & 0xFF, bgg = (bgc >> 8) & 0xFF, bb = bgc & 0xFF;
+    uint32_t fr = (fgc >> 16) & 0xFF, fgg = (fgc >> 8) & 0xFF, fb2 = fgc & 0xFF;
+    uint32_t r = (fr * a + br * (255 - a)) / 255;
+    uint32_t g = (fgg * a + bgg * (255 - a)) / 255;
+    uint32_t b = (fb2 * a + bb * (255 - a)) / 255;
+    return (r << 16) | (g << 8) | b;
+}
 
 static void chr(uint32_t x, uint32_t y, char c, uint32_t cf, uint32_t cb) {
     if (x + CELL_W > fbi->width || y + CELL_H > fbi->height) return;
@@ -86,18 +98,14 @@ static void chr(uint32_t x, uint32_t y, char c, uint32_t cf, uint32_t cb) {
         pitch = pw;
     }
 
-    const uint8_t *g = font[(unsigned char)c];
-
-    for (int r = 0; r < 16; r++) {
-        uint8_t row_bits = g[r];
-        for (uint32_t dy = 0; dy < ts; dy++) {
-            uint32_t line_offset = (y + r * ts + dy) * pitch + x;
-            for (int co = 0; co < 8; co++) {
-                uint32_t col = (row_bits & (1 << (7 - co))) ? cf : cb;
-                for (uint32_t dx = 0; dx < ts; dx++) {
-                    fb[line_offset + co * ts + dx] = col;
-                }
-            }
+    int cw = (int)CELL_W;
+    int ch = (int)CELL_H;
+    for (int r = 0; r < ch; r++) {
+        const uint8_t *cov = font_ttf_glyph_row((unsigned char)c, r);
+        uint32_t line_offset = (y + r) * pitch + x;
+        for (int co = 0; co < cw; co++) {
+            uint32_t col = blend_px(cb, cf, cov[co]);
+            fb[line_offset + co] = col;
         }
     }
 
@@ -291,8 +299,10 @@ void terminal_cursor_draw(int visible) {
     }
 
     uint32_t color = visible ? fg : bg;
-    uint32_t row_start = 11 * ts;
-    for (uint32_t row = row_start; row < row_start + 2 * ts; row++) {
+    uint32_t row_start = (11u * CELL_H) / 16u;
+    uint32_t cursor_h  = (2u * CELL_H) / 16u;
+    if (cursor_h < 1) cursor_h = 1;
+    for (uint32_t row = row_start; row < row_start + cursor_h; row++) {
         uint32_t line_offset = (gy + row) * pitch + gx;
         for (uint32_t co = 0; co < CELL_W; co++) {
             fb[line_offset + co] = color;
@@ -300,7 +310,7 @@ void terminal_cursor_draw(int visible) {
     }
 
     if (target) {
-        gpipe_mark_dirty(gctx, (int)gx, (int)(gy + row_start), (int)CELL_W, (int)(2 * ts));
+        gpipe_mark_dirty(gctx, (int)gx, (int)(gy + row_start), (int)CELL_W, (int)cursor_h);
         gpipe_flip(gctx);
     }
 
