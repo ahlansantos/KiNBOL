@@ -9,6 +9,7 @@
 #include "../../mm/pmm.h"
 #include "../../mm/heap.h"
 #include "../../drivers/keyboard.h"
+#include "../../kernel/fpu.h"
 
 #define MAX_SLEEP_MS 3600000
 
@@ -424,6 +425,51 @@ static void sleeptest_task_multi(void *arg) {
     task_exit();
 }
 
+static void fpu_test_task_a(void *arg) {
+    (void)arg;
+    double x = 1.0;
+    for (int i = 0; i < 5; i++) {
+        x = x * 1.5 + 0.25;
+        uint64_t f = terminal_lock();
+        terminal_set_fg_nolock(COLOR_BODY);
+        terminal_print_nolock("[A] fpu val = ");
+        terminal_print_int_nolock((int)(x * 1000));
+        terminal_println_nolock("");
+        terminal_unlock(f);
+        sleep_ms(50);
+    }
+    uint64_t f = terminal_lock();
+    terminal_set_fg_nolock(COLOR_SUCCESS);
+    terminal_println_nolock("[A] fpu test done");
+    terminal_unlock(f);
+    task_exit();
+}
+
+static void fpu_test_task_b(void *arg) {
+    (void)arg;
+    double y = 100.0;
+    for (int i = 0; i < 5; i++) {
+        y = y / 3.0 - 1.0;
+        int val = (int)(y * 1000);
+        uint64_t f = terminal_lock();
+        terminal_set_fg_nolock(COLOR_HIGHLIGHT);
+        terminal_print_nolock("[B] fpu val = ");
+        if (val < 0) {
+            terminal_print_nolock("-");
+            val = -val;
+        }
+        terminal_print_int_nolock((uint32_t)val);
+        terminal_println_nolock("");
+        terminal_unlock(f);
+        sleep_ms(50);
+    }
+    uint64_t f = terminal_lock();
+    terminal_set_fg_nolock(COLOR_SUCCESS);
+    terminal_println_nolock("[B] fpu test done");
+    terminal_unlock(f);
+    task_exit();
+}
+
 void cmd_fpu(void) {
     dmesg("[fpu] Starting FPU isolation test...\n");
 
@@ -449,37 +495,6 @@ void cmd_fpu(void) {
     dmesg("[fpu] Test finished.\n");
 }
 
-static void fpu_test_task_a(void *arg) {
-    (void)arg;
-    dmesg("[fpu_task_A] Starting...\n");
-
-    // Get current FPU state
-    uint8_t state_a[512];
-    fpu_make_default_state(state_a, 512);
-
-    // Corrupt the MXCSR register (SSE control register)
-    asm volatile("ldmxcsr %0" : : "r"(0xFFFFu));
-
-    dmesg("[fpu_task_A] Corrupted MXCSR to 0xFFFF, exiting.\n");
-    task_exit();
-}
-
-static void fpu_test_task_b(void *arg) {
-    (void)arg;
-    dmesg("[fpu_task_B] Starting...\n");
-
-    // Get current FPU state
-    uint8_t state_b[512];
-    fpu_make_default_state(state_b, 512);
-
-    // Corrupt the x87 control word
-    asm volatile("finit");
-
-    dmesg("[fpu_task_B] Corrupted x87 state, exiting.\n");
-    task_exit();
-}
-
-void cmd_sleeptest(void) {
 void cmd_sleeptest(void) {
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("  Starting Sleeptest...");
@@ -631,7 +646,9 @@ void cmd_syscalls(void) {
     terminal_println("  Registers:");
     terminal_set_fg(COLOR_BODY);
     terminal_println("  - %rax : Syscall number & Return value");
+    terminal_set_fg(COLOR_BODY);
     terminal_println("  - %rdi, %rsi, %rdx, %r10, %r8, %r9 : Arguments");
+    terminal_set_fg(COLOR_BODY);
     terminal_println("  - %rcx, %r11 : Clobbered by syscall instruction");
     terminal_println("");
 }
