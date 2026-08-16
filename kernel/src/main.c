@@ -31,6 +31,7 @@
 #include "fs/fat32.h"
 #include "fs/procfs.h"
 #include "kernel/sched.h"
+#include "kernel/fpu.h"
 #include "kernel/rand.h"
 #include "shell/shell.h"
 #include "shell/commands/util.h"
@@ -154,6 +155,11 @@ static void compositor_task(void *arg) {
 
 void kmain(void) {
 
+    fpu_enable();
+
+    static uint8_t boot_fpu_tpl[512] __attribute__((aligned(16)));
+    fpu_make_default_state(boot_fpu_tpl, sizeof(boot_fpu_tpl));
+
     dmesg_init();
 
     gdt_init();
@@ -167,6 +173,7 @@ void kmain(void) {
 
     serial_init();
     dmesg("[pre-boot] serial init\n");
+    fpu_report();
     terminal_init(fbi);
     dmesg("[pre-boot] terminal init\n");
     dmesg("[boot] FreeARS Base boot init, KiNBOL 0.08 starting\n");

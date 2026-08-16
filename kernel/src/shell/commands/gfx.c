@@ -33,6 +33,42 @@ void cmd_clearfb(void) {
     terminal_set_fg(COLOR_HIGHLIGHT);
 }
 
+void cmd_smoothtext(void) {
+    gpipe_ctx_t *ctx = gpipe_default();
+    if (!ctx) {
+        terminal_set_fg(COLOR_ERROR);
+        terminal_println("  gpipe: no default context (gpipe_init not called?)");
+        return;
+    }
+
+    gpipe_sync_from_fb(ctx);
+    ctx->dirty = (gpipe_rect_t){0, 0, 0, 0};
+
+    int w = gpipe_width(ctx), h = gpipe_height(ctx);
+
+    gpipe_text_scaled(ctx, 28, 40, "FPU+SSE", gpipe_rgb(100, 180, 255),
+                      gpipe_rgb(6, 7, 11), 7.0f);
+    gpipe_text_scaled(ctx, 28, 40 + (int)(16.0f * 7.0f) + 24,
+                      "smooth scaled fonts", gpipe_rgb(235, 240, 250),
+                      gpipe_rgb(10, 11, 17), 3.0f);
+
+    gpipe_rect(ctx, 20, 24, gpipe_text_scaled_width("smooth scaled fonts", 3.0f) + 16,
+               (int)(16.0f * 3.0f) + 24 + (int)(16.0f * 7.0f) + 24 + 8,
+               gpipe_rgb(60, 60, 90));
+
+    gpipe_flip(ctx);
+
+    terminal_set_fg(COLOR_SUCCESS);
+    terminal_println("  FPU+SSE: smooth scaled text drawn (float/bilinear, -msse2)");
+    terminal_set_fg(COLOR_DIM);
+    terminal_print("  fb ");
+    terminal_print_int(w);
+    terminal_print("x");
+    terminal_print_int(h);
+    terminal_println("");
+    terminal_set_fg(COLOR_BODY);
+}
+
 static int gfx_streq(const char *a, const char *b) {
     while (*a && *a == *b) { a++; b++; }
     return *a == *b;

@@ -22,7 +22,62 @@ static uint32_t g_pages        = 0;
 static uint32_t g_used_bytes   = 0;
 static uint32_t g_used_blocks  = 0;
 
+typedef struct {
+    bool     in_use;
+    void    *virt_base;
+    void    *phys_base;
+    uint32_t npages;
+} heap_group_t;
 
+#define HEAP_MAX_GROUPS 1024
+static heap_group_t g_groups[HEAP_MAX_GROUPS];
+
+static void heap_register_group(void *virt, void *phys, uint32_t npages) {
+    for (int i = 0; i < HEAP_MAX_GROUPS; i++) {
+        if (!g_groups[i].in_use) {
+            g_groups[i].in_use    = true;
+            g_groups[i].virt_base = virt;
+            g_groups[i].phys_base = phys;
+            g_groups[i].npages    = npages;
+            return;
+        }
+    }
+}
+
+static void heap_try_reclaim(block_t *blk) {
+    uint8_t *blk_start = (uint8_t *)blk;
+    uint8_t *blk_end   = blk_start + sizeof(block_t) + blk->size;
+
+    uint64_t covered = 0;
+    int      idx[HEAP_MAX_GROUPS];
+    int      nidx = 0;
+
+    for (int i = 0; i < HEAP_MAX_GROUPS; i++) {
+        if (!g_groups[i].in_use) continue;
+        uint8_t *g_start = (uint8_t *)g_groups[i].virt_base;
+        uint8_t *g_end   = g_start + (uint64_t)g_groups[i].npages * PAGE_SIZE;
+        if (g_start >= blk_start && g_end <= blk_end) {
+            idx[nidx++] = i;
+            covered += (uint64_t)g_groups[i].npages * PAGE_SIZE;
+        }
+    }
+
+    if (nidx == 0 || covered != (uint64_t)(blk_end - blk_start)) {
+        return;
+    }
+
+    if (blk->prev) blk->prev->next = blk->next;
+    if (blk->next) blk->next->prev = blk->prev;
+    if (free_list == blk) free_list = blk->next;
+    blk->magic = HEAP_FREED;
+
+    for (int i = 0; i < nidx; i++) {
+        heap_group_t *g = &g_groups[idx[i]];
+        pmm_free_pages(g->phys_base, g->npages);
+        g_pages -= g->npages;
+        g->in_use = false;
+    }
+}
 
 static block_t *heap_new_block(size_t min_size) {
     uint64_t need = (uint64_t)min_size + sizeof(block_t);
@@ -44,6 +99,8 @@ static block_t *heap_new_block(size_t min_size) {
     blk->magic = HEAP_MAGIC;
     blk->next  = NULL;
     blk->prev  = NULL;
+
+    heap_register_group(blk, phys, (uint32_t)pages);
     return blk;
 }
 
@@ -62,21 +119,27 @@ static void heap_split(block_t *blk, size_t size) {
     blk->size = size;
 }
 
-static void heap_coalesce(block_t *blk) {
-    while (blk->next && !blk->next->used) {
+static bool heap_addr_adjacent(block_t *a, block_t *b) {
+    return (uint8_t *)a + sizeof(block_t) + a->size == (uint8_t *)b;
+}
+
+static block_t *heap_coalesce(block_t *blk) {
+    while (blk->next && !blk->next->used && heap_addr_adjacent(blk, blk->next)) {
         block_t *next = blk->next;
         blk->size += sizeof(block_t) + next->size;
         blk->next  = next->next;
         if (next->next) next->next->prev = blk;
         next->magic = HEAP_FREED;
     }
-    if (blk->prev && !blk->prev->used) {
+    while (blk->prev && !blk->prev->used && heap_addr_adjacent(blk->prev, blk)) {
         block_t *prev = blk->prev;
         prev->size += sizeof(block_t) + blk->size;
         prev->next  = blk->next;
         if (blk->next) blk->next->prev = prev;
         blk->magic = HEAP_FREED;
+        blk = prev;
     }
+    return blk;
 }
 
 void *kmalloc(size_t size) {
@@ -161,7 +224,8 @@ void kfree(void *ptr) {
     if (g_used_bytes  >= blk->size) g_used_bytes  -= blk->size;
     if (g_used_blocks > 0)          g_used_blocks--;
 
-    heap_coalesce(blk);
+    block_t *merged = heap_coalesce(blk);
+    heap_try_reclaim(merged);
 }
 
 void kfree_sized(void *ptr, size_t size) {

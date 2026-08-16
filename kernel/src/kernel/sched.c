@@ -7,6 +7,7 @@
 #include "../drivers/serial.h"
 #include "pit.h"
 #include "gdt.h"
+#include "fpu.h"
 #include <libk/string.h>
 #include "usermode.h"
 
@@ -109,6 +110,15 @@ static task_t *task_create_internal(const char *name, task_entry_t entry, void *
     task->user_brk     = USER_HEAP_START;
     task->user_mmap_base = USER_MMAP_START;
     task->user_stack_guard_va = 0;
+
+    task->fpu_state = kmalloc(512);
+    if (task->fpu_state == NULL) {
+        dmesg("[sched] WARNING: could not allocate FPU state buffer for task; "
+              "that task will run with the kernel's own FPU state.\n");
+    } else {
+        fpu_make_default_state(task->fpu_state, 512);
+    }
+
     for (int i = 0; i < TASK_MAX_FDS; i++) {
         task->fds[i].node   = NULL;
         task->fds[i].offset = 0;
@@ -189,6 +199,11 @@ void sched_init(void) {
     kmain_task->pagemap      = vmm_current();
     kmain_task->owns_pagemap = false;
     kmain_task->cr3          = (uint64_t)vmm_current() - hhdm_offset;
+    kmain_task->user_brk     = USER_HEAP_START;
+    kmain_task->user_mmap_base = USER_MMAP_START;
+    kmain_task->user_stack_guard_va = 0;
+    kmain_task->fpu_state    = kmalloc(512);
+    if (kmain_task->fpu_state) fpu_make_default_state(kmain_task->fpu_state, 512);
     strncpy(kmain_task->name, "[kernel]", sizeof(kmain_task->name) - 1);
     kmain_task->name[sizeof(kmain_task->name) - 1] = '\0';
 
@@ -262,7 +277,8 @@ void sched_schedule(void) {
 
     bkl_release();
 
-    context_switch(&old_task->rsp, chosen->rsp, chosen->cr3);
+    context_switch(&old_task->rsp, chosen->rsp, chosen->cr3,
+                   old_task->fpu_state, chosen->fpu_state);
 }
 
 void sched_yield(void) {
@@ -292,6 +308,11 @@ task_t *task_get_head(void) {
 
 void task_destroy(task_t *task) {
     if (!task) return;
+
+    if (task->fpu_state) {
+        kfree(task->fpu_state);
+        task->fpu_state = NULL;
+    }
 
     uint64_t pages = task->stack_size ? task->stack_size / PAGE_SIZE : TASK_STACK_PAGES;
     pmm_free_pages(task->phys_stack, pages);

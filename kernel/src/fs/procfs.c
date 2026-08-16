@@ -36,7 +36,7 @@ static uint32_t proc_read_cpuinfo(vfs_node_t *node, uint32_t offset, uint32_t le
         "vendor_id\t: unknown\n"
         "cpu family\t: 6\n"
         "model name\t: KiNBOL virtual CPU\n"
-        "flags\t\t: fpu tsc syscall lm nx\n"
+        "flags\t\t: fpu sse sse2 tsc syscall lm nx\n"
         "bogomips\t: 0.00\n\n";
     return proc_copy_str(s, offset, len, buf);
 }

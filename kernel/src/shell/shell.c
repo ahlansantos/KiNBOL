@@ -75,6 +75,7 @@ void shell_run(void) {
         else if (!strcmp(in, "schedtest"))   cmd_schedtest();
         else if (!strcmp(in, "sleeptest"))   cmd_sleeptest();
         else if (!strcmp(in, "clearfb"))     cmd_clearfb();
+        else if (!strcmp(in, "smoothtext"))  cmd_smoothtext();
         else if (!strcmp(in, "gpipe"))        cmd_gpipe("");
         else if (!strcmp(in, "usertest"))     cmd_usertest();
         else if (sh_startswith(in, "exec ")) {

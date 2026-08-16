@@ -47,8 +47,10 @@ typedef struct task {
     uint64_t       kernel_rsp;
     uint64_t       user_brk;
     uint64_t       user_mmap_base;
-    uint64_t       user_stack_guard_va; 
+    uint64_t       user_stack_guard_va;
     task_fd_t      fds[TASK_MAX_FDS];
+
+    void          *fpu_state;
 } task_t;
 
 void sched_init(void);
@@ -75,4 +77,5 @@ void sched_update_blocked_tasks(void);
 
 task_t *task_get_head(void);
 
-extern void context_switch(uint64_t *old_rsp, uint64_t new_rsp, uint64_t new_cr3);
+extern void context_switch(uint64_t *old_rsp, uint64_t new_rsp, uint64_t new_cr3,
+                            void *old_fpu, void *new_fpu);

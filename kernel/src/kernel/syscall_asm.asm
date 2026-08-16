@@ -57,9 +57,53 @@ syscall_entry:
     push r14
     push r15
 
-    ; Call C wrapper
-    mov rdi, rsp
+    ; The kernel dispatch code is compiled with -msse2 and may use the XMM
+    ; registers.  Preserve the user task's SSE state (XMM0-15 + MXCSR) on the
+    ; kernel stack across the C call so a user program's floats are intact
+    ; when we sysret back out.
+    sub rsp, 288
+    stmxcsr [rsp + 16]
+    movdqu [rsp + 32],  xmm0
+    movdqu [rsp + 48],  xmm1
+    movdqu [rsp + 64],  xmm2
+    movdqu [rsp + 80],  xmm3
+    movdqu [rsp + 96],  xmm4
+    movdqu [rsp + 112], xmm5
+    movdqu [rsp + 128], xmm6
+    movdqu [rsp + 144], xmm7
+    movdqu [rsp + 160], xmm8
+    movdqu [rsp + 176], xmm9
+    movdqu [rsp + 192], xmm10
+    movdqu [rsp + 208], xmm11
+    movdqu [rsp + 224], xmm12
+    movdqu [rsp + 240], xmm13
+    movdqu [rsp + 256], xmm14
+    movdqu [rsp + 272], xmm15
+
+    ; Call C wrapper.
+    ; The register frame sits 288 bytes up (the FPU save area is below it),
+    ; so point RDI at the regs frame, not at the FPU scratch.
+    lea rdi, [rsp + 288]
     call syscall_enter
+
+    movdqu xmm0,  [rsp + 32]
+    movdqu xmm1,  [rsp + 48]
+    movdqu xmm2,  [rsp + 64]
+    movdqu xmm3,  [rsp + 80]
+    movdqu xmm4,  [rsp + 96]
+    movdqu xmm5,  [rsp + 112]
+    movdqu xmm6,  [rsp + 128]
+    movdqu xmm7,  [rsp + 144]
+    movdqu xmm8,  [rsp + 160]
+    movdqu xmm9,  [rsp + 176]
+    movdqu xmm10, [rsp + 192]
+    movdqu xmm11, [rsp + 208]
+    movdqu xmm12, [rsp + 224]
+    movdqu xmm13, [rsp + 240]
+    movdqu xmm14, [rsp + 256]
+    movdqu xmm15, [rsp + 272]
+    ldmxcsr [rsp + 16]
+    add rsp, 288
 
     ; Restore registers
     pop r15

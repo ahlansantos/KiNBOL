@@ -15,6 +15,7 @@ void cmd_ascii(void);
 void cmd_dmesg(void);
 void cmd_scale(const char *arg);
 void cmd_clearfb(void);
+void cmd_smoothtext(void);
 void cmd_gpipe(const char *arg);
 void cmd_vfsls(void);
 void cmd_vfsls_ex(int show_hidden);

@@ -204,7 +204,33 @@ __attribute__((naked)) static void isr_common(void) {
         "movq 128(%%rsp), %%rsi;"
         "movq 136(%%rsp), %%rdx;"
         "movq %%rsp, %%rcx;"
+
+        /* The dispatcher/handlers are C compiled with -msse2 and may clobber
+         * the interrupted task's SSE registers. Save XMM0-15 + MXCSR on the
+         * ISR stack and restore them right before iretq. */
+        "sub $288, %%rsp;"
+        "stmxcsr 16(%%rsp);"
+        "movdqu %%xmm0,  32(%%rsp); movdqu %%xmm1,  48(%%rsp);"
+        "movdqu %%xmm2,  64(%%rsp); movdqu %%xmm3,  80(%%rsp);"
+        "movdqu %%xmm4,  96(%%rsp); movdqu %%xmm5, 112(%%rsp);"
+        "movdqu %%xmm6, 128(%%rsp); movdqu %%xmm7, 144(%%rsp);"
+        "movdqu %%xmm8, 160(%%rsp); movdqu %%xmm9, 176(%%rsp);"
+        "movdqu %%xmm10,192(%%rsp); movdqu %%xmm11,208(%%rsp);"
+        "movdqu %%xmm12,224(%%rsp); movdqu %%xmm13,240(%%rsp);"
+        "movdqu %%xmm14,256(%%rsp); movdqu %%xmm15,272(%%rsp);"
+
         "call irq_dispatcher;"
+
+        "movdqu 32(%%rsp), %%xmm0;  movdqu 48(%%rsp), %%xmm1;"
+        "movdqu 64(%%rsp), %%xmm2;  movdqu 80(%%rsp), %%xmm3;"
+        "movdqu 96(%%rsp), %%xmm4;  movdqu 112(%%rsp), %%xmm5;"
+        "movdqu 128(%%rsp),%%xmm6;  movdqu 144(%%rsp),%%xmm7;"
+        "movdqu 160(%%rsp),%%xmm8;  movdqu 176(%%rsp),%%xmm9;"
+        "movdqu 192(%%rsp),%%xmm10; movdqu 208(%%rsp),%%xmm11;"
+        "movdqu 224(%%rsp),%%xmm12; movdqu 240(%%rsp),%%xmm13;"
+        "movdqu 256(%%rsp),%%xmm14; movdqu 272(%%rsp),%%xmm15;"
+        "ldmxcsr 16(%%rsp);"
+        "add $288, %%rsp;"
 
         "popq %%r15; popq %%r14; popq %%r13; popq %%r12;"
         "popq %%r11; popq %%r10; popq %%r9;  popq %%r8;"

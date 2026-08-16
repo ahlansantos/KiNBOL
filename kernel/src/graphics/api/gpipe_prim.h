@@ -29,4 +29,8 @@ int gpipe_bmp_draw(gpipe_ctx_t *ctx, int x, int y, const uint8_t *bmp_data, uint
 void gpipe_text(gpipe_ctx_t *ctx, int x, int y, const char *s, uint32_t fg, uint32_t bg);
 int  gpipe_text_width(const char *s);
 
+void gpipe_text_scaled(gpipe_ctx_t *ctx, int x, int y, const char *s,
+                       uint32_t fg, uint32_t bg, float scale);
+int  gpipe_text_scaled_width(const char *s, float scale);
+
 #define GPIPE_TEXT_TRANSPARENT 0xFF000001
