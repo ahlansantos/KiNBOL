@@ -424,6 +424,62 @@ static void sleeptest_task_multi(void *arg) {
     task_exit();
 }
 
+void cmd_fpu(void) {
+    dmesg("[fpu] Starting FPU isolation test...\n");
+
+    // Spawn two tasks that will each corrupt the FPU state differently
+    task_t *t1 = task_create("fpu_test_A", fpu_test_task_a, NULL);
+    task_t *t2 = task_create("fpu_test_B", fpu_test_task_b, NULL);
+
+    if (!t1 || !t2) {
+        dmesg("[fpu] Failed to create tasks.\n");
+        if (t1) task_exit();
+        if (t2) task_exit();
+        return;
+    }
+
+    // Wait for both tasks to finish
+    while (t1->state != TASK_DEAD || t2->state != TASK_DEAD) {
+        sched_yield();
+    }
+
+    // Reaper cleans up
+    task_reaper();
+
+    dmesg("[fpu] Test finished.\n");
+}
+
+static void fpu_test_task_a(void *arg) {
+    (void)arg;
+    dmesg("[fpu_task_A] Starting...\n");
+
+    // Get current FPU state
+    uint8_t state_a[512];
+    fpu_make_default_state(state_a, 512);
+
+    // Corrupt the MXCSR register (SSE control register)
+    asm volatile("ldmxcsr %0" : : "r"(0xFFFFu));
+
+    dmesg("[fpu_task_A] Corrupted MXCSR to 0xFFFF, exiting.\n");
+    task_exit();
+}
+
+static void fpu_test_task_b(void *arg) {
+    (void)arg;
+    dmesg("[fpu_task_B] Starting...\n");
+
+    // Get current FPU state
+    uint8_t state_b[512];
+    fpu_make_default_state(state_b, 512);
+
+    // Corrupt the x87 control word
+    asm volatile("finit");
+
+    dmesg("[fpu_task_B] Corrupted x87 state, exiting.\n");
+    task_exit();
+}
+
+void cmd_sleeptest(void) {
 void cmd_sleeptest(void) {
     terminal_set_fg(COLOR_HIGHLIGHT);
     terminal_println("  Starting Sleeptest...");
