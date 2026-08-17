@@ -1,4 +1,4 @@
-# t-KiNBOL 
+# t-KiNBOL - abandoned, cant take it anymore
 
 > **this Kernel is Not Based On Linux**
 
